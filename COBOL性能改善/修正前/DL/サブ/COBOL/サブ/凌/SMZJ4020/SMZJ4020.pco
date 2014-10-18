@@ -1,0 +1,1398 @@
+      ******************************************************************
+      * $Header$
+      ******************************************************************
+      *
+      * システムＩＤ   : T-STAR
+      * システム名称   : 次期TSTARシステム
+      * プログラムＩＤ : SMZJ4020
+      * プログラム名称 : 仮払金未引落チェック
+      * 処理概要       : 利払日を過ぎてもマイナス経過利息の仮払金が残っている場合には、
+      *                  残高処理でワーニングをログに出す。
+      * 参照ＤＢ       :
+      * 引数           : IN   仮払金増加の取引存在フラグ
+      *                : IN   仮払金増加の取引計上基準日
+      *                : IN   銘柄別断面情報
+      *                : IN   基準日断面情報
+      *                : IN   銘柄属性
+      *                : OUT  警告フラグ
+      *                : OUT  RTNパッケージ
+      *
+      * 改訂履歴
+      * 年月日        区分     所属    担当     内容
+      * ------------  ----     ------  -------  -------------
+      * 20090206      新規     SCS     王飛     新規作成
+      * 20130710      修正     SCS     李振飛   テーマ3530
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SMZJ4020.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  09-02-06.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *        環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *        デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *        作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+      *----------  共通コンスタント定義の宣言
+       01  CONSTANT-AREA.
+         05  CNS-MZCNS.
+           COPY "MZCNS.cpy".
+         05  CNS-1                 PIC  S9(01)  VALUE  1.
+      *----------  プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SMZJ4020".
+      *----------  残高異動
+         05  CNS-TBL-TKMZZI00      PIC  X(08)  VALUE  "TKMZZI00".
+      ******************************************************************
+      *    ワークエリア
+      ******************************************************************
+       01  WORK-AREA.
+         05  WK-DATA-IN.
+      *----------  仮払金増加の取引存在フラグ
+           10  WK-SPAY-PLUS-TORI-FLG
+                                   PIC  9(01).
+      *----------  仮払金増加の取引計上基準日
+           10  WK-SPAY-PLUS-TORI-KJKJB
+                                   PIC  9(08).
+      *----------  銘柄別断面情報
+           10  WK-TKMZBW03.
+      *----------  利用会社コード
+             15  WK-RIYO-CMP-CD    PIC  X(04).
+      *----------  ファンドコード
+             15  WK-FUND-CD        PIC  X(12).
+      *----------  ポートフォリオコード
+             15  WK-PTF-CD         PIC  X(04).
+      *----------  基準日
+             15  WK-KJN-YMD        PIC  S9(08).
+      *----------  銘柄コード
+             15  WK-MEG-CD         PIC  X(15).
+      *----------  証券種別コード
+             15  WK-SEC-SBT-CD     PIC  X(04).
+      *----------  資産負債・買建売建フラグ
+             15  WK-TATE-FLG       PIC  X(01).
+      *----------  玉ID
+             15  WK-GYOKU-ID       PIC  X(10).
+      *----------  差分更新From日
+             15  WK-SABON-UPDATE-FROM
+                                   PIC  S9(08).
+      *----------  基準日断面情報
+           10  WK-TKMZBW02.
+      *----------  開始基準日の翌日
+             15  WK-KAISI-KJN-YMD-NEXT
+                                   PIC  S9(08).
+      *----------  銘柄属性
+           10  WK-MEG-ZOKUSEI-PARM.
+      *----------  初期利払起算日
+             15  WK-SHOKI-RIBAR-KS-YMD
+                                   PIC  9(08).
+      *----------  初期利払日
+             15  WK-SHOKI-RIBAR-YMD
+                                   PIC  9(08).
+      *----------  最終利払起算日
+             15  WK-LAST-RIBAR-KISAN-YMD
+                                   PIC  9(08).
+      *----------  終期利払日
+             15  WK-SHUKI-RIBAR-YMD
+                                   PIC  9(08).
+      *----------  利払回数
+             15  WK-RIBAR-KAISU    PIC  X(02).
+      *----------  利払日１
+             15  WK-RIBAR-YMD-1    PIC  9(04).
+      *----------  利払日2
+             15  WK-RIBAR-YMD-2    PIC  9(04).
+      *----------  利払日3
+             15  WK-RIBAR-YMD-3    PIC  9(04).
+      *----------  利払日4
+             15  WK-RIBAR-YMD-4    PIC  9(04).
+      *----------  利払日数
+             15  WK-KEKA-NISU      PIC  9(03).
+         05  WK-DATA.
+      *----------  ワーク仮払金増加の取引存在フラグ
+           10  WK-SPAY-PLUS-TORI-FLG
+                                   PIC  9(01).
+      *----------  残高異動テーブル
+           10  WK-TBL-TKMZZI00     PIC  X(13).
+      *----------  FROM日
+           10  WK-FROM-YMD         PIC  S9(08).
+           10  WK-TKMZZI00-CR-FLG  PIC  S9(01).
+      ******************************************************************
+      *                ORACLE ホスト変数定義
+      ******************************************************************
+      *----------  ＳＱＬコミュニケーション領域
+           EXEC  SQL  INCLUDE  SQLCA             END-EXEC.
+           EXEC  SQL  INCLUDE  ORACA             END-EXEC.
+           EXEC  SQL  BEGIN   DECLARE   SECTION  END-EXEC.
+       01  HST-AREA.
+         05  H-TKMZZI00.
+           10  H-KEIJOU-KIJUNBI    PIC  S9(08).
+           10  H-RIYO-CMP-CD       PIC  X(04).
+           10  H-FUND-CD           PIC  X(12).
+           10  H-PTF-CD            PIC  X(04).
+           10  H-MEG-CD            PIC  X(15).
+           10  H-SEC-SBT-CD        PIC  X(04).
+           10  H-TATE-FLG          PIC  X(01).
+           10  H-GYOKU-ID          PIC  X(10).
+           10  H-KAISI-KJN-YMD-NEXT
+                                   PIC  S9(08).
+           10  H-SABON-UPDATE-FROM PIC  S9(08).
+         05  SQLSTMT               PIC  X(2500).
+           EXEC  SQL  END DECLARE       SECTION  END-EXEC.
+      ******************************************************************
+      *    SQL  エリア
+      ******************************************************************
+       01  SQL-AREA.
+      *----------  別紙1-1 SQL
+         05  SQL-SELECT.
+           10  FILLER              PIC  X(07)  VALUE
+               " SELECT".
+      *----------  計上基準日
+           10  FILLER              PIC  X(15)  VALUE
+               " KEIJOU_KIJUNBI".
+      *----------  SQL-FROM
+           10  FILLER              PIC  X(06)  VALUE
+               " FROM ".
+           10  SQL-TKMZZI00        PIC  X(13).
+      *---------- SQL-WHERE
+           10  FILLER              PIC  X(06)  VALUE
+               " WHERE".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(29)  VALUE
+               " RIYO_CMP_CD = :P_RIYO_CMP_CD".
+      *----------  ファンドコード
+           10  FILLER              PIC  X(25)  VALUE
+               " AND FUND_CD = :P_FUND_CD".
+      *----------  ポートフォリオコード
+           10  FILLER              PIC  X(23)  VALUE
+               " AND PTF_CD = :P_PTF_CD".
+      *----------  銘柄コード
+           10  FILLER              PIC  X(23)  VALUE
+               " AND MEG_CD = :P_MEG_CD".
+      *----------  証券種別コード
+           10  FILLER              PIC  X(31)  VALUE
+               " AND SEC_SBT_CD = :P_SEC_SBT_CD".
+      *----------  資産負債・買建売建フラグ
+           10  FILLER              PIC  X(27)  VALUE
+               " AND TATE_FLG = :P_TATE_FLG".
+      *----------  玉ID
+           10  FILLER              PIC  X(27)  VALUE
+               " AND GYOKU_ID = :P_GYOKU_ID".
+      *----------  取引事由
+           10  FILLER              PIC  X(53)  VALUE
+               " AND TORI_JIYU IN('DMY3','SELL','FSEL','TSOT','OSOT')".
+      *----------  計上基準日
+           10  FILLER              PIC  X(44)  VALUE
+               " AND KEIJOU_KIJUNBI >= :P_KAISI_KJN_YMD_NEXT".
+      *----------  計上基準日
+           10  FILLER              PIC  X(42)  VALUE
+               " AND KEIJOU_KIJUNBI < :P_SABON_UPDATE_FROM".
+      *----------  市場通貨前払金異動額
+           10  FILLER              PIC  X(22)  VALUE
+               " AND SJTK_PPAYIDOG < 0".
+      *----------  ORDER BY
+           10  FILLER              PIC  X(09)  VALUE
+               " ORDER BY".
+      *----------  計上基準日
+           10  FILLER              PIC  X(15)  VALUE
+               " KEIJOU_KIJUNBI".
+      *----------  DESC
+           10  FILLER              PIC  X(05)  VALUE
+               " DESC".
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1160 テーブルID取得ルーチン
+       01  PARM-SCZY1160-INOUT.
+           COPY  "SCZY1160.cpy".
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-IN.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SMZC3251経過利息利払日計算ルーチン
+       01  PARM-SMZC3251-INOUT.
+           COPY  "SMZC3251.cpy".
+       01  PARM-SMZC3251-RTNPKG.
+         05  PARM-SMZC3251-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  ARG2リターンパッケージセットルーチン
+       01  PARM-RTNPKG.
+         05  PARM-RTNPKG-ARG.
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SMZC3254経過日数固定の経過利息利払日計算ルーチン
+       01  PARM-SMZC3254-INOUT.
+           COPY  "SMZC3254.cpy".
+       01  PARM-SMZC3254-RTNPKG.
+         05  PARM-SMZC3254-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                       連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SMZJ4020-INOUT.
+           COPY  "SMZJ4020.cpy".
+       01  PARM-SMZJ4020-RTNPKG.
+         05  PARM-SMZJ4020-ARG3.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *    PROCEDURE              DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SMZJ4020-INOUT
+                  PARM-SMZJ4020-RTNPKG.
+      ******************************************************************
+      *               仮払金未引落チェック
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  ◇◆◇SMZJ4020  START◇◆◇  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  ◇◆◇SMZJ4020  END◇◆◇  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       BASE-EXT.
+           EXIT.
+      ******************************************************************
+      *     3.1 前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           PERFORM  INITIALIZE-RTN
+      *----------  3.1.2 テーブルID取得処理
+           PERFORM  TBLID-GET-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  前処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *     3.1.1 初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  初期化処理 START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE     WORK-AREA
+                          HST-AREA
+                          SQL-AREA
+                          PARM-SCZY1160-INOUT
+                          PARM-SCZY1170-IN
+                          PARM-SCZY1170-RTNPKG
+                          PARM-SMZC3251-INOUT
+                          PARM-SMZC3251-RTNPKG
+                          PARM-SMZC3254-INOUT
+                          PARM-SMZC3254-RTNPKG
+                          PARM-SMZJ4020-ARG2
+                          PARM-SMZJ4020-ARG3
+                          PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WORK-AREA       = ["WORK-AREA"]"
+      D    DISPLAY  CNS-PGM-ID":HST-AREA        = ["HST-AREA"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-AREA        = ["SQL-AREA"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1160-INOUT        = ["
+      D             PARM-SCZY1160-INOUT    "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-IN  = ["
+      D             PARM-SCZY1170-IN       "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-RTNPKG  = ["
+      D             PARM-SCZY1170-RTNPKG   "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZC3251-INOUT  = ["
+      D             PARM-SMZC3251-INOUT    "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZC3251-RTNPKG  = ["
+      D             PARM-SMZC3251-RTNPKG   "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZC3254-INOUT  = ["
+      D             PARM-SMZC3254-INOUT    "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZC3254-RTNPKG  = ["
+      D             PARM-SMZC3254-RTNPKG   "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZJ4020-ARG2  = ["
+      D             PARM-SMZJ4020-ARG2     "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZJ4020-ARG3  = ["
+      D             PARM-SMZJ4020-ARG3     "]"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG  = ["
+      D             PARM-RTNPKG            "]"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RTN-000
+             TO  RTN-CD                 OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-ARG1 = ["
+      D             RTN-CD  OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  仮払金増加の取引存在フラグ
+           MOVE  SPAY-PLUS-TORI-FLG     OF  PARM-SMZJ4020-ARG1
+             TO  WK-SPAY-PLUS-TORI-FLG  OF  WK-DATA-IN
+      *----------  仮払金増加の取引計上基準日
+           MOVE  SPAY-PLUS-TORI-KEIJOU-KIJUNBI
+                                        OF  PARM-SMZJ4020-ARG1
+             TO  WK-SPAY-PLUS-TORI-KJKJB
+                                        OF  WK-DATA-IN
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SMZJ4020-ARG1
+             TO  WK-RIYO-CMP-CD         OF  WK-DATA-IN
+      *----------  ファンドコード
+           MOVE  FUND-CD                OF  PARM-SMZJ4020-ARG1
+             TO  WK-FUND-CD             OF  WK-DATA-IN
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                 OF  PARM-SMZJ4020-ARG1
+             TO  WK-PTF-CD              OF  WK-DATA-IN
+      *----------  基準日
+           MOVE  KJN-YMD                OF  PARM-SMZJ4020-ARG1
+             TO  WK-KJN-YMD             OF  WK-DATA-IN
+      *----------  銘柄コード
+           MOVE  MEG-CD                 OF  PARM-SMZJ4020-ARG1
+             TO  WK-MEG-CD              OF  WK-DATA-IN
+      *----------  証券種別コード
+           MOVE  SEC-SBT-CD             OF  PARM-SMZJ4020-ARG1
+             TO  WK-SEC-SBT-CD          OF  WK-DATA-IN
+      *----------  資産負債・買建売建フラグ
+           MOVE  TATE-FLG               OF  PARM-SMZJ4020-ARG1
+             TO  WK-TATE-FLG            OF  WK-DATA-IN
+      *----------  玉ID
+           MOVE  GYOKU-ID               OF  PARM-SMZJ4020-ARG1
+             TO  WK-GYOKU-ID            OF  WK-DATA-IN
+      *----------  差分更新From日
+           MOVE  SABON-UPDATE-FROM      OF  PARM-SMZJ4020-ARG1
+             TO  WK-SABON-UPDATE-FROM   OF  WK-DATA-IN
+      *----------  開始基準日の翌日
+           MOVE  KAISI-KJN-YMD-NEXT     OF  PARM-SMZJ4020-ARG1
+             TO  WK-KAISI-KJN-YMD-NEXT  OF  WK-DATA-IN
+      *----------  初期利払起算日
+           MOVE  SHOKI-RIBAR-KS-YMD     OF  PARM-SMZJ4020-ARG1
+             TO  WK-SHOKI-RIBAR-KS-YMD  OF  WK-DATA-IN
+      *----------  初期利払日
+           MOVE  SHOKI-RIBAR-YMD        OF  PARM-SMZJ4020-ARG1
+             TO  WK-SHOKI-RIBAR-YMD     OF  WK-DATA-IN
+      *----------  最終利払起算日
+           MOVE  LAST-RIBAR-KISAN-YMD   OF  PARM-SMZJ4020-ARG1
+             TO  WK-LAST-RIBAR-KISAN-YMD
+                                        OF  WK-DATA-IN
+      *----------  終期利払日
+           MOVE  SHUKI-RIBAR-YMD        OF  PARM-SMZJ4020-ARG1
+             TO  WK-SHUKI-RIBAR-YMD     OF  WK-DATA-IN
+      *----------  利払回数
+           MOVE  RIBAR-KAISU            OF  PARM-SMZJ4020-ARG1
+             TO  WK-RIBAR-KAISU         OF  WK-DATA-IN
+      *----------  利払日1
+           MOVE  RIBAR-YMD-1            OF  PARM-SMZJ4020-ARG1
+             TO  WK-RIBAR-YMD-1         OF  WK-DATA-IN
+      *----------  利払日2
+           MOVE  RIBAR-YMD-2            OF  PARM-SMZJ4020-ARG1
+             TO  WK-RIBAR-YMD-2         OF  WK-DATA-IN
+      *----------  利払日3
+           MOVE  RIBAR-YMD-3            OF  PARM-SMZJ4020-ARG1
+             TO  WK-RIBAR-YMD-3         OF  WK-DATA-IN
+      *----------  利払日4
+           MOVE  RIBAR-YMD-4            OF  PARM-SMZJ4020-ARG1
+             TO  WK-RIBAR-YMD-4         OF  WK-DATA-IN
+      *----------  利払日数
+           MOVE  KEKA-NISU              OF  PARM-SMZJ4020-ARG1
+             TO  WK-KEKA-NISU           OF  WK-DATA-IN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":仮払金増加の取引存在フラグ  = ["
+      D             WK-SPAY-PLUS-TORI-FLG  OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":仮払金増加の取引計上基準日  = ["
+      D             WK-SPAY-PLUS-TORI-KJKJB
+      D                                    OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利用会社コード  = ["
+      D             WK-RIYO-CMP-CD         OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード  = ["
+      D             WK-FUND-CD             OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオコード  = ["
+      D             WK-PTF-CD              OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":基準日  = ["
+      D             WK-KJN-YMD             OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":銘柄コード  = ["
+      D             WK-MEG-CD              OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":証券種別コード  = ["
+      D             WK-SEC-SBT-CD          OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":資産負債・買建売建フラグ  = ["
+      D             WK-TATE-FLG            OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":玉ID  = ["
+      D             WK-GYOKU-ID            OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":差分更新From日  = ["
+      D             WK-SABON-UPDATE-FROM   OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":開始基準日の翌日  = ["
+      D             WK-KAISI-KJN-YMD-NEXT  OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":初期利払起算日  = ["
+      D             WK-SHOKI-RIBAR-KS-YMD  OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":初期利払日  = ["
+      D             WK-SHOKI-RIBAR-YMD     OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":最終利払起算日  = ["
+      D             WK-LAST-RIBAR-KISAN-YMD
+      D                                    OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":終期利払日  = ["
+      D             WK-SHUKI-RIBAR-YMD     OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利払回数  = ["
+      D             WK-RIBAR-KAISU         OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利払日1  = ["
+      D             WK-RIBAR-YMD-1         OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利払日2  = ["
+      D             WK-RIBAR-YMD-2         OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利払日3  = ["
+      D             WK-RIBAR-YMD-3         OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利払日4  = ["
+      D             WK-RIBAR-YMD-4         OF  WK-DATA-IN"]"
+      D    DISPLAY  CNS-PGM-ID":利払日数  = ["
+      D             WK-KEKA-NISU           OF  WK-DATA-IN"]"
+      *-----------------------------------------------------------------
+      *----------------<DEBUG>------------------------------------------
+      D    DISPLAY  CNS-PGM-ID"****  初期化処理  END  ****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.2 テーブルID取得処理
+      ******************************************************************
+       TBLID-GET-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  テーブルID取得  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY1160-INOUT
+                       PARM-RTNPKG
+      *----------  利用会社コード
+           MOVE  WK-RIYO-CMP-CD         OF  WK-DATA-IN
+             TO  RIYO-CMP-CD            OF  PARM-SCZY1160-ARG1
+      *----------  残高異動
+           MOVE  CNS-TBL-TKMZZI00
+             TO  TBL-ID                 OF  PARM-SCZY1160-ARG1(1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RIYO-CMP-CD  OF PARM-SCZY1160-ARG1=["
+      D             RIYO-CMP-CD         OF  PARM-SCZY1160-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":TBL-ID  OF PARM-SCZY1160-ARG1(1)=["
+      D             TBL-ID              OF  PARM-SCZY1160-ARG1(1)"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1160"             USING  PARM-SCZY1160-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SCZY1160)=["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF  PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG          =["
+      D             COUNTER             OF PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD  OF  PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)
+               =  CNS-RTN-000
+           THEN
+      *----------  残高異動
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(1)
+               TO  WK-TBL-TKMZZI00
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":残高異動              =["
+      D             WK-TBL-TKMZZI00"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *----------  エラー
+             MOVE  PARM-RTNPKG          TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-001
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-901
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  RTN-CD OF  PARM-RTNPKG(COUNTER OF PARM-RTNPKG )
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":テーブルID取得処理  異常"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名            =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション                        =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード                    =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード                =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ  =["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ                  =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  テーブルID取得  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TBLID-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *     3.2 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  主処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.2.1.マイナス経過利息取引探す
+           PERFORM  MNS-KKRS-TORI-RTN
+      *----------  3.2.2.FROM日決定処理
+           PERFORM  FROM-YMD-KT-RTN
+      *----------  3.2.3.利払日ありがないが確定処理
+           PERFORM  RIB-YMD-KAKUTE-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  主処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1マイナス経過利息取引探す
+      ******************************************************************
+       MNS-KKRS-TORI-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  マイナス経過利息取引探す START ***"
+      D    DISPLAY  CNS-PGM-ID":ARG1.銘柄別断面情報.差分更新From日=["
+      D             WK-SABON-UPDATE-FROM   OF  WK-TKMZBW03"]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.仮払金増加の取引存在フラグ=["
+      D             WK-SPAY-PLUS-TORI-FLG  OF  WK-DATA-IN"]"
+      *-----------------------------------------------------------------
+           IF  WK-SABON-UPDATE-FROM      OF  WK-TKMZBW03  NOT = ZERO
+               AND WK-SPAY-PLUS-TORI-FLG OF  WK-DATA-IN       = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D    ":ARG1.銘柄別断面情報.差分更新From日≠ZERO  且つ"
+      D    "ARG1.仮払金増加の取引存在フラグ＝0(存在しない)の場合"
+      *-----------------------------------------------------------------
+             PERFORM  MNS-KKRSTR-SQL-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  マイナス経過利息取引探す  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MNS-KKRS-TORI-EXT.
+           EXIT.
+      ******************************************************************
+      *    マイナス経過利息取引探す
+      ******************************************************************
+       MNS-KKRSTR-SQL-RTN     SECTION.
+      *----------  残高異動TBL
+           MOVE  WK-TBL-TKMZZI00        TO  SQL-TKMZZI00
+      *----------  利用会社コード
+           MOVE  WK-RIYO-CMP-CD         OF  WK-TKMZBW03
+             TO  H-RIYO-CMP-CD          OF  H-TKMZZI00
+      *----------  ファンドコード
+           MOVE  WK-FUND-CD             OF  WK-TKMZBW03
+             TO  H-FUND-CD              OF  H-TKMZZI00
+      *----------  ポートフォリオコード
+           MOVE  WK-PTF-CD              OF  WK-TKMZBW03
+             TO  H-PTF-CD               OF  H-TKMZZI00
+      *----------  銘柄コード
+           MOVE  WK-MEG-CD              OF  WK-TKMZBW03
+             TO  H-MEG-CD               OF  H-TKMZZI00
+      *----------  証券種別コード
+           MOVE  WK-SEC-SBT-CD          OF  WK-TKMZBW03
+             TO  H-SEC-SBT-CD           OF  H-TKMZZI00
+      *----------  資産負債・買建売建フラグ
+           MOVE  WK-TATE-FLG            OF  WK-TKMZBW03
+             TO  H-TATE-FLG             OF  H-TKMZZI00
+      *----------  玉ID
+           MOVE  WK-GYOKU-ID            OF  WK-TKMZBW03
+             TO  H-GYOKU-ID             OF  H-TKMZZI00
+      *----------  計上基準日
+           MOVE  WK-KAISI-KJN-YMD-NEXT  OF  WK-TKMZBW02
+             TO  H-KAISI-KJN-YMD-NEXT   OF  H-TKMZZI00
+      *----------  計上基準日
+           MOVE  WK-SABON-UPDATE-FROM   OF  WK-TKMZBW03
+             TO  H-SABON-UPDATE-FROM    OF  H-TKMZZI00
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT    =["SQL-SELECT"]"
+      D    DISPLAY  CNS-PGM-ID":H-RIYO-CMP-CD =["
+      D             H-RIYO-CMP-CD       OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-FUND-CD     =["
+      D             H-FUND-CD           OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-PTF-CD      =["
+      D             H-PTF-CD            OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-MEG-CD      =["
+      D             H-MEG-CD            OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-SEC-SBT-CD  =["
+      D             H-SEC-SBT-CD        OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-TATE-FLG    =["
+      D             H-TATE-FLG          OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-GYOKU-ID    =["
+      D             H-GYOKU-ID          OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-KAISI-KJN-YMD-NEXT  =["
+      D             H-KAISI-KJN-YMD-NEXT  OF  H-TKMZZI00"]"
+      D    DISPLAY  CNS-PGM-ID":H-SABON-UPDATE-FROM  =["
+      D             H-SABON-UPDATE-FROM   OF  H-TKMZZI00"]"
+      *-----------------------------------------------------------------
+           INITIALIZE  SQLSTMT
+           MOVE  SQL-SELECT             TO  SQLSTMT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLSTMT    =["SQLSTMT"]"
+      *-----------------------------------------------------------------
+           EXEC SQL PREPARE S1 FROM :SQLSTMT END-EXEC
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE-PREPARE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                  = CNS-SQL-NORMAL
+           THEN
+             CONTINUE
+           ELSE
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL処理エラー（PREPARE)"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-002
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  SQLSTMT              TO  FREE-MSG
+                                        OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           END-IF
+           EXEC  SQL  DECLARE  TKMZZI00_CURSOR  CURSOR  FOR S1
+           END-EXEC
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE-DECLARE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":①仮払金増加の取引データを取得する START"
+      *-----------------------------------------------------------------
+      *----------  カーソルオープン処理
+           EXEC  SQL
+               OPEN TKMZZI00_CURSOR
+           USING  :H-TKMZZI00.H-RIYO-CMP-CD,
+                  :H-TKMZZI00.H-FUND-CD,
+                  :H-TKMZZI00.H-PTF-CD,
+                  :H-TKMZZI00.H-MEG-CD,
+                  :H-TKMZZI00.H-SEC-SBT-CD,
+                  :H-TKMZZI00.H-TATE-FLG,
+                  :H-TKMZZI00.H-GYOKU-ID,
+                  :H-TKMZZI00.H-KAISI-KJN-YMD-NEXT,
+                  :H-TKMZZI00.H-SABON-UPDATE-FROM
+           END-EXEC
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE-OPEN=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                  = CNS-SQL-NORMAL
+           THEN
+             MOVE  CNS-ON               TO  WK-TKMZZI00-CR-FLG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":仮払金増加の取引データカーソルオープンフラグ =["
+      D             WK-TKMZZI00-CR-FLG"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL処理エラー（OPEN)"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-003
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  SQLSTMT              TO  FREE-MSG
+                                        OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":②『仮払金増加の取引データ』カーソルフェッチする"
+      *-----------------------------------------------------------------
+           INITIALIZE  H-KEIJOU-KIJUNBI OF  H-TKMZZI00
+           EXEC  SQL
+               FETCH
+                    TKMZZI00_CURSOR
+               INTO :H-TKMZZI00.H-KEIJOU-KIJUNBI
+           END-EXEC
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE-FETCH=["SQLCODE"]"
+      D    DISPLAY  CNS-PGM-ID":取得計上基準日=["
+      D             H-KEIJOU-KIJUNBI    OF  H-TKMZZI00"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *----------  ワーク仮払金増加の取引存在フラグ
+               MOVE  CNS-1              TO  WK-SPAY-PLUS-TORI-FLG
+                                        OF  WK-DATA
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワーク仮払金増加の取引存在フラグ ["
+      D             WK-SPAY-PLUS-TORI-FLG  OF  WK-DATA"]"
+      *-----------------------------------------------------------------
+      *----------  ③『仮払金増加の取引データ』カーソルクローズ処理
+               PERFORM  CURSOR-CLOSE-RTN
+             WHEN  CNS-SQL-NOTFOUND
+      *----------  ③『仮払金増加の取引データ』カーソルクローズ処理
+               PERFORM  CURSOR-CLOSE-RTN
+             WHEN  OTHER
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL処理エラー（FETCH)"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-004
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-900
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-1
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+               MOVE  SQLSTMT            TO  FREE-MSG
+                                        OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-EVALUATE
+           CONTINUE.
+       MNS-KKRSTR-SQL-EXT.
+           EXIT.
+      ******************************************************************
+      *    ③『仮払金増加の取引データ』カーソルクローズ処理
+      ******************************************************************
+       CURSOR-CLOSE-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  カーソルクローズ処理  START  ***"
+      *-----------------------------------------------------------------
+           EXEC  SQL
+           CLOSE TKMZZI00_CURSOR
+           END-EXEC
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE-CLOSE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                  = CNS-SQL-NORMAL
+           THEN
+             MOVE  CNS-OFF              TO  WK-TKMZZI00-CR-FLG
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-TKMZZI00-CR-FLG=["
+      D             WK-TKMZZI00-CR-FLG"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-----------------------DEBUG-------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL処理エラー（CLOSE)"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-005
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  SQLSTMT
+               TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  カーソルクローズ処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CURSOR-CLOSE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.2  FROM日決定処理
+      ******************************************************************
+       FROM-YMD-KT-RTN        SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  FROM日決定処理  START  ***"
+      *-----------------------------------------------------------------
+           IF  WK-SPAY-PLUS-TORI-FLG  OF  WK-DATA-IN = CNS-1
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":ARG1.仮払金増加の取引存在フラグ＝1(存在)の場合"
+      *-----------------------------------------------------------------
+      *----------  FROM日←ARG1.仮払金増加の取引計上基準日
+             MOVE  WK-SPAY-PLUS-TORI-KJKJB  OF  WK-DATA-IN
+               TO  WK-FROM-YMD
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ARG1.仮払金増加の取引存在フラグ＝["
+      D             WK-SPAY-PLUS-TORI-FLG  OF  WK-DATA-IN"]"
+      *-----------------------------------------------------------------
+             IF  WK-SPAY-PLUS-TORI-FLG    OF  WK-DATA  =  CNS-1
+             THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":ワーク仮払金増加の取引存在フラグ＝1の場合"
+      *-----------------------------------------------------------------
+      *----------  FROM日←別紙1-1取得した計上基準日
+               MOVE  H-KEIJOU-KIJUNBI       OF  H-TKMZZI00
+                 TO  WK-FROM-YMD
+             ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワーク仮払金増加の取引存在フラグ＝["
+      D             WK-SPAY-PLUS-TORI-FLG    OF  WK-DATA "]"
+      *-----------------------------------------------------------------
+      *----------  FROM日←ARG1.基準日断面情報.開始基準日の翌日
+               MOVE  WK-KAISI-KJN-YMD-NEXT   OF  WK-TKMZBW02
+                 TO  WK-FROM-YMD
+             END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":FROM日   ["  WK-FROM-YMD  "]"
+      D    DISPLAY  CNS-PGM-ID":***  FROM日決定処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       FROM-YMD-KT-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.3.利払日ありがないが確定処理
+      ******************************************************************
+       RIB-YMD-KAKUTE-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  利払日ありがないが確定処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  CALL 【SMZC3251】
+           INITIALIZE   PARM-SMZC3251-INOUT
+                        PARM-SMZC3254-INOUT
+                        PARM-SMZC3251-RTNPKG
+                        PARM-SMZC3254-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":WK-KEKA-NISU = ["  WK-KEKA-NISU  "]"
+      *-----------------------------------------------------------------
+           IF    WK-KEKA-NISU   OF  WK-DATA-IN  =  ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":【SMZC3251】経過利息利払日計算ルーチンに接続用"
+      D             "パラメータの設定を行なう"
+      *-----------------------------------------------------------------
+      *----------  入力年月日
+             MOVE  WK-FROM-YMD            OF  WK-DATA
+               TO  IN-YMD                 OF  PARM-SMZC3251-ARG1
+      *----------  初期利払起算日
+             MOVE  WK-SHOKI-RIBAR-KS-YMD  OF  WK-DATA-IN
+               TO  SHOKI-RIBAR-KS-YMD     OF  PARM-SMZC3251-ARG1
+      *----------  初期利払日
+             MOVE  WK-SHOKI-RIBAR-YMD     OF  WK-DATA-IN
+               TO  SHOKI-RIBAR-YMD        OF  PARM-SMZC3251-ARG1
+      *----------  最終利払起算日
+             MOVE  WK-LAST-RIBAR-KISAN-YMD  OF  WK-DATA-IN
+               TO  LAST-RIBAR-KISAN-YMD   OF  PARM-SMZC3251-ARG1
+      *----------  終期利払日
+             MOVE  WK-SHUKI-RIBAR-YMD     OF  WK-DATA-IN
+               TO  SHUKI-RIBAR-YMD        OF  PARM-SMZC3251-ARG1
+      *----------  利払回数
+             MOVE  WK-RIBAR-KAISU         OF  WK-DATA-IN
+               TO  RIBAR-KAISU            OF  PARM-SMZC3251-ARG1
+      *----------  利払日１
+             MOVE  WK-RIBAR-YMD-1         OF  WK-DATA-IN
+               TO  RIBAR-YMD-1            OF  PARM-SMZC3251-ARG1
+      *----------  利払日２
+             MOVE  WK-RIBAR-YMD-2         OF  WK-DATA-IN
+               TO  RIBAR-YMD-2            OF  PARM-SMZC3251-ARG1
+      *----------  利払日３
+             MOVE  WK-RIBAR-YMD-3         OF  WK-DATA-IN
+               TO  RIBAR-YMD-3            OF  PARM-SMZC3251-ARG1
+      *----------  利払日４
+             MOVE  WK-RIBAR-YMD-4         OF  WK-DATA-IN
+               TO  RIBAR-YMD-4            OF  PARM-SMZC3251-ARG1
+      *----------  ダミー利払日有効フラグ
+             MOVE  ZERO                   TO  DUMMY-RIB-YUKO-FLG
+                                          OF  PARM-SMZC3251-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":入力年月日    = ["
+      D             IN-YMD              OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":初期利払起算日= ["
+      D             SHOKI-RIBAR-KS-YMD  OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":初期利払日    = ["
+      D             SHOKI-RIBAR-YMD     OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":最終利払起算日= ["
+      D             LAST-RIBAR-KISAN-YMD OF  PARM-SMZC3251-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID":終期利払日    = ["
+      D             SHUKI-RIBAR-YMD     OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":利払回数      = ["
+      D             RIBAR-KAISU         OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":利払日1       = ["
+      D             RIBAR-YMD-1         OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":利払日2       = ["
+      D             RIBAR-YMD-2         OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":利払日3       = ["
+      D             RIBAR-YMD-3         OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":利払日4       = ["
+      D             RIBAR-YMD-4         OF  PARM-SMZC3251-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":ダミー利払日有効フラグ = ["
+      D             DUMMY-RIB-YUKO-FLG  OF  PARM-SMZC3251-ARG1  "]"
+      *-----------------------------------------------------------------
+             CALL   "SMZC3251"            USING  PARM-SMZC3251-INOUT
+                                                 PARM-SMZC3251-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZC3251-RTNPKG=["
+      D             PARM-SMZC3251-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SMZC3251)=["
+      D             RTN-CD              OF  PARM-SMZC3251-RTNPKG(
+      D                         COUNTER OF  PARM-SMZC3251-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF  PARM-SMZC3251-RTNPKG=["
+      D                         COUNTER OF  PARM-SMZC3251-RTNPKG"]"
+      *-----------------------------------------------------------------
+             IF  RTN-CD                   OF  PARM-SMZC3251-RTNPKG(
+                                  COUNTER OF  PARM-SMZC3251-RTNPKG)
+              =  CNS-RTN-000
+             THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CALL SMZC3251 正常"
+      D    DISPLAY  CNS-PGM-ID":FROM日  =  ["
+      D             WK-FROM-YMD         OF  WK-DATA    "]"
+      D    DISPLAY  CNS-PGM-ID":リターンパッケージ.次回利払日 = ["
+      D             JIKAI-RIBAR-YMD     OF  PARM-SMZC3251-ARG2  "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.銘柄別断面情報.基準日 = ["
+      D             WK-KJN-YMD          OF  WK-TKMZBW03   "]"
+      *-----------------------------------------------------------------
+               IF  WK-FROM-YMD            OF  WK-DATA  <=
+                   JIKAI-RIBAR-YMD        OF  PARM-SMZC3251-ARG2
+               AND JIKAI-RIBAR-YMD        OF  PARM-SMZC3251-ARG2  <=
+                   WK-KJN-YMD             OF  WK-TKMZBW03
+               THEN
+      *----------  ARG2.警告フラグ←'1'
+                 MOVE  CNS-1              TO  WARN-FLG
+                                          OF  PARM-SMZJ4020-ARG2
+               ELSE
+      *----------  ARG2.警告フラグ←SPACE
+                 MOVE  SPACE              TO  WARN-FLG
+                                          OF  PARM-SMZJ4020-ARG2
+               END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG2.警告フラグ  =  ["
+      D             WARN-FLG            OF  PARM-SMZJ4020-ARG2  "]"
+      *-----------------------------------------------------------------
+             ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CALL SMZC3251 異常"
+      *-----------------------------------------------------------------
+      *----------  エラー
+               MOVE  PARM-SMZC3251-RTNPKG TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-006
+                 TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  RTN-CD               OF  PARM-SMZC3251-RTNPKG(
+                     COUNTER              OF  PARM-SMZC3251-RTNPKG )
+                 TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名            =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション                        =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード                    =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード                =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ  =["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ                  =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+             END-IF
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":【SMZC3254】経過日数固定の経過利息利払"
+      D             "日計算ルーチン"
+      *-----------------------------------------------------------------
+      *----------  入力年月日
+             MOVE  WK-FROM-YMD            OF  WK-DATA
+               TO  IN-YMD                 OF  PARM-SMZC3254-ARG1
+      *----------  初期利払起算日
+             MOVE  WK-SHOKI-RIBAR-KS-YMD  OF  WK-DATA-IN
+               TO  SHOKI-RIBAR-KISAN-YMD  OF  PARM-SMZC3254-ARG1
+      *----------  初期利払日
+             MOVE  WK-SHOKI-RIBAR-YMD     OF  WK-DATA-IN
+               TO  SHOKI-RIBAR-YMD        OF  PARM-SMZC3254-ARG1
+      *----------  最終利払起算日
+             MOVE  WK-LAST-RIBAR-KISAN-YMD  OF  WK-DATA-IN
+               TO  SAISHU-RIBAR-KISAN-YMD   OF  PARM-SMZC3254-ARG1
+      *----------  終期利払日
+             MOVE  WK-SHUKI-RIBAR-YMD     OF  WK-DATA-IN
+               TO  SHUKI-RIBAR-YMD        OF  PARM-SMZC3254-ARG1
+      *----------  利払日数
+             MOVE  WK-KEKA-NISU           OF  WK-DATA-IN
+               TO  KEKA-NISU              OF  PARM-SMZC3254-ARG1
+      *----------  ダミー利払日有効フラグ
+             MOVE  ZERO                   TO  DUMMY-RIBAR-FLG
+                                          OF  PARM-SMZC3254-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":入力年月日    = ["
+      D             IN-YMD              OF  PARM-SMZC3254-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":FROM日    = ["
+      D             WK-FROM-YMD            OF  WK-DATA  "]"
+      D    DISPLAY  CNS-PGM-ID":初期利払起算日= ["
+      D             SHOKI-RIBAR-KISAN-YMD  OF  PARM-SMZC3254-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.初期利払起算日= ["
+      D             WK-SHOKI-RIBAR-KS-YMD  OF  WK-DATA-IN  "]"
+      D    DISPLAY  CNS-PGM-ID":初期利払日    = ["
+      D             SHOKI-RIBAR-YMD     OF  PARM-SMZC3254-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.初期利払日    = ["
+      D             WK-SHOKI-RIBAR-YMD     OF  WK-DATA-IN  "]"
+      D    DISPLAY  CNS-PGM-ID":最終利払起算日= ["
+      D             SAISHU-RIBAR-KISAN-YMD OF  PARM-SMZC3254-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.最終利払起算日= ["
+      D             WK-LAST-RIBAR-KISAN-YMD OF  WK-DATA-IN "]"
+      D    DISPLAY  CNS-PGM-ID":終期利払日    = ["
+      D             SHUKI-RIBAR-YMD     OF  PARM-SMZC3254-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.終期利払日    = ["
+      D             WK-SHUKI-RIBAR-YMD     OF  WK-DATA-IN  "]"
+      D    DISPLAY  CNS-PGM-ID":利払日数    = ["
+      D             KEKA-NISU              OF  PARM-SMZC3254-ARG1  "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.利払日数    = ["
+      D             WK-SHUKI-RIBAR-YMD        OF  WK-DATA-IN  "]"
+      D    DISPLAY  CNS-PGM-ID":ダミー利払日有効フラグ = ["
+      D             DUMMY-RIBAR-FLG  OF  PARM-SMZC3254-ARG1  "]"
+      *-----------------------------------------------------------------
+               CALL   "SMZC3254"            USING  PARM-SMZC3254-INOUT
+                                                   PARM-SMZC3254-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZC3254-RTNPKG=["
+      D             PARM-SMZC3254-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SMZC3254)=["
+      D             RTN-CD              OF  PARM-SMZC3254-RTNPKG(
+      D                         COUNTER OF  PARM-SMZC3254-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF  PARM-SMZC3254-RTNPKG=["
+      D                         COUNTER OF  PARM-SMZC3254-RTNPKG"]"
+      *-----------------------------------------------------------------
+             IF  RTN-CD                   OF  PARM-SMZC3254-RTNPKG(
+                                  COUNTER OF  PARM-SMZC3254-RTNPKG)
+              =  CNS-RTN-000
+             THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CALL SMZC3254 正常"
+      D    DISPLAY  CNS-PGM-ID":FROM日  =  ["
+      D             WK-FROM-YMD         OF  WK-DATA    "]"
+      D    DISPLAY  CNS-PGM-ID":リターンパッケージ.次回利払日 = ["
+      D             JIKAI-RIBAR-YMD     OF  PARM-SMZC3254-ARG2  "]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.銘柄別断面情報.基準日 = ["
+      D             WK-KJN-YMD          OF  WK-TKMZBW03   "]"
+      *-----------------------------------------------------------------
+               IF  WK-FROM-YMD            OF  WK-DATA  <=
+                   JIKAI-RIBAR-YMD        OF  PARM-SMZC3254-ARG2
+               AND JIKAI-RIBAR-YMD        OF  PARM-SMZC3254-ARG2  <=
+                   WK-KJN-YMD             OF  WK-TKMZBW03
+               THEN
+      *----------  ARG2.警告フラグ←'1'
+                 MOVE  CNS-1              TO  WARN-FLG
+                                          OF  PARM-SMZJ4020-ARG2
+               ELSE
+      *----------  ARG2.警告フラグ←SPACE
+                 MOVE  SPACE              TO  WARN-FLG
+                                          OF  PARM-SMZJ4020-ARG2
+               END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG2.警告フラグ  =  ["
+      D             WARN-FLG            OF  PARM-SMZJ4020-ARG2  "]"
+      *-----------------------------------------------------------------
+             ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CALL SMZC3251 異常"
+      *-----------------------------------------------------------------
+      *----------  エラー
+               MOVE  PARM-SMZC3254-RTNPKG TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-007
+                 TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  RTN-CD               OF  PARM-SMZC3254-RTNPKG(
+                     COUNTER              OF  PARM-SMZC3254-RTNPKG )
+                 TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名            =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション                        =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード                    =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード                =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ  =["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ                  =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+             END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  利払日ありがないが確定処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       RIB-YMD-KAKUTE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.3後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***   後処理  START  ***"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZJ4020-ARG1=["
+      D             PARM-SMZJ4020-ARG1       OF PARM-SMZJ4020-INOUT"]"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"                  USING  PARM-SCZY1170-IN
+                                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-RTNPKG           TO  PARM-SMZJ4020-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY1170-RTNPKG   = ["
+      D      PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":  PARM-SMZJ4020-ARG3     = ["
+      D      PARM-SMZJ4020-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  COUNT = ["
+      D      COUNTER OF PARM-SMZJ4020-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  エラー検知プログラム名 = ["
+      D      ERR-PGM-ID
+      D      OF PARM-SMZJ4020-ARG3(COUNTER   OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  ポジション = ["
+      D      ERR-POS
+      D      OF PARM-SMZJ4020-ARG3(COUNTER   OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  リターンコード = ["
+      D      RTN-CD
+      D      OF PARM-SMZJ4020-ARG3(COUNTER   OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコード = ["
+      D      DETAIL-RTN-CD
+      D      OF PARM-SMZJ4020-ARG3(COUNTER   OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコードデコードフラグ = ["
+      D      DETAIL-RTN-CD-FLG
+      D      OF PARM-SMZJ4020-ARG3(COUNTER   OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  フリーメッセージ = ["
+      D      FREE-MSG
+      D      OF PARM-SMZJ4020-ARG3(COUNTER   OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  CNS-PGM-ID":***   後処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 3.4 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  エラー処理  START  ***"
+      D    DISPLAY  CNS-PGM-ID":WK-TKMZZI00-CR-FLG=["
+      D             WK-TKMZZI00-CR-FLG"]"
+      *-----------------------------------------------------------------
+      *----------  CURSOR CLOSE処理
+           IF  WK-TKMZZI00-CR-FLG  =  CNS-ON
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ERROR処理 CLOSE TKMZZI00_CURSOR"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                   CLOSE TKMZZI00_CURSOR
+               END-EXEC
+               MOVE  CNS-OFF            TO  WK-TKMZZI00-CR-FLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE =[" SQLCODE "]"
+      D    DISPLAY  CNS-PGM-ID":WK-TKMZZI00-CR-FLG=["
+      D             WK-TKMZZI00-CR-FLG"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":TKMZZI00_CURSOR CLOSE処理を行かない"
+      *-----------------------------------------------------------------
+               CONTINUE
+           END-IF
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ": リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"             USING  PARM-SCZY1170-IN
+                                               PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-RTNPKG   TO  PARM-SMZJ4020-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY1170-RTNPKG   = ["
+      D             PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":  PARM-SMZJ4020-ARG3     = ["
+      D             PARM-SMZJ4020-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  COUNT = ["
+      D             COUNTER          OF PARM-SMZJ4020-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  エラー検知プログラム名 = ["
+      D       ERR-PGM-ID
+      D          OF PARM-SMZJ4020-ARG3(COUNTER OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  ポジション = ["
+      D       ERR-POS
+      D          OF PARM-SMZJ4020-ARG3(COUNTER OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  リターンコード = ["
+      D       RTN-CD
+      D          OF PARM-SMZJ4020-ARG3(COUNTER OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコード = ["
+      D       DETAIL-RTN-CD
+      D          OF PARM-SMZJ4020-ARG3(COUNTER OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコードデコードフラグ = ["
+      D       DETAIL-RTN-CD-FLG
+      D          OF PARM-SMZJ4020-ARG3(COUNTER OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  フリーメッセージ = ["
+      D       FREE-MSG
+      D          OF PARM-SMZJ4020-ARG3(COUNTER OF PARM-SMZJ4020-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D           ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  CNS-PGM-ID": ***  エラー処理  END  ***"
+      D    DISPLAY  CNS-PGM-ID": ***  SMZJ4020処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.

@@ -1,0 +1,2754 @@
+      ******************************************************************
+      * $Header$
+      /*****************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラム名称 : カレンダールーチン
+      *     処理概要       : カレンダールーチン
+      *     参照ＤＢ       : 
+      *     引数           : IN  カレンダールーチンコピー句
+      *                    : OUT カレンダールーチンコピー句
+      *                    : OUT RTNパッケージ
+      *     改訂履歴
+      *     年月日     所属       担当者  内容
+      *     ---------- ---------- ------  ----------------------------
+      *     20070926   SCS        厳偉偉  新規
+      ******************************************************************
+      *                     IDENTIFICATION DIVISION                    *
+      *                       << IXCALDS >>                            *
+      *                       ｶﾚﾝﾀﾞ- ﾙ-ﾁﾝ                              *
+      *                                    NSS                         *
+      *                                                                *T2KY0020
+      *  T2KY0020 :共通系 委託 マルチカ 対応、桁数 拡大、コード 見直し *T2KY0020
+      *            ( + 業務統合 )                                      *T2KY0020
+      *            ( ﾍﾞ-ｽ PGM  KX )                                    *T2KY0020
+      *  990730   :HAPPY MONDAY 対応                                   *T2KY0020
+      *  010223   :KASAN-RTN 不正 対応                                 *020223TS
+      *  020412   :HAPPY MONDAY 対応                                   *02041220
+      ******************************************************************
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID.  SCZY1020.
+      *  AUTHOR.
+      *    \CASP)   COMPUTER AIDED STRUCTURED PROGRAMMING FACTORY.
+       AUTHOR.        SCS.
+       DATE-WRITTEN.  07-09-26.
+       DATE-COMPILED.
+      ******************************************************************
+      *                       ENVIRONMENT DIVISION                     *
+      ******************************************************************
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+            ENVIRONMENT-NAME               ENV-NAME
+            ENVIRONMENT-VALUE              ENV-VALUE.
+      * SOURCE-COMPUTER.
+      *     HITAC-M.
+      * OBJECT-COMPUTER.
+      *     HITAC-M.
+      /*****************************************************************
+      *                       INPUT-OUTPUT SECTION                     *
+      ******************************************************************
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+      *    <HOLIDAY>
+      ***** 休日　ファイル *****
+      *    SELECT   HOLIDAY
+      *             ASSIGN       TO DA-HOLIDAY
+      *             ORGANIZATION IS INDEXED
+      *             ACCESS MODE  IS DYNAMIC
+      *             RECORD KEY   IS HOLIDAY-KEY.
+           SELECT   HOLIDAY                                             DBG
+      *             ASSIGN       TO DA-HOLIDAY                          DBG
+                    ASSIGN       TO FILENAME
+                    ORGANIZATION IS SEQUENTIAL                          DBG
+                    FILE  STATUS IS  ST-IN.
+      /*****************************************************************
+      *                     DATA DIVISION                              *
+      *                              FILE SECTION                      *
+      ******************************************************************
+       DATA DIVISION.
+       FILE SECTION.
+      *    <HOLIDAY>
+      ***** 休日　ファイル *****
+      *FD  HOLIDAY
+      *    BLOCK  CONTAINS      1 RECORDS
+      *    RECORD CONTAINS     50 CHARACTERS
+      *    LABEL  RECORD IS STANDARD.
+      *01  IN-REC.
+      *    05 HOLIDAY-KEY.
+      *       10 HOLIDAY-MMDD.
+      *          15 HOLIDAY-MM               PIC 9(002).
+      *          15 HOLIDAY-DD               PIC 9(002).
+      *       10 HOLIDAY-SEQ                 PIC 9(002).
+      *    05 FILLER                         PIC X(002).
+      *    05 HOLIDAY-NAME                   PIC X(020).
+      *    05 FILLER                         PIC X(002).
+      *    05 HOLIDAY-START-YMD              PIC 9(009) COMP-3.
+      *    05 HOLIDAY-END-YMD                PIC 9(009) COMP-3.
+      *    05 FILLER                         PIC X(010).
+       FD  HOLIDAY                                                      DBG
+           BLOCK  CONTAINS      0 CHARACTERS                            DBG
+           RECORD CONTAINS     80 CHARACTERS                            DBG
+           LABEL  RECORD IS STANDARD.                                   DBG
+       01  IN-REC.                                                      DBG
+           05 HOLIDAY-KEY.                                              DBG
+              10 HOLIDAY-MMDD.                                          DBG
+                 15 HOLIDAY-MM               PIC 9(002).                DBG
+                 15 HOLIDAY-DD               PIC 9(002).                DBG
+              10 HOLIDAY-SEQ                 PIC 9(002).                DBG
+           05 FILLER                         PIC X(002).                DBG
+           05 HOLIDAY-NAME                   PIC X(020).                DBG
+           05 FILLER                         PIC X(002).                DBG
+           05 HOLIDAY-START-YMD              PIC 9(008).                DBG
+           05 HOLIDAY-END-YMD                PIC 9(008).                DBG
+           05 FILLER                         PIC X(034).                DBG
+      /*****************************************************************
+      *                    WORKING-STORAGE SECTION                     *
+      ******************************************************************
+       WORKING-STORAGE SECTION.
+       01  IDNAME                       PIC  X(80)  VALUE
+       "$Id: $".
+      *01  FILLER                       PIC  X(040)  VALUE
+      *    'IXCALDS  WORKING-STORAGE START POINT   '.
+      ******************************************************************
+      *                    ファイル  エリア
+      ******************************************************************
+       01  FILE-AREA.
+         05  FILENAME                   PIC  X(256).
+         05  FILE-PATH                  PIC  X(256).
+         05  ST-IN                      PIC  X(02).
+      ******************************************************************
+      *---------- ワーク計数用I
+       01  I                             PIC S9(004) COMP VALUE ZEROS.
+      *---------- ワーク計数用M-IX
+       01  M-IX                          PIC S9(004) COMP VALUE ZEROS.
+      * ﾌﾗｸﾞ ｴﾘｱ
+      *----------フラグエリア
+       01  FLG-AREA.
+      *---------- 閏年フラグ
+           05 URUUDOSHI-FLG                  PIC X(003)   VALUE SPACES.
+      *---------- 休日フラグ
+           05 HOLIDAY-FLG                    PIC X(003)   VALUE SPACES.
+      *---------- 前後フラグ
+           05 ZENGO-FLG                      PIC X(001)   VALUE SPACES.
+      *---------- 読むフラグ
+       01  READ-FLG                          PIC X(001)   VALUE SPACES.
+      * YMD ｹｲｻﾝ ﾖｳ ﾜ-ｸ
+      *---------- 年月日算出用ワーク
+       01  WK-YMD-KEISAN.
+      *---------- ワーク曜日数
+           05 YY-ANS                         PIC S9(005)   VALUE ZEROS.
+      *---------- ワーク計算年用余数
+           05 YY-AMARI                       PIC S9(005)   VALUE ZEROS.
+      *---------- ワーク余数
+           05 WK-REM                         PIC S9(003)   VALUE ZEROS.
+      *---------- ワーク月数
+           05 WK-ANS                         PIC S9(005)   VALUE ZEROS.
+      *---------- ワーク年数
+           05 WK-NENSU                       PIC S9(005)   VALUE ZEROS.
+           05 WK-NISSU.
+      *---------- ワーク数３
+              10 WK-SU3                      PIC S9(5)V9(3) VALUE ZEROS.
+      *---------- ワーク数６
+              10 WK-SU6                      PIC S9(5)V9(12) VALUE ZERO.
+      *---------- カウント用ワーク
+       01  CNT-AREA.
+      *---------- 日数CNT１
+           05 NISSU-CNT1                     PIC S9(001)   VALUE ZEROS.
+      *---------- 日数CNT４
+           05 NISSU-CNT4                     PIC S9(004)   VALUE ZEROS.
+      *---------- 分子数CNT
+           05 BUNSHI-CNT                     PIC S9(005)   VALUE ZEROS.
+      * ﾋﾂﾞｹ ﾁﾕｳｶﾝ ﾜ-ｸ  ｴﾘｱ
+      *---------- 日付中間用ワークワーク
+      *---------- ワーク年月日
+       01  WK-YYMMDD.
+           05  WK-YYYY                       PIC 9(004)    VALUE ZEROS.
+           05  WK-MD.
+               10  WK-MM                     PIC 9(002)    VALUE ZEROS.
+               10  WK-DD                     PIC 9(002)    VALUE ZEROS.
+      *---------- ワーク年月日９
+       01  WK-YYMMDD-9             REDEFINES      WK-YYMMDD             NS860811
+                                             PIC 9(008).                NS860811
+      *---------- ワーク計算年月日
+       01  WK-KEISAN-YMD.
+           05  WK-KEISAN-YYYY                PIC 9(004)    VALUE ZEROS.
+           05  WK-KEISAN-MD.
+               10  WK-KEISAN-MM              PIC 9(002)    VALUE ZEROS.
+               10  WK-KEISAN-DD              PIC 9(002)    VALUE ZEROS.
+      *---------- ワーク閏年用年月日
+       01  WK-URU-YYMMDD.
+           05  WK-URU-YYYY                   PIC 9(004)    VALUE ZEROS.
+           05  WK-URU-MM                     PIC 9(002)    VALUE ZEROS.
+           05  WK-URU-DD                     PIC 9(002)    VALUE ZEROS.
+      *---------- ワーク基準年月日
+       01  WK-KIJUNBI                        PIC 9(008)    VALUE ZEROS.
+       01  WK-KIJUNBI-R        REDEFINES     WK-KIJUNBI.
+           05 WK-KIJUN-YYYY                  PIC 9(004).
+           05 WK-KIJUN-MMDD.
+              10 WK-KIJUN-MM                 PIC 9(002).
+              10 WK-KIJUN-DD                 PIC 9(002).
+       01  WK-KIJUNBI-R2       REDEFINES     WK-KIJUNBI.
+           05 WK-KIJUN-YYMM                  PIC 9(006).
+           05 FILLER                         PIC X(002).
+      *---------- スタート年月日
+       01  S-YMD                             PIC 9(008)   VALUE ZEROS.
+       01  S-YMD-R             REDEFINES     S-YMD.
+           05 S-YY                           PIC 9(004).
+           05 S-MMDD.
+              10 S-MM                        PIC 9(002).
+              10 S-DD                        PIC 9(002).
+       01  S-YMD-R1            REDEFINES     S-YMD.
+           05 S-YYMM.
+              10 S-YY1                       PIC 9(004).
+              10 S-MM1                       PIC 9(002).
+           05 S-DD1                          PIC 9(002).
+      *---------- ワークスタート年月日
+       01  WK-S-YMD                          PIC 9(008)   VALUE ZEROS.
+       01  WK-S-YMD-R          REDEFINES     WK-S-YMD.
+           05 WK-S-YY                        PIC 9(004).
+           05 WK-S-MMDD.
+              10 WK-S-MM                     PIC 9(002).
+              10 WK-S-DD                     PIC 9(002).
+      *---------- エンド年月日
+       01  E-YMD                             PIC 9(008)   VALUE ZEROS.
+       01  E-YMD-R             REDEFINES     E-YMD.
+           05 E-YY                           PIC 9(004).
+           05 E-MMDD.
+              10 E-MM                        PIC 9(002).
+              10 E-DD                        PIC 9(002).
+       01  E-YMD-R1            REDEFINES     E-YMD.
+           05 E-YYMM.
+              10 E-YY1                       PIC 9(004).
+              10 E-MM1                       PIC 9(002).
+           05 E-DD1                          PIC 9(002).
+      *---------- ワーク日曜日年月日
+       01  B-YMD                             PIC 9(008)   VALUE ZEROS.
+       01  B-YMD-R             REDEFINES     B-YMD.
+           05 B-YY                           PIC 9(004).
+           05 B-MMDD.
+              10 B-MM                        PIC 9(002).
+              10 B-DD                        PIC 9(002).
+      *  ﾖｳﾋﾞ,ﾆﾂｽｳﾌﾞﾝ ﾋﾂﾞｹ ｻﾝｼﾕﾂ ﾁﾕｳｶﾝ ﾜ-ｸ ｴﾘｱ
+      *---------- 曜日・日数・日付算出用中間ワークエリア
+       01  ANS-AREA.
+      *---------- ワーク計算用数１
+           05  ANS1                          PIC 9(015)    VALUE ZERO.
+      *---------- ワーク計算用数２
+           05  ANS2                          PIC 9(015)    VALUE ZERO.
+      *---------- ワーク計算用数３
+           05  ANS3                          PIC 9(015)    VALUE ZERO.
+      *---------- ワーク計算用数４
+           05  ANS4                          PIC 9(015)    VALUE ZERO.
+      *---------- ワーク計算用数５
+           05  ANS5                          PIC 9(015)    VALUE ZERO.
+      *---------- ワーク日数
+       01  WK-DAYS                           PIC S9(004)   VALUE ZEROS.
+      *---------- ワーク計算用日数
+       01  WK-SU                             PIC 9(006)    VALUE ZEROS.
+      *---------- ワーク計算曜日用余数
+       01  AMARI                             PIC 9(001)    VALUE ZERO.
+      * ﾖｳﾋﾞ,ﾆﾂｽｳﾌﾞﾝﾋﾂﾞｹ ｻﾝｼﾕﾂ  ﾖｳ ﾜ-ｸ ｴﾘｱ
+      *---------- 曜日・日数・日付算出用ワークエリア
+      *---------- データ１
+       01  S-JDATE-ARG1                      PIC 9(008) VALUE  ZEROS.
+      *---------- データ２
+       01  S-JDATE-ARG2                      PIC S9(04) VALUE  ZEROS.
+      *---------- データ３
+       01  S-JDATE-ARG3                      PIC 9(008) VALUE  ZEROS.
+      *---------- データ４
+       01  S-JDATE-ARG4                      PIC S9(02) COMP-3 VALUE +0.
+      *---------- データ５
+       01  S-JDATE-ARG5                      PIC X(004) VALUE  SPACES.
+      *---------- 曜日
+       01  WK-YOUBI                          PIC S9(02)    COMP-3.
+      * ﾋﾂﾞｹ ﾃ-ﾌﾞﾙ
+      *---------- 日付テーブル用ワーク
+      *---------- ワーク日付テーブル
+       01  HIZUKE-TABLE-AREA.
+           05 FILLER                         PIC X(039)
+                       VALUE  '31 28 31 30 31 30 31 31 30 31 30 31 29 '.
+      *---------- ワークテーブル
+       01  HIZUKE-TABLE        REDEFINES     HIZUKE-TABLE-AREA.
+           05 HIZUKE-TBL                     OCCURS 13.
+      *---------- DAYS
+              10 T-DAYS                      PIC 9(002).
+              10 FILLER                      PIC X(001).
+      * HOLIDAY FILE SAVE TABLE ｴﾘｱ
+      *---------- 休日ファイル保存用ワーク
+       01  WK-HOLIDAY.
+           05 WK-HOLIDAY-TABLE               OCCURS 241.
+      *---------- ワーク休日年月日
+              10 WK-HOLIDAY-MMDD.
+                 15 WK-HOLIDAY-MM            PIC 9(002).
+                 15 WK-HOLIDAY-DD            PIC 9(002).
+      *---------- ワーク休日起始年月日
+              10 WK-HOLIDAY-START-YMD        PIC 9(009) COMP-3.
+      *---------- ワーク休日結束年月日
+              10 WK-HOLIDAY-END-YMD          PIC 9(009) COMP-3.
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PROGRAM-ID             PIC  X(08)  VALUE "SCZY1020".
+         05  CNS-C0                     PIC  X(01)  VALUE "0".
+         05  CNS-FILE-ST-00             PIC  X(02)  VALUE "00".
+      * RETURN CODE SET WORK ｴﾘｱ
+      *01  RETURN-CD1.
+      *    05  R1-NOMAL-END                  PIC  X(02) VALUE '00'.
+      *    05  R1-YOUBI-1-ERR                PIC  X(02) VALUE '10'.
+      *    05  R1-HIZUKE-1-ERR               PIC  X(02) VALUE '11'.
+      *    05  R1-YOUBI-2-ERR                PIC  X(02) VALUE '20'.
+      *    05  R1-HIZUKE-2-ERR               PIC  X(02) VALUE '21'.
+      *    05  R1-YOUBI-3-ERR                PIC  X(02) VALUE '30'.
+      *    05  R1-HIZUKE-3-ERR               PIC  X(02) VALUE '31'.
+      *    05  R1-YOUBI-4-ERR                PIC  X(02) VALUE '40'.
+      *    05  R1-HIZUKE-4-ERR               PIC  X(02) VALUE '41'.
+      *    05  R1-YOUBI-5-ERR                PIC  X(02) VALUE '50'.
+      *    05  R1-HIZUKE-5-ERR               PIC  X(02) VALUE '51'.
+      *    05  R1-YOUBI-6-ERR                PIC  X(02) VALUE '60'.
+      *    05  R1-HIZUKE-6-ERR               PIC  X(02) VALUE '61'.
+       01  RETURN-CD2.
+      *    05  R2-NOMAL-END                  PIC  X(04) VALUE '0000'.
+      *    05  R2-YMD-ERR                    PIC  X(04) VALUE '0001'.
+      *    05  R2-YOUBI-ERR                  PIC  X(04) VALUE '00FF'.
+           05  R2-OOTOBI                     PIC  X(04) VALUE '0031'.
+           05  R2-OOTOBI-YOKU                PIC  X(04) VALUE '0032'.
+           05  R2-OOTOBI-ZEN                 PIC  X(04) VALUE '0033'.
+      *    05  R2-OOTOBI-REIGAI              PIC  X(04) VALUE '0034'.
+      *    05  R2-OOTOBI-SATDAY              PIC  X(04) VALUE '0035'.
+           05  R2-YMD-YOKU                   PIC  X(04) VALUE '0041'.
+           05  R2-YMD-ZEN                    PIC  X(04) VALUE '0042'.
+      *    05  R2-GAITOBI-NASHI              PIC  X(04) VALUE '0059'.
+       01  RTN-CD.
+         05  CNS-RET-CD-NORMAL               PIC  X(03)  VALUE '000'.
+         05  CNS-HIZUKE-ERR                  PIC  X(03)  VALUE '120'.
+         05  CNS-GAITOBI-NASHI               PIC  X(03)  VALUE '113'.
+         05  CNS-OPEN-ERR                    PIC  X(03)  VALUE '200'.
+         05  CNS-READ-ERR                    PIC  X(03)  VALUE '210'.
+         05  CNS-CLOSE-ERR                   PIC  X(03)  VALUE '230'.
+         05  CNS-PARM-ERR                    PIC  X(03)  VALUE '800'.
+         05  CNS-SYS-ERR                     PIC  X(03)  VALUE '910'.
+      *01  FILLER                            PIC  X(040)  VALUE
+      *    'IXCALDS  WORKING-STORAGE END POINT     '.
+      ******************************************************************
+      *                 サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+         COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      /*****************************************************************
+      *                       LINKAGE SECTION                          *
+      ******************************************************************
+       LINKAGE SECTION.
+      *01  IXCAL-ARG1.
+      *    COPY     IXLCCALD.
+       01  PARM-SCZY1020-INOUT.
+      *----------  カレンダールーチンコピー句
+         COPY "SCZY1020.cpy".
+       01  PARM-SCZY1020-RTNPKG.
+         05  PARM-SCZY1020-ARG3.
+      *----------  RTNパッケージ
+           COPY "CZRTNPACKAGE.cpy".
+      /*****************************************************************
+      *                      PROCEDURE DIVISION                        *
+      ******************************************************************
+       PROCEDURE            DIVISION         
+            USING PARM-SCZY1020-INOUT
+                  PARM-SCZY1020-RTNPKG.
+       PROGRM-START                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1020処理  START  ***".
+      *-----------------------------------------------------------------
+       START-PROGRAM.
+      *----------  前処理
+           PERFORM  INIT-PROCESS.
+      *----------  メイン処理
+           PERFORM  MAIN-PROCESS.
+      *----------  後処理
+      *    PERFORM  FINL-PROCESS.
+           PERFORM  END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1020処理  END  ***".
+      *-----------------------------------------------------------------
+       END-PROGRAM.
+           EXIT PROGRAM.
+      ******* INIT-PROCESS **************************************/CAP/**
+      *                     ﾌﾟﾛｸﾞﾗﾑ ｶｲｼｼﾞ ﾉ ｼﾖﾘ                        *
+      *                     ３.１．前処理                              *
+      ******************************************************************
+       INIT-PROCESS                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  INIT-RTN  START  ***".
+      D    DISPLAY  "READ-FLG   = ["  READ-FLG   "]".
+      *-----------------------------------------------------------------
+       INIT-START.
+      *----------  ３.１.１ 読むフラグ判定
+           IF       ( READ-FLG  =  ' ' )
+              AND   ( IXCAL-FUNCTION  NOT  =  '1' )
+              AND   ( IXCAL-COMP-BASE  NOT  =  '3' )
+      *----------  ３.１.２ 休日ファイル読み取り処理
+                    PERFORM  HOLIDAY-TBL-EDIT.
+      *----------  ３.１.３ 初期化処理
+           PERFORM  INIT-SUB.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-YMD-KEISAN       = ["  WK-YMD-KEISAN       "]".
+      D    DISPLAY  "FLG-AREA            = ["  FLG-AREA            "]".
+      D    DISPLAY  "CNT-AREA            = ["  CNT-AREA            "]".
+      D    DISPLAY  "I                   = ["  I                   "]".
+      D    DISPLAY  "IXCAL-HIZUKE-KBN    = ["  IXCAL-HIZUKE-KBN    "]".
+      D    DISPLAY  "***  INIT-RTN  END  ***".
+      *-----------------------------------------------------------------
+       INIT-PROCESS-EXIT.
+           EXIT.
+      ******* MAIN-PROCESS **************************************/CAP/**
+      *                     ﾌﾟﾛｸﾞﾗﾑ ﾉ ﾒｲﾝ ｼﾖﾘ                          *
+      *                     ３.２．主処理                              *
+      ******************************************************************
+       MAIN-PROCESS                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  START  *****".
+      D    DISPLAY  "機能区分   = ["IXCAL-FUNCTION"]".
+      *-----------------------------------------------------------------
+       MAIN-START.
+      *----------   機能区分を判定する
+      *----------   ３.２.１ 曜日算出処理
+           IF       IXCAL-FUNCTION     =     '1'
+                    PERFORM   YOUBI-KEISAN.
+      *----------   ３.２.２ 日数計算処理
+           IF       IXCAL-FUNCTION     =     '2'
+                    PERFORM   NISSU-KEISAN.
+      *----------   ３.２.３ 日付計算処理
+           IF       IXCAL-FUNCTION     =     '3'
+                    PERFORM   HIZUKE-KEISAN.
+      *----------   ３.２.４ 営業日判定処理
+           IF       IXCAL-FUNCTION     =     '4'
+                    PERFORM   EIGYOBI-HANTEI.
+      *----------   ３.２.５ 初日末日取得処理
+           IF       IXCAL-FUNCTION     =     '5'
+                    PERFORM   GS-GM-EIGYOBI.
+      *----------   ３.２.６ 受渡日GET
+      *    IF       IXCAL-FUNCTION     =     '6'
+      *             PERFORM   UKEWATASHIBI.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  END  *****".
+      *-----------------------------------------------------------------
+       MAIN-PROCESS-EXIT.
+           EXIT.
+      ******* FINL-PROCESS **************************************/CAP/**
+      *                     ﾌﾟﾛｸﾞﾗﾑ ｼﾕｳﾘﾖｳｼﾞ ﾉ ｼﾖﾘ                     *
+      ******************************************************************
+      *FINL-PROCESS                SECTION.
+      *FINL-START.
+      *    EXIT.
+      *FINL-PROCESS-EXIT.
+      *    EXIT.
+      /*****************************************************************
+      *                          SUBROUTINES                           *
+      ******************************************************************
+      ******* HOLIDAY-TBL-EDIT **********************************/CAP/**
+      *                HOLIDAY FILE READ AND MAKE TABLE                *
+      *                ３.１.２ 休日ファイル読み取り処理               *
+      ******************************************************************
+       HOLIDAY-TBL-EDIT            SECTION.
+       HOLIDAY-TBL-EDIT-START.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  休日ファイル読み取る処理  START  *****".
+      *-----------------------------------------------------------------
+           INITIALIZE                   FILE-AREA
+           INITIALIZE                   PARM-SCZY1170-INOUT
+                                        PARM-SCZY1170-RTNPKG.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  環境変数取得処理  START  ***".
+      *-----------------------------------------------------------------
+           DISPLAY  "APL_DATEFILE_DIR"  UPON  ENV-NAME
+           ACCEPT  FILE-PATH   FROM  ENV-VALUE  ON EXCEPTION
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "取得休日ファイルPATH エラー"
+      *-------------------<DEBUG>---------------------------------------
+               MOVE  "0001"             TO  ERR-POS
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-SYS-ERR        TO  RTN-CD
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-C0             TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-ACCEPT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FILE-PATH:["FILE-PATH"]".
+      D    DISPLAY  "***  環境変数取得処理  END  ***".
+      *-----------------------------------------------------------------
+           STRING  FILE-PATH,
+                   "/DATEFILE.dat"            DELIMITED BY SPACE
+                   INTO  FILENAME.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FILENAME:["FILENAME"]".
+      *-----------------------------------------------------------------
+      *----------   休日ファイルをOPENする
+           OPEN     INPUT     HOLIDAY.
+           IF  ST-IN  NOT =  CNS-FILE-ST-00
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-IN       = ["  ST-IN       "]"
+      D    DISPLAY  "*****  休日ファイルOPENエラー  *****"
+      *-----------------------------------------------------------------
+               MOVE  "0002"             TO  ERR-POS
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-OPEN-ERR       TO  RTN-CD
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  FUNCTION NUMVAL(ST-IN)
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-C0             TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  休日ファイルOPEN  正常  *****".
+      *-----------------------------------------------------------------
+      *----------  ｷﾕｳｼﾞﾂ ﾌｱｲﾙ  START ﾒｲﾚｲ
+      *----------  休日 ファイル START 命令
+           MOVE     LOW-VALUE     TO  HOLIDAY-KEY.
+      *    START    HOLIDAY       KEY IS  NOT <  HOLIDAY-KEY
+      *             INVALID       GO  TO  HOLIDAY-TBL-EDIT-EXIT.
+      *----------   休日ファイルをREADする
+       IS-HOLIDAY-NEXT-READ.
+           ADD      1             TO          I.
+      *    READ     HOLIDAY       NEXT RECORD
+           READ     HOLIDAY                                              DBG
+                    AT  END       MOVE HIGH-VALUE   TO
+                                           WK-HOLIDAY-MMDD (I)
+                                  GO   TO  HOLIDAY-TBL-EDIT-010.
+           IF  ST-IN  NOT =  CNS-FILE-ST-00
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-IN       = ["  ST-IN       "]"
+      D    DISPLAY  "*****  休日ファイルREADエラー  *****"
+      *-----------------------------------------------------------------
+               MOVE  "0003"             TO  ERR-POS
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-READ-ERR       TO  RTN-CD
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  FUNCTION NUMVAL(ST-IN)
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-C0             TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  休日ファイルREAD  正常  *****".
+      *-----------------------------------------------------------------
+           MOVE     HOLIDAY-MMDD       TO  WK-HOLIDAY-MMDD (I).
+           MOVE     HOLIDAY-START-YMD  TO  WK-HOLIDAY-START-YMD (I).
+           MOVE     HOLIDAY-END-YMD    TO  WK-HOLIDAY-END-YMD (I).
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "IN-REC  = [" IN-REC   "]".
+      D    DISPLAY  "WK-HOLIDAY-MMDD("I") = [" WK-HOLIDAY-MMDD(I)  "]".
+      D    DISPLAY  "WK-HOLIDAY-START-YMD("I") = [" 
+      D                                  WK-HOLIDAY-START-YMD (I)  "]".
+      D    DISPLAY  "WK-HOLIDAY-END-YMD("I") = [" 
+      D                                    WK-HOLIDAY-END-YMD (I)  "]".
+      *-----------------------------------------------------------------
+           GO  TO   IS-HOLIDAY-NEXT-READ.
+       HOLIDAY-TBL-EDIT-010.
+           MOVE     '9'                TO  READ-FLG.
+      *----------   休日ファイルをCLOSEする
+           CLOSE    HOLIDAY.
+           IF  ST-IN  NOT =  CNS-FILE-ST-00
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-IN       = ["  ST-IN       "]"
+      D    DISPLAY  "*****  休日ファイルCLOSEエラー  *****"
+      *-----------------------------------------------------------------
+               MOVE  "0004"             TO  ERR-POS
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-CLOSE-ERR      TO  RTN-CD
+                                        OF  PARM-SCZY1170-ARG1
+               MOVE  FUNCTION NUMVAL(ST-IN)
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-C0             TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  休日ファイルCLOSE  正常  *****".
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  休日ファイル読み取る処理  END  *****".
+      *-----------------------------------------------------------------
+       HOLIDAY-TBL-EDIT-EXIT.
+           EXIT.
+      ******* INIT-SUB     **************************************/CAP/**
+      *                     ﾜ-ｸ ｴﾘｱ   ｼﾖｷﾁｶ                            *
+      *                     ３.１.３ 初期化処理                        *
+      ******************************************************************
+       INIT-SUB                    SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  初期値化処理  START  *****".
+      *-----------------------------------------------------------------
+       INIT-SUB-START.
+           INITIALIZE             PARM-SCZY1170-INOUT
+                                  PARM-SCZY1170-RTNPKG.
+           INITIALIZE             PARM-SCZY1020-RTNPKG.
+           MOVE     SPACE         TO  FLG-AREA.
+           MOVE     ZERO          TO  WK-YMD-KEISAN.
+           MOVE     ZERO          TO  CNT-AREA.
+      *    MOVE     R1-NOMAL-END  TO  IXCAL-CD-1.
+           MOVE     SPACE         TO  IXCAL-HIZUKE-KBN.
+           MOVE      0            TO  I.
+           IF  IXCAL-KJN-YMD-1    OF  PARM-SCZY1020-INOUT  NOT = ZEROS
+           THEN
+               IF       ( IXCAL-MM-1     <   1  )
+                   OR   ( IXCAL-MM-1     >   12 )
+               THEN
+                   IF  IXCAL-FUNCTION  = "1" AND IXCAL-TANI-KBN = "2"
+                   THEN
+                       MOVE  CNS-HIZUKE-ERR  TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+                       PERFORM  END-RTN
+                   ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  基準年月日１の月をチェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                        MOVE  "0012"          TO  ERR-POS
+                                              OF  PARM-SCZY1170-ARG1
+                        MOVE  CNS-PARM-ERR    TO  RTN-CD
+                                              OF  PARM-SCZY1170-ARG1
+                        MOVE  CNS-C0          TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-ARG1
+                        PERFORM   ERR-RTN
+                   END-IF
+               END-IF
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ERROR 基準年月日１が未入力   *****"
+      *-----------------------------------------------------------------
+               MOVE  "0014"                   TO  ERR-POS
+                                              OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-PARM-ERR             TO  RTN-CD
+                                              OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-C0                   TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-ARG1
+               PERFORM   ERR-RTN
+           END-IF.
+           IF  IXCAL-KJN-YMD-2    OF  PARM-SCZY1020-INOUT  NOT = ZEROS
+           THEN
+               IF       ( IXCAL-MM-2     <   1  )
+                   OR   ( IXCAL-MM-2     >   12 )
+               THEN
+                   IF  IXCAL-FUNCTION  = "1" AND IXCAL-TANI-KBN = "2"
+                   THEN
+                       MOVE  CNS-HIZUKE-ERR  TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+                       PERFORM  END-RTN
+                   ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  基準年月日２の月をチェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                        MOVE  "0013"          TO  ERR-POS
+                                              OF  PARM-SCZY1170-ARG1
+                        MOVE  CNS-PARM-ERR    TO  RTN-CD
+                                              OF  PARM-SCZY1170-ARG1
+                        MOVE  CNS-C0          TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-ARG1
+                        PERFORM   ERR-RTN
+                   END-IF
+               END-IF
+           ELSE
+               IF  IXCAL-FUNCTION  = "2"     THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ERROR 基準年月日２が未入力   *****"
+      *-----------------------------------------------------------------
+                 MOVE  "0015"                 TO  ERR-POS
+                                              OF  PARM-SCZY1170-ARG1
+                 MOVE  CNS-PARM-ERR           TO  RTN-CD
+                                              OF  PARM-SCZY1170-ARG1
+                 MOVE  CNS-C0                 TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-ARG1
+                 PERFORM   ERR-RTN
+               END-IF
+           END-IF.           
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  初期値化処理  END  *****".
+      *-----------------------------------------------------------------
+       INIT-SUB-EXIT.
+           EXIT.
+      /****** YOUBI-KEISAN **************************************/CAP/**
+      *             ﾖｳﾋﾞ ｹｲｻﾝ                                          *
+      *                               ｷﾉｳ ｸﾌﾞﾝ  =   "1"                *
+      *             ３.２.１ 曜日計算処理                              *
+      ******************************************************************
+       YOUBI-KEISAN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  曜日計算処理  START  *****".
+      D    DISPLAY  "基準年月日１       = ["IXCAL-KJN-YMD-1   "]".
+      D    DISPLAY  "計算ベース区分     = ["IXCAL-COMP-BASE   "]".
+      D    DISPLAY  "単位区分           = ["IXCAL-TANI-KBN    "]".
+      *-----------------------------------------------------------------
+       YOUBI-KEISAN-START.
+           MOVE     ZERO         TO   IXCAL-KJN-YMD-2.
+           MOVE     ZERO         TO   IXCAL-KJN-2-YOBI.
+      *----------  単位区分を判定する
+           IF       IXCAL-TANI-KBN   =  '1'
+                    GO TO     YOUBI-KEISAN-010.
+      *----------  ﾋﾂﾞｹ ﾁｴﾂｸ
+      *----------  日付チェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付チェック  START  *****".
+      D    DISPLAY  "IXCAL-KJN-YMD-1 = ["IXCAL-KJN-YMD-1    
+      D                                      OF PARM-SCZY1020-INOUT"]".
+      *-----------------------------------------------------------------
+      *----------  月数チェック
+           IF       ( IXCAL-MM-1     <   1  )
+               OR   ( IXCAL-MM-1     >   12 )
+      *             MOVE      R1-HIZUKE-1-ERR  TO  IXCAL-CD-1
+      *             MOVE      R2-YMD-ERR       TO  IXCAL-CD-2
+      *             GO TO     YOUBI-KEISAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付チェック  判定結果NG  *****"
+      *-----------------------------------------------------------------
+                    MOVE  CNS-HIZUKE-ERR       TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1.
+      *----------  日数チェック
+           IF       ( IXCAL-MM-1         =    2  )
+               AND  ( IXCAL-COMP-BASE    =   '2' )
+                    MOVE      13         TO  I
+           ELSE
+                    MOVE      IXCAL-MM-1 TO  I.
+           IF       ( IXCAL-DD-1     <   1 )
+               OR   ( IXCAL-DD-1     >   T-DAYS (I) )
+      *             MOVE      R1-HIZUKE-1-ERR  TO  IXCAL-CD-1
+      *             MOVE      R2-YMD-ERR       TO  IXCAL-CD-2.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付チェック  判定結果NG  *****"
+      *-----------------------------------------------------------------
+                    MOVE  CNS-HIZUKE-ERR       TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付チェック  END  *****".
+      *-----------------------------------------------------------------
+           GO TO    YOUBI-KEISAN-EXIT.
+      *----------  ﾖｳﾋﾞ ﾊﾝﾃｲ
+      *----------  曜日判定
+       YOUBI-KEISAN-010.
+           MOVE     IXCAL-KJN-YMD-1       TO  S-JDATE-ARG1.
+      *----------  ３.２.１.１ 曜日算出処理
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2      NOT   =   R2-NOMAL-END
+      *             MOVE   R1-YOUBI-1-ERR     TO  IXCAL-CD-1
+      *             GO     TO       YOUBI-KEISAN-EXIT.
+           MOVE     IXCAL-KJN-YMD-1    TO  IXCAL-KJN-YMD-2.
+           MOVE     S-JDATE-ARG4       TO  IXCAL-KJN-2-YOBI.
+       YOUBI-KEISAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "基準年月日２       = ["IXCAL-KJN-YMD-2   "]".
+      D    DISPLAY  "基準日２－曜日     = ["IXCAL-KJN-2-YOBI  "]".
+      D    DISPLAY  "*****  曜日計算処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      /****** NISSU-KEISAN **************************************/CAP/**
+      *             ﾆﾂｽｳ ｹｲｻﾝ                                          *
+      *                               ｷﾉｳ ｸﾌﾞﾝ  =   "2"                *
+      *             ３.２.２ 日数計算処理                              *
+      ******************************************************************
+       NISSU-KEISAN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数計算処理  START  *****".
+      D    DISPLAY  "基準年月日１       = ["IXCAL-KJN-YMD-1   "]".
+      D    DISPLAY  "計算ベース区分     = ["IXCAL-COMP-BASE   "]".
+      D    DISPLAY  "前後区分２         = ["IXCAL-ZENGO-KBN-2 "]".
+      D    DISPLAY  "単位区分           = ["IXCAL-TANI-KBN    "]".
+      D    DISPLAY  "基準年月日２       = ["IXCAL-KJN-YMD-2   "]".
+      *-----------------------------------------------------------------
+       NISSU-KEISAN-START.
+           MOVE     ZERO                   TO    IXCAL-DAYS.
+      *----------  ﾈﾝｽｳ ｹｲｻﾝ                                            NS860811
+      *----------  ３.２.２.１ 年数計算処理
+           IF     ( IXCAL-TANI-KBN         =    '3' )     AND             FROM
+                  ( IXCAL-ZENGO-KBN-2      =    '1' )     AND
+                  ( IXCAL-COMP-BASE        =    '1' )
+                    PERFORM  NENSU-KEISAN                                  TO
+                    GO TO    NISSU-KEISAN-010.                          NS860811
+      *----------  FROM = TO ﾉ ﾊﾞｱｲ
+      *----------  ３.２.２.２ 日期同じ算出処理
+           IF       IXCAL-KJN-YMD-1        =    IXCAL-KJN-YMD-2
+                    PERFORM  NISSU-FROM-TO
+                    GO TO    NISSU-KEISAN-010.
+      *----------  ﾆﾂｽｳ ｹｲｻﾝ
+      *----------  ３.２.２.３ 日数DAYS処理
+           IF       IXCAL-TANI-KBN         =    '1'
+                    PERFORM  NISSU-DAYS
+                    GO TO    NISSU-KEISAN-010.
+      *----------  ﾂｷｽｳ ｹｲｻﾝ   ﾈﾝｽｳ ｹｲｻﾝ
+      *----------  ３.２.２.４ 月年数算出処理
+           IF       IXCAL-TANI-KBN         =    '2'  OR  '3'
+                    PERFORM  NISSU-M-Y.
+      *----------  ﾆﾂｽｳ ｾﾂﾄ
+      *----------  日数を設定する
+       NISSU-KEISAN-010.
+      *    IF       IXCAL-CD-1         NOT =    R1-NOMAL-END
+      *             GO TO    NISSU-KEISAN-EXIT.
+           IF       IXCAL-TANI-KBN         =    '2'
+                    MOVE     WK-SU3          TO   IXCAL-DAYS
+           ELSE
+                    MOVE     WK-SU6          TO   IXCAL-DAYS.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "日数    = ["  IXCAL-DAYS    "]".
+      D    DISPLAY  "*****  日数計算処理  END  *****".
+      *-----------------------------------------------------------------
+       NISSU-KEISAN-EXIT.
+           EXIT.
+      ******* NISSU-FR0M-TO  ************************************/CAP/**
+      *             FROM DATE = TO DATE ( ﾆﾂｽｳ ｹｲｻﾝ )                  *
+      *             ３.２.２.２ 日期同じ算出処理                       *
+      ******************************************************************
+       NISSU-FROM-TO               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日期同じ算出処理  START  *****".
+      *-----------------------------------------------------------------
+       NISSU-FROM-TO-START.
+           IF       IXCAL-ZENGO-KBN-2  NOT =    '1'
+                    MOVE     0              TO   WK-SU3  WK-SU6
+                    GO TO    NISSU-FROM-TO-EXIT.
+      *----------  FROM, TO ｵ ﾌｸﾒﾙ
+           MOVE     1                       TO   WK-SU3  WK-SU6.
+           IF       IXCAL-COMP-BASE    NOT =    '1'
+                    GO TO    NISSU-FROM-TO-020.
+      *----------  ｽﾍﾞﾃ ﾉ ﾋﾂﾞｹ ﾀｲｼﾖｳ
+      *----------  すべての日付対象
+      *----------  ﾋ
+      *----------  単位区分が'1'（日）の場合
+           IF       IXCAL-TANI-KBN         =    '1'
+                    GO TO    NISSU-FROM-TO-EXIT.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           MOVE     IXCAL-KJN-YMD-1        TO   WK-KIJUNBI
+                                                WK-URU-YYMMDD.
+           PERFORM  URUUDOSHI-CHK.
+      *----------  ﾂｷ
+      *----------  単位区分が'2'（月）の場合
+           IF       IXCAL-TANI-KBN     NOT =    '2'
+                    GO TO     NISSU-FROM-TO-010.
+      *----------  基準日の当月の日数取得
+           IF       ( IXCAL-MM-1           =     2 )
+               AND  ( URUUDOSHI-FLG        =     'YES' )
+                    MOVE      13           TO    I
+           ELSE
+                    MOVE      IXCAL-MM-1   TO    I.
+           COMPUTE  WK-SU3     =    1    /   T-DAYS (I).
+           GO TO    NISSU-FROM-TO-EXIT.
+      *----------  ﾈﾝ
+      *----------  単位区分が'3'（年）の場合
+       NISSU-FROM-TO-010.
+           IF       URUUDOSHI-FLG       =    'YES'
+                    COMPUTE   WK-SU6    =    1     /    366
+           ELSE
+                    COMPUTE   WK-SU6    =    1     /    365.
+           GO TO    NISSU-FROM-TO-EXIT.
+      *----------  ｼﾖｳｹﾝ ｴｲｷﾞﾖｳﾋﾞ   ｷﾞﾝｺｳ ｴｲｷﾞﾖｳﾋﾞ
+      *----------  計算ベース区分 NOT = '1'(カレンダーベース)の時、
+       NISSU-FROM-TO-020.
+           MOVE     IXCAL-KJN-YMD-1        TO    WK-KIJUNBI
+                                                 S-JDATE-ARG1.
+      *----------  ３.２.１.１ 曜日算出処理
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2    NOT =    R2-NOMAL-END
+      *             MOVE      R1-YOUBI-2-ERR     TO   IXCAL-CD-1
+      *             GO  TO    NISSU-FROM-TO-EXIT.
+           MOVE     S-JDATE-ARG4       TO   WK-YOUBI.
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2    NOT =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-2-ERR    TO  IXCAL-CD-1
+      *             GO  TO    NISSU-FROM-TO-EXIT.
+           IF       HOLIDAY-FLG        =    'YES'
+                    MOVE      0        TO    WK-SU6
+           ELSE
+                    MOVE      1        TO    WK-SU6.
+       NISSU-FROM-TO-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日期同じ算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* NISSU-DAYS   **************************************/CAP/**
+      *             ﾆﾂｽｳ ｹｲｻﾝ  ( ﾆﾂｽｳ ｹｲｻﾝ )                           *
+      *             ３.２.２.３ 日数DAYS処理                           *
+      ******************************************************************
+       NISSU-DAYS                  SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数DAYS処理  START  *****".
+      *-----------------------------------------------------------------
+       NISSU-DAYS-START.
+      *----------  ｽﾀ-ﾄ  ﾋﾂﾞｹ ﾉ ｾﾂﾄ
+      *----------  スタート年月日のセット
+           IF       IXCAL-ZENGO-KBN-2  NOT =    '2'
+                    MOVE     IXCAL-KJN-YMD-1    TO  S-YMD
+                    GO TO    NISSU-DAYS-010.
+      *----------  基準年月日１の翌日を取得
+           MOVE     IXCAL-KJN-YMD-1    TO  S-JDATE-ARG1.
+           MOVE     1                  TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR    TO   IXCAL-CD-1
+      *             GO TO    NISSU-DAYS-EXIT.
+           MOVE     S-JDATE-ARG3        TO  S-YMD.
+      *----------  ｴﾝﾄﾞ  ﾋﾂﾞｹ ﾉ ｾﾂﾄ
+      *----------  エンド年月日のセット
+       NISSU-DAYS-010.
+           IF       IXCAL-ZENGO-KBN-2  NOT =    '3'
+                    MOVE     IXCAL-KJN-YMD-2    TO  E-YMD
+                    GO TO    NISSU-DAYS-020.
+      *----------  基準年月日１の前日を取得
+           MOVE     IXCAL-KJN-YMD-2    TO  S-JDATE-ARG1.
+           MOVE     -1                 TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR    TO   IXCAL-CD-1
+      *             GO TO    NISSU-DAYS-EXIT.
+           MOVE     S-JDATE-ARG3       TO  E-YMD.
+      *----------  ﾆﾂｽｳ ｻﾝｼﾕﾂ
+      *----------  ３.２.２.３.１ 日数算出処理
+       NISSU-DAYS-020.
+           PERFORM  NISSU-SANSHUTSU.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数DAYS処理  END  *****".
+      *-----------------------------------------------------------------
+       NISSU-DAYS-EXIT.
+           EXIT.
+      ******* NENSU-KEISAN **************************************/CAP/**
+      *             ﾈﾝｽｳ ｹｲｻﾝ  ( ﾆﾂｽｳ ｹｲｻﾝ )                           *
+      *             ３.２.２.１ 年数計算処理                           *
+      ******************************************************************
+       NENSU-KEISAN                SECTION.                             NS860811
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  年数計算処理  START  *****".
+      *-----------------------------------------------------------------
+       NENSU-KEISAN-START.                                                FROM
+      *----------  ﾈﾝｽｳ ｾﾂﾄ
+      *----------  年数セット
+           COMPUTE  WK-YYMMDD-9
+                        =    IXCAL-KJN-YMD-2    -   IXCAL-KJN-YMD-1.
+           MOVE     WK-YYYY            TO   WK-SU6.
+      *----------  ｽﾀ-ﾄ  ﾋﾂﾞｹ ﾉ ｾﾂﾄ
+      *----------  スタート日付のセット
+           MOVE     IXCAL-KJN-YMD-1    TO   S-YMD.
+           ADD      WK-SU6             TO   S-YY.
+           IF       S-MMDD         =   '0229'
+               MOVE     S-YMD               TO   WK-URU-YYMMDD
+      *----------  ３.２.１.１.３ 閏年判断処理
+               PERFORM  URUUDOSHI-CHK
+               IF       URUUDOSHI-FLG  =    'NO'
+                    MOVE     28             TO   S-DD
+               END-IF
+           END-IF.
+           MOVE     S-YMD              TO   WK-S-YMD.
+      *----------  ｴﾝﾄﾞ  ﾋﾂﾞｹ ﾉ ｾﾂﾄ
+      *----------  エンド日付のセット
+           MOVE     IXCAL-KJN-YMD-2    TO   E-YMD.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-SU6         = ["  WK-SU6        "]".
+      D    DISPLAY  "S-YMD          = ["  S-YMD         "]".
+      D    DISPLAY  "E-YMD          = ["  E-YMD         "]".
+      *-----------------------------------------------------------------
+      *----------  ﾆﾂｽｳ ｻﾝｼﾕﾂ
+      *----------  ３.２.２.１.１分子計算処理
+           PERFORM  BUNSHI-KEISAN.
+      *----------  ﾌﾞﾝﾎﾞ ｻﾝｼﾕﾂ
+      *----------  当年総日数取得
+           MOVE     WK-S-YMD           TO   WK-URU-YYMMDD.
+           IF       WK-S-MMDD     >    '0229'
+               ADD      1              TO   WK-URU-YYYY
+           END-IF.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "BUNSHI-CNT          = ["  BUNSHI-CNT          "]".
+      D    DISPLAY  "分子計算処理後　WK-SU6　 = ["  WK-SU6  "]".
+      *-----------------------------------------------------------------
+           IF       URUUDOSHI-FLG      =    'YES'
+                    COMPUTE  WK-SU6 = ( BUNSHI-CNT  /  366 ) +  WK-SU6
+               ELSE
+                    COMPUTE  WK-SU6 = ( BUNSHI-CNT  /  365 ) +  WK-SU6
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  年数計算処理  END  *****".
+      *-----------------------------------------------------------------
+       NENSU-KEISAN-EXIT.                                                  TO
+           EXIT.                                                        NS860811
+      ******* NISSU-M-Y    **************************************/CAP/**
+      *             ﾂｷｽｳ ｹｲｻﾝ   ﾈﾝｽｳ ｹｲｻﾝ  ( ﾆﾂｽｳ ｹｲｻﾝ )               *
+      *             ３.２.２.４ 月年数算出処理                         *
+      ******************************************************************
+       NISSU-M-Y                   SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月年数算出処理  START  *****".
+      *-----------------------------------------------------------------
+       NISSU-M-Y-START.
+      *----------  ﾂｷｽｳ   ﾈﾝｽｳ
+      *----------  単位区分の判定、年数（中間）/月数算出
+           IF       IXCAL-TANI-KBN     =   '2'
+      *----------  単位区分 = '2'(月)の時
+                    COMPUTE  WK-NENSU  =   IXCAL-YY-2   -  IXCAL-YY-1
+                    COMPUTE  WK-SU3    =
+                             ( IXCAL-MM-2  +  ( WK-NENSU  *  12 )
+                                                   - IXCAL-MM-1 )  -  1
+           ELSE
+      *----------  単位区分 = '3'(年)の時
+                    COMPUTE  WK-SU6    =   IXCAL-YY-2
+                                                   - IXCAL-YY-1 -  1.
+      *----------  FROM-DATE
+      *----------  算出FROM-DATEの場合
+      *----------  ｷﾖｳﾂｳ   ｽﾀ-ﾄ ﾋﾂﾞｹ
+      *----------  スタート日付セット
+           IF       IXCAL-ZENGO-KBN-2       NOT =   '2'
+                    MOVE     IXCAL-KJN-YMD-1    TO  S-YMD
+                    GO TO    NISSU-M-Y-010.
+           MOVE     IXCAL-KJN-YMD-1             TO  S-JDATE-ARG1.
+           MOVE     1                           TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR    TO   IXCAL-CD-1
+      *             GO TO    NISSU-M-Y-EXIT.
+           MOVE     S-JDATE-ARG3                TO  S-YMD.
+       NISSU-M-Y-010.
+      *----------  エンド日付セット
+           MOVE     IXCAL-KJN-YMD-1             TO  E-YMD.
+      *----------  ﾈﾝ  ｴﾝﾄﾞ ﾋﾂﾞｹ ｾﾂﾄ
+      *----------  年の時、エンド日付セット
+           IF       IXCAL-TANI-KBN     =   '3'
+                    MOVE     '1231'             TO  E-MMDD
+                    GO TO    NISSU-M-Y-020.
+      *----------  ﾂｷ  ｴﾝﾄﾞ ﾋﾂﾞｹ ｾﾂﾄ
+      *----------  月の時、エンド日付セット
+           IF       IXCAL-MM-1         =    2
+                    MOVE     IXCAL-KJN-YMD-1    TO  WK-KIJUNBI
+                                                    WK-URU-YYMMDD
+      *----------  ３.２.１.１.３ 閏年判断処理
+                    PERFORM  URUUDOSHI-CHK.
+           IF       ( IXCAL-MM-1       =    2 )
+               AND  ( URUUDOSHI-FLG     =    'YES' )
+                    MOVE     13                 TO  I
+           ELSE
+                    MOVE     IXCAL-MM-1         TO  I.
+           MOVE     T-DAYS (I)                  TO  E-DD.
+      *----------  ｷﾖｳﾂｳ  FROM-DATE  ｻﾝｼﾕﾂ
+      *----------  FROM-DATE  算出
+       NISSU-M-Y-020.
+      *----------  ３.２.２.３.１ 日数算出処理
+           PERFORM  NISSU-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR     TO   IXCAL-CD-1
+      *             GO TO    NISSU-M-Y-EXIT.
+      *---------- TO-DATE
+      *----------  算出TO-DATEの場合
+      *---------- ｴﾝﾄﾞ ﾋﾂﾞｹ  ﾉ  ｾﾂﾄ
+      *----------  エンド日付セット
+           IF       IXCAL-ZENGO-KBN-2  NOT =    '3'
+                    MOVE     IXCAL-KJN-YMD-2    TO  E-YMD
+                    GO TO    NISSU-M-Y-030.
+           MOVE     IXCAL-KJN-YMD-2             TO  S-JDATE-ARG1.
+           MOVE     -1                          TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR    TO   IXCAL-CD-1
+      *             GO TO    NISSU-M-Y-EXIT.
+           MOVE     S-JDATE-ARG3                TO  E-YMD.
+       NISSU-M-Y-030.
+      *----------  ｽﾀ-ﾄ ﾋﾂﾞｹ  ﾉ  ｾﾂﾄ
+      *----------  スタート日付セット
+           MOVE     IXCAL-KJN-YMD-2             TO  S-YMD.
+           IF       IXCAL-TANI-KBN     =   '2'
+                    MOVE     1                  TO  S-DD
+           ELSE
+                    MOVE     '0101'             TO  S-MMDD.
+      *----------  TO-DATE  ｻﾝｼﾕﾂ
+      *----------  FROM-DATE  算出
+      *----------  ３.２.２.３.１ 日数算出処理
+           PERFORM  NISSU-SANSHUTSU.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月年数算出処理  END  *****".
+      *-----------------------------------------------------------------
+       NISSU-M-Y-EXIT.
+           EXIT.
+      ******* NISSU-SANSHUTSU ***********************************/CAP/**
+      *             ﾆﾂｽｳ ｻﾝｼﾕﾂ ﾙ-ﾁﾝ  ( ﾆﾂｽｳ ｹｲｻﾝ  ﾖﾘ  PERFORM )        *
+      *             ３.２.２.３.１ 日数算出処理                        *
+      ******************************************************************
+       NISSU-SANSHUTSU             SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数算出処理  START  *****".
+      *-----------------------------------------------------------------
+       NISSU-SANSHUTSU-START.
+      *----------  ３.２.１.１ 曜日算出処理
+           MOVE     S-YMD               TO  S-JDATE-ARG1.
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR    TO   IXCAL-CD-1
+      *             GO TO    NISSU-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG4       TO  WK-YOUBI.
+           MOVE     ZERO               TO  BUNSHI-CNT.
+      *----------  計算ベース区分の判定
+      *----------  計算ベース区分 = '1'の時、カレンダーベース
+           IF       IXCAL-COMP-BASE     =  '1'
+      *----------  ３.２.２.１.１分子計算処理
+                    PERFORM  BUNSHI-KEISAN
+      *----------  日数算出
+                    GO TO    NISSU-SANSHUTSU-040.
+      *----------  計算ベース区分 NOT= '1'の時、カレンダーベース以外
+      *----------  スタート年月日とエンド年月日のチェック
+       NISSU-SANSHUTSU-010.
+           IF       S-YMD    >    E-YMD
+      *----------  日数算出
+                    GO TO    NISSU-SANSHUTSU-040.
+       NISSU-SANSHUTSU-020.
+      *----------  ３.２.４.１営業日チェック処理
+           MOVE     S-YMD               TO  WK-KIJUNBI.
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR     TO   IXCAL-CD-1
+      *             GO TO     NISSU-SANSHUTSU-EXIT.
+           IF       HOLIDAY-FLG         =   'NO '
+                    ADD      1          TO  BUNSHI-CNT.
+      *----------  ﾖｸｼﾞﾂ ｵ ﾓﾄﾒﾙ
+      *----------  スタート年月日が休日の場合、翌日を求める
+       NISSU-SANSHUTSU-030.
+           MOVE     S-YMD               TO  S-JDATE-ARG1.
+           MOVE     1                   TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT =    R2-NOMAL-END
+      *             MOVE     R1-HIZUKE-2-ERR     TO   IXCAL-CD-1
+      *             GO TO    NISSU-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG3        TO  S-YMD.
+           MOVE     S-JDATE-ARG4        TO  WK-YOUBI.
+      *----------  「スタート年月日とエンド年月日のチェック」に進へ
+           GO TO    NISSU-SANSHUTSU-010.
+      *----------  ﾆﾂｽｳ ｻﾝｼﾕﾂ
+      *----------  日数算出
+       NISSU-SANSHUTSU-040.
+      *----------  単位区分の判定
+      *----------  ﾋﾆﾁ
+      *----------  単位区分 = '1'(日)の時
+           IF       IXCAL-TANI-KBN     =   '1'
+                    MOVE     BUNSHI-CNT     TO   WK-SU6
+                    GO TO    NISSU-SANSHUTSU-EXIT.
+      *----------  単位区分 = '3'(年)の時
+           IF       IXCAL-TANI-KBN     NOT =    '2'
+                    GO TO    NISSU-SANSHUTSU-050.
+      *----------  ﾂｷ
+      *----------  単位区分 = '2'(月)の時
+           IF       E-MM     =    2
+                    MOVE     E-YMD      TO  WK-KIJUNBI
+                                            WK-URU-YYMMDD
+      *----------  ３.２.１.１.３ 閏年判断処理
+                    PERFORM  URUUDOSHI-CHK.
+           IF       ( URUUDOSHI-FLG     =   'YES' )
+               AND  ( E-MM              =   2     )
+                    MOVE     13         TO  I
+           ELSE
+                    MOVE     E-MM       TO  I.
+           COMPUTE  WK-SU3    =   ( BUNSHI-CNT  /  T-DAYS (I) )
+                                                  +  WK-SU3.
+           GO TO    NISSU-SANSHUTSU-EXIT.
+       NISSU-SANSHUTSU-050.
+      *----------  ﾈﾝ
+      *----------  単位区分 = '3'(年)の時
+           MOVE     E-YMD               TO  WK-KIJUNBI
+                                            WK-URU-YYMMDD.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+           IF       URUUDOSHI-FLG       =   'YES'
+                    COMPUTE  WK-SU6 = ( BUNSHI-CNT  /  366 ) +  WK-SU6
+           ELSE
+                    COMPUTE  WK-SU6 = ( BUNSHI-CNT  /  365 ) +  WK-SU6.
+       NISSU-SANSHUTSU-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "BUNSHI-CNT          = ["  BUNSHI-CNT          "]".
+      D    DISPLAY  "WK-SU6              = ["  WK-SU6              "]".
+      D    DISPLAY  "WK-SU3              = ["  WK-SU3              "]".
+      D    DISPLAY  "URUUDOSHI-FLG       = ["  URUUDOSHI-FLG       "]".
+      D    DISPLAY  "*****  日数算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* BUNSHI-KEISAN *************************************/CAP/**
+      *                 ﾌﾞﾝｼ ｹｲｻﾝ                                      *
+      *                 ３.２.２.１.１分子計算処理                     *
+      ******************************************************************
+       BUNSHI-KEISAN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  分子計算処理  START  *****".
+      *-----------------------------------------------------------------
+       BUNSHI-KEISAN-START.
+           MOVE     ZERO                TO  BUNSHI-CNT.
+      *---------  スタート年月日の年月 > エンド年月日の年月　時
+           IF       S-YMD  >  E-YMD
+                    GO  TO   BUNSHI-KEISAN-EXIT.
+      *---------  (S-YYMM  =  E-YYMM) ﾉ ﾄｷ
+      *---------  スタート年月日の年月 = エンド年月日の年月　時
+           IF       (S-YY  =  E-YY)
+              AND   (S-MM  =  E-MM)
+                    COMPUTE  BUNSHI-CNT  =  (E-DD - S-DD)  +  1
+                    GO  TO   BUNSHI-KEISAN-EXIT.
+      *---------  (S-YY  NOT  =  E-YY) ﾉ ﾄｷ
+      *---------  スタート年月日の年 ≠ エンド年月日の年　時
+       BUNSHI-KEISAN-010.
+           MOVE     S-YMD               TO  WK-URU-YYMMDD.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+      *---------  スタート年月日の当月の日数を取得
+           IF       (S-MM  =  2)
+               AND  (URUUDOSHI-FLG  =  'YES')
+                    MOVE  13            TO  I
+           ELSE
+                    MOVE  S-MM          TO  I.
+           COMPUTE  BUNSHI-CNT  =  (T-DAYS (I)  -  S-DD)  +  1.
+           ADD      1                   TO  S-MM.
+           IF       S-MM  >  12
+                    ADD   1             TO  S-YY
+                    MOVE  1             TO  S-MM.
+      *---------  ３.２.２.１.２分子算出処理
+           PERFORM  BUNSHI-SANSHUTSU  UNTIL  S-YYMM  NOT  <  E-YYMM.
+           ADD      E-DD                TO  BUNSHI-CNT.
+       BUNSHI-KEISAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  分子計算処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* BUNSHI-SANSHUTSU***********************************/CAP/**
+      *            ﾌﾞﾝｼ ｻﾝｼﾕﾂ                                          *
+      *            ３.２.２.１.２分子算出処理                          *
+      ******************************************************************
+       BUNSHI-SANSHUTSU   SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  分子算出処理  START  *****".
+      *-----------------------------------------------------------------
+       BUNSHI-SANSHUTSU-START.
+           COMPUTE  WK-YYYY  =  S-YY  +  1.
+           IF       WK-YYYY  NOT  <  E-YY
+                    GO  TO   BUNSHI-SANSHUTSU-010.
+      *---------  ﾈﾝｶﾝ ﾆﾂｽｳ ｹｲｻﾝ
+      *------   年間日数計算
+           MOVE     S-YMD               TO  WK-URU-YYMMDD.
+           IF       S-MM  >  2
+                    ADD   1             TO  WK-URU-YYYY.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+           IF       URUUDOSHI-FLG  =  'YES'
+                    ADD   366           TO  BUNSHI-CNT
+           ELSE
+                    ADD   365           TO  BUNSHI-CNT.
+           ADD      1                   TO  S-YY.
+           GO  TO   BUNSHI-SANSHUTSU-EXIT.
+      *------   ｹﾞﾂｶﾝ ﾆﾂｽｳ ｹｲｻﾝ
+      *------   月間日数計算
+       BUNSHI-SANSHUTSU-010.
+           MOVE     S-YMD               TO  WK-URU-YYMMDD.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+           IF       (S-MM  =  2)
+               AND  (URUUDOSHI-FLG  =  'YES')
+                    MOVE  13            TO  I
+           ELSE
+                    MOVE  S-MM          TO  I.
+           ADD      T-DAYS (I)          TO  BUNSHI-CNT.
+           ADD      1                   TO  S-MM.
+           IF       S-MM  >  12
+                    ADD   1             TO  S-YY
+                    MOVE  1             TO  S-MM.
+       BUNSHI-SANSHUTSU-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "BUNSHI-CNT    = ["  BUNSHI-CNT    "]".
+      D    DISPLAY  "*****  分子算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      /****** HIZUKE-KEISAN *************************************/CAP/**
+      *             ﾋﾂﾞｹ ｹｲｻﾝ                                          *
+      *                               ｷﾉｳ ｸﾌﾞﾝ  =   "3"                *
+      *             ３.２.３ 日付計算処理                              *
+      ******************************************************************
+       HIZUKE-KEISAN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付計算処理  START  *****".
+      D    DISPLAY  "基準年月日１       = ["IXCAL-KJN-YMD-1   "]".
+      D    DISPLAY  "計算ベース区分     = ["IXCAL-COMP-BASE   "]".
+      D    DISPLAY  "前後区分１         = ["IXCAL-ZENGO-KBN-1 "]".
+      D    DISPLAY  "前後区分２         = ["IXCAL-ZENGO-KBN-2 "]".
+      D    DISPLAY  "単位区分           = ["IXCAL-TANI-KBN    "]".
+      D    DISPLAY  "日数               = ["IXCAL-DAYS        "]".
+      *-----------------------------------------------------------------
+       HIZUKE-KEISAN-START.
+           MOVE     IXCAL-KJN-YMD-1     TO   WK-KEISAN-YMD.
+           MOVE     ZERO                TO   WK-YOUBI.
+           MOVE     ZERO                TO   ZENGO-FLG.
+           MOVE     ZERO                TO   IXCAL-KJN-2-YOBI.
+           MOVE     ZERO                TO   IXCAL-KJN-YMD-2.
+      *----------  ﾀﾝｲ ｸﾌﾞﾝ ﾁｴﾂｸ
+      *----------  単位区分チェック
+           IF       IXCAL-TANI-KBN     =    '2'  OR   '3'
+      *----------  単位区分 = '2'（月）OR '3'（年）の時
+      *----------  ３.２.３.１応答日算出処理
+                    PERFORM   OTOBI-SANSHUTSU-RTN
+               ELSE
+      *----------  単位区分 = '1'（日）の時
+      *----------  ３.２.３.２営業日算出処理
+                    PERFORM   EIGYOBI-SANSHUTSU-RTN.
+      *    IF       IXCAL-CD-1     NOT =   R1-NOMAL-END
+      *             GO   TO   HIZUKE-KEISAN-EXIT.
+      *----------  出力設定
+           MOVE     WK-YOUBI  TO   IXCAL-KJN-2-YOBI.
+           MOVE     WK-KEISAN-YMD TO   IXCAL-KJN-YMD-2.
+      *----------  前後フラグにより、リターンコード２を設定する
+           IF       ZENGO-FLG           =    '1'
+                    MOVE      R2-OOTOBI          TO   IXCAL-HIZUKE-KBN.
+           IF       ZENGO-FLG           =    '2'
+                    MOVE      R2-OOTOBI-YOKU     TO   IXCAL-HIZUKE-KBN.
+           IF       ZENGO-FLG           =    '3'
+                    MOVE      R2-OOTOBI-ZEN      TO   IXCAL-HIZUKE-KBN.
+      *    IF       ZENGO-FLG           =    '4'
+      *             MOVE      R2-OOTOBI-REIGAI   TO   IXCAL-CD-2.
+      *    IF       ZENGO-FLG           =    '5'
+      *             MOVE      R2-OOTOBI-SATDAY   TO   IXCAL-CD-2.
+       HIZUKE-KEISAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "基準年月日２       = ["IXCAL-KJN-YMD-2   "]".
+      D    DISPLAY  "基準日２－曜日     = ["IXCAL-KJN-2-YOBI  "]".
+      D    DISPLAY  "*****  日付計算処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* OTOBI-SANSHUTSU-RTN *******************************/CAP/**
+      *           ｵｳﾄｳﾋﾞ ｻﾝｼﾕﾂ ROUTINE                                 *
+      *           ３.２.３.１応答日算出処理                            *
+      ******************************************************************
+       OTOBI-SANSHUTSU-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  応答日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       OTOBI-SANSHUTSU-START.
+      *----------  単位区分の判定
+      *----------  単位区分 = '2'（月）の時
+           IF       IXCAL-TANI-KBN     =    '2'
+                    GO        TO             OTOBI-SANSHUTSU-010.
+      *----------  ﾈﾝ ｹｲｻﾝ
+      *----------  単位区分 = '3'（年）の時
+      *----------  年計算
+           IF       IXCAL-ZENGO-KBN-1  =    '1'
+                    COMPUTE   WK-KEISAN-YYYY
+                         =    IXCAL-YY-1    +    IXCAL-DAYS
+               ELSE
+                    COMPUTE   WK-KEISAN-YYYY
+                         =    IXCAL-YY-1    -    IXCAL-DAYS.
+           GO       TO        OTOBI-SANSHUTSU-020.
+       OTOBI-SANSHUTSU-010.
+      *----------  ﾂｷ ｹｲｻﾝ
+      *----------  月計算
+           IF       IXCAL-ZENGO-KBN-1  =    '1'
+      *----------  ３.２.３.１.１月加算処理
+                    PERFORM   KASAN-RTN
+               ELSE
+      *----------  ３.２.３.１.２月減算処理
+                    PERFORM   GENZAN-RTN.
+      *----------  ﾋﾂﾞｹ ｹｲｻﾝ                                            MO870409
+      *----------  日付補正
+           IF      (WK-KEISAN-MM    =   04  OR  06  OR  09  OR  11)     MO870409
+               AND (WK-KEISAN-DD    =   31)                             MO870409
+                    MOVE      30    TO   WK-KEISAN-DD.                  MO870409
+      *----------  ｳﾙｳﾄﾞｼ ｼﾖﾘ
+      *----------  閏年より、二月の日付を補正処理
+       OTOBI-SANSHUTSU-020.
+      *****IF       WK-KEISAN-MD      =    '0229'                       MO870409
+           IF      (WK-KEISAN-MD    NOT <  '0229')                      MO870409
+               AND (WK-KEISAN-MD    NOT >  '0231')                      MO870409
+                    NEXT SENTENCE
+               ELSE
+                    GO        TO    OTOBI-SANSHUTSU-030.
+           MOVE     WK-KEISAN-YYYY  TO    WK-KIJUN-YYYY
+                                          WK-URU-YYYY.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+           IF       URUUDOSHI-FLG   =    'NO'
+      *****         MOVE      28    TO   WK-KEISAN-DD.                  MO870409
+                    MOVE      28    TO   WK-KEISAN-DD                   MO870409
+               ELSE                                                     MO870409
+                    MOVE      29    TO   WK-KEISAN-DD.                  MO870409
+      *----------  ｹｲｻﾝ ﾍﾞ-ｽ ｼﾖﾘ
+       OTOBI-SANSHUTSU-030.
+           MOVE     '1'             TO   ZENGO-FLG.
+      *----------  ３.２.１.１ 曜日算出処理
+           MOVE     WK-KEISAN-YMD   TO   S-JDATE-ARG1.
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2      NOT  =    R2-NOMAL-END
+      *             MOVE      R1-YOUBI-3-ERR  TO   IXCAL-CD-1
+      *             GO        TO    OTOBI-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG4    TO   WK-YOUBI.
+      *----------  計算ベース区分の判定
+      *----------  計算ベース区分 = '1'（カレンダーベース）の時、出力
+           IF       IXCAL-COMP-BASE      =    '1'
+                    GO        TO   OTOBI-SANSHUTSU-EXIT.
+       OTOBI-SANSHUTSU-040.
+      *----------  ｴｲｷﾞﾖｳﾋﾞ ﾁｴﾂｸ
+      *----------  計算ベース区分 NOT= '1'（カレンダーベース以外）の時、
+      *----------  ３.２.４.１営業日チェック処理
+           MOVE     WK-KEISAN-YMD   TO        WK-KIJUNBI.
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2      NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR TO  IXCAL-CD-1
+      *             GO        TO    OTOBI-SANSHUTSU-EXIT.
+           IF       HOLIDAY-FLG     =    'NO'
+                    GO        TO    OTOBI-SANSHUTSU-060.
+       OTOBI-SANSHUTSU-050.
+      *----------  ﾋ ｴｲｷﾞﾖｳﾋﾞ ﾉ ﾄｷ
+      *----------  休日の時、翌営業日 OR 前営業日を算出
+      *            ﾖｸ ｴｲｷﾞﾖｳﾋﾞ  OR  ｾﾞﾝｼﾞﾂ ｴｲｷﾞﾖｳﾋﾞ ｻﾝｼﾕﾂ
+           MOVE     WK-KIJUNBI   TO     S-JDATE-ARG1.
+           IF       IXCAL-ZENGO-KBN-2   =   '1'
+                    MOVE   1     TO     S-JDATE-ARG2
+                    MOVE  '2'    TO     ZENGO-FLG
+           ELSE
+                    MOVE  -1     TO     S-JDATE-ARG2
+                    MOVE  '3'    TO     ZENGO-FLG.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2          NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR     TO  IXCAL-CD-1
+      *             GO        TO        OTOBI-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG3        TO   WK-KEISAN-YMD.
+           MOVE     S-JDATE-ARG4        TO   WK-YOUBI.
+           GO       TO        OTOBI-SANSHUTSU-040.
+      *----------  ｴｲｷﾞﾖｳﾋﾞ ﾉ ﾄｷ
+      *----------  営業日の時、チェック処理
+       OTOBI-SANSHUTSU-060.
+           IF       IXCAL-COMP-BASE    =    '3'
+                    NEXT SENTENCE
+               ELSE
+                    GO        TO        OTOBI-SANSHUTSU-EXIT.
+           IF       WK-YOUBI   =    7
+                    NEXT SENTENCE
+               ELSE
+                    GO        TO        OTOBI-SANSHUTSU-EXIT.
+           IF       WK-KEISAN-MD   =    '1227'  OR  '1228'   OR  '0104'
+                    MOVE      '4'       TO   ZENGO-FLG
+                    GO        TO        OTOBI-SANSHUTSU-EXIT.
+      *----------  ﾖｸ ｴｲｷﾞﾖｳﾋﾞ ｻﾝｼﾕﾂ
+      *----------  計算ベース区分 = '3'(受渡日ベース)且つ　曜日= 土曜日
+      *----------  且つ　日付 NOT = '1227' OR '1228' OR '0104'の時
+      *----------  翌営業日を算出
+       OTOBI-SANSHUTSU-070.
+           MOVE     WK-KEISAN-YMD       TO   S-JDATE-ARG1.
+           MOVE     1                   TO   S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2          NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR TO  IXCAL-CD-1
+      *             GO        TO        OTOBI-SANSHUTSU-EXIT.
+      *----------  ｴｲｷﾞﾖｳﾋﾞ ﾁｴﾂｸ
+      *----------  ３.２.４.１営業日チェック処理
+           MOVE     '5'                 TO   ZENGO-FLG.
+           MOVE     S-JDATE-ARG3        TO   WK-KEISAN-YMD.
+           MOVE     S-JDATE-ARG4        TO   WK-YOUBI.
+           MOVE     WK-KEISAN-YMD       TO   WK-KIJUNBI.
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2         NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR    TO  IXCAL-CD-1
+      *             GO        TO       OTOBI-SANSHUTSU-EXIT.
+           IF       HOLIDAY-FLG   =    'YES'
+                    GO        TO       OTOBI-SANSHUTSU-070.
+       OTOBI-SANSHUTSU-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  応答日算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* EIGYOBI-SANSHUTSU-RTN *****************************/CAP/**
+      *           ｴｲｷﾞﾖｳﾋﾞ ｻﾝｼﾕﾂ ROUTINE                               *
+      *           ３.２.３.２営業日算出処理                            *
+      ******************************************************************
+       EIGYOBI-SANSHUTSU-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  営業日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       EIGYOBI-SANSHUTSU-START.
+           IF       IXCAL-DAYS    NOT  =  ZERO
+                    MOVE     1         TO  NISSU-CNT4
+                    GO  TO   EIGYOBI-SANSHUTSU-005.
+           MOVE     ZERO               TO  NISSU-CNT4.
+           MOVE     WK-KEISAN-YMD      TO  S-JDATE-ARG1
+                                           WK-KIJUNBI.                  NS860906
+      *----------  ３.２.１.１ 曜日算出処理
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2    NOT  =  R2-NOMAL-END
+      *             MOVE  R1-YOUBI-1-ERR  TO  IXCAL-CD-1
+      *             GO  TO   EIGYOBI-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG4       TO  WK-YOUBI.
+           GO       TO         EIGYOBI-SANSHUTSU-015.
+       EIGYOBI-SANSHUTSU-005.
+      *----------  計算ベース区分の判定
+      *----------  計算ベース区分 = '1'(カレンダーベース)の時、
+           IF       IXCAL-COMP-BASE  =  '1'
+      *----------  ３.２.３.２.１カレンダー日数算出処理
+                    PERFORM  CALND-NISSU-SANSHUTSU
+                    GO  TO   EIGYOBI-SANSHUTSU-EXIT.
+       EIGYOBI-SANSHUTSU-010.
+           IF       IXCAL-DAYS         <    NISSU-CNT4
+                    GO        TO        EIGYOBI-SANSHUTSU-EXIT.
+      *----------  ﾖｸｲ ｴｲｷﾞﾖｳﾋﾞ  OR  ｾﾞﾝｼﾞﾂ ｴｲｷﾞﾖｳﾋﾞ  ｻﾝｼﾕﾂ
+      *----------  翌営業日 OR 前営業日を算出
+           MOVE     WK-KEISAN-YMD      TO        S-JDATE-ARG1.
+           IF       IXCAL-ZENGO-KBN-1  =    '1'
+                    MOVE   1  TO       S-JDATE-ARG2
+           ELSE
+                    MOVE  -1  TO       S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2         NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR    TO  IXCAL-CD-1
+      *             GO        TO        EIGYOBI-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG3       TO   WK-KEISAN-YMD WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4       TO   WK-YOUBI.
+      *----------  ｹｲｻﾝ ﾍﾞ-ｽ ｸﾌﾞﾝ
+      *----------  計算ベース区分の判定
+       EIGYOBI-SANSHUTSU-015.
+           IF       IXCAL-COMP-BASE    =    '1'
+      *----------  計算ベース区分 = '1'(カレンダーベース)の時、
+                    ADD       1        TO   NISSU-CNT4
+                    GO        TO       EIGYOBI-SANSHUTSU-010.
+      *----------  計算ベース区分 = '2'(営業日ベース)
+      *----------   OR '3'(土日休日ベース)の時、
+           IF       IXCAL-COMP-BASE    =    '2'  OR   '3'
+                    GO        TO       EIGYOBI-SANSHUTSU-020.
+      *----------  ｷﾞﾝｺｳ ｴｲｷﾞﾖｳﾋﾞ ｼﾖﾘ
+      *----------  計算ベース区分 = '4'(銀行営業日ベース)の時、
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2         NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR    TO  IXCAL-CD-1
+      *             GO        TO       EIGYOBI-SANSHUTSU-EXIT.
+           IF       HOLIDAY-FLG        =    'NO'
+                    ADD       1        TO   NISSU-CNT4.
+           GO       TO        EIGYOBI-SANSHUTSU-010.
+       EIGYOBI-SANSHUTSU-020.
+      *----------  ｼﾖｳｹﾝ ｴｲｷﾞﾖｳ ﾋﾞ , ｻｲｹﾝ ｳｹﾜﾀｼﾋﾞ
+      *----------  証券営業日、債権受渡日の場合
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2         NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR TO  IXCAL-CD-1
+      *             GO        TO        EIGYOBI-SANSHUTSU-EXIT.
+           IF       NISSU-CNT4          =    IXCAL-DAYS
+                    GO        TO        EIGYOBI-SANSHUTSU-030.
+           IF       HOLIDAY-FLG         =    'NO'
+                    ADD       1         TO   NISSU-CNT4.
+           GO       TO        EIGYOBI-SANSHUTSU-010.
+       EIGYOBI-SANSHUTSU-030.
+      *----------  チェック処理
+           IF       HOLIDAY-FLG         =    'YES'
+                    GO        TO        EIGYOBI-SANSHUTSU-010.
+      *----------  計算ベース区分 = '2'(営業日ベース)
+      *----------   OR '3'(土日休日ベース)の時、
+           IF       IXCAL-COMP-BASE     =    '2' OR '3'
+                    ADD       1         TO   NISSU-CNT4
+                    GO        TO        EIGYOBI-SANSHUTSU-010.
+           IF       (WK-KEISAN-MD =    '1227'  OR  '1228'  OR  '0104')
+           AND      WK-YOUBI  =   7
+                    MOVE      '4'       TO   ZENGO-FLG
+                    ADD       1         TO   NISSU-CNT4
+                    GO        TO        EIGYOBI-SANSHUTSU-010.
+           IF       WK-YOUBI   NOT       =    7
+                    ADD       1         TO   NISSU-CNT4
+                    GO        TO        EIGYOBI-SANSHUTSU-010
+           ELSE
+                    MOVE      '5'       TO   ZENGO-FLG.
+      *----------  ﾖｸ ｴｲｷﾞﾖｳﾋﾞ ｻﾝｼﾕﾂ
+      *----------  翌営業日算出
+       EIGYOBI-SANSHUTSU-040.
+           MOVE     WK-KEISAN-YMD       TO   S-JDATE-ARG1.
+           MOVE     1                   TO   S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2          NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR TO  IXCAL-CD-1
+      *             GO        TO        EIGYOBI-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG3        TO   WK-KEISAN-YMD WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4        TO   WK-YOUBI.
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2         NOT  =    R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-3-ERR TO  IXCAL-CD-1
+      *             GO        TO        EIGYOBI-SANSHUTSU-EXIT.
+           IF       HOLIDAY-FLG    =    'YES'
+                    GO        TO        EIGYOBI-SANSHUTSU-040.
+       EIGYOBI-SANSHUTSU-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  営業日算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* KASAN-RTN    **************************************/CAP/**
+      *           ｶｻﾝ ﾂｷｽｳ ｻﾝｼﾕﾂ                                       *
+      *           ３.２.３.１.１月加算処理                             *
+      ******************************************************************
+       KASAN-RTN                   SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月加算処理  START  *****".
+      *-----------------------------------------------------------------
+       KASAN-RTN-START.
+           COMPUTE  WK-ANS     =   WK-KEISAN-MM      +    IXCAL-DAYS.
+      *----------  ﾂｷ ﾊﾝﾃｲ
+      *----------  月判定
+           IF       WK-ANS     >   12
+                    NEXT SENTENCE
+               ELSE
+                    MOVE      WK-ANS    TO   WK-KEISAN-MM
+                    IF        WK-ANS    =    ZERO                       010223TS
+                              MOVE  12  TO   WK-KEISAN-MM               010223TS
+                    END-IF                                              010223TS
+                    GO        TO        KASAN-EXIT.
+           DIVIDE   WK-ANS    BY        12   GIVING    WK-ANS
+                                             REMAINDER WK-REM.
+           IF       WK-REM     =        ZERO
+      *** WK-ANS > 12 AND WK-ANS ｶﾞ 12 ﾃﾞ ﾜﾘｷﾚﾙ ﾊﾞｱｲ ﾌｾｲ ﾄﾅﾙ ﾀｲｵｳ       010223TS
+      *----------  WK-ANS > 12 AND WK-ANS ｶﾞ 12 で　割切れる場合、対応
+                    COMPUTE  WK-ANS  =  WK-ANS  -  1                    010223TS
+                    MOVE      12        TO   WK-KEISAN-MM               010223TS
+      ***           NEXT SENTENCE                                       010223TS
+               ELSE
+                    MOVE      WK-REM    TO   WK-KEISAN-MM.
+           COMPUTE  WK-KEISAN-YYYY   =  WK-ANS  +  WK-KEISAN-YYYY.
+       KASAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月加算処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* GENZAN-RTN   **************************************/CAP/**
+      *           ｹﾞﾝｻﾞﾝ ﾂｷｽｳ ｻﾝｼﾕﾂ                                    *
+      *           ３.２.３.１.２月減算処理                             *
+      ******************************************************************
+       GENZAN-RTN                  SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月減算処理  START  *****".
+      *-----------------------------------------------------------------
+       GENZAN-RTN-START.
+      *----------  ワーク計算年月日の月 = 日数の場合、
+           IF       WK-KEISAN-MM       =    IXCAL-DAYS
+                    COMPUTE   WK-KEISAN-YYYY =  WK-KEISAN-YYYY  -    1  YN870126
+                    MOVE      12       TO   WK-KEISAN-MM
+                    GO        TO       GENZAN-EXIT.
+      *----------  ワーク計算年月日の月 > 日数の場合、
+           IF       WK-KEISAN-MM       >    IXCAL-DAYS
+                    COMPUTE   WK-KEISAN-MM
+                                       = WK-KEISAN-MM  -  IXCAL-DAYS
+                    GO        TO         GENZAN-EXIT.
+      *----------  ワーク計算年月日の月 < 日数の場合、日数判定
+      *----------  日数(表示月数) > 12 の場合
+           IF       IXCAL-DAYS         >    12
+                    NEXT SENTENCE
+               ELSE
+                    COMPUTE   WK-ANS
+                              =   IXCAL-DAYS    -    WK-KEISAN-MM
+                    COMPUTE   WK-KEISAN-MM   =  12     -    WK-ANS
+                    COMPUTE   WK-KEISAN-YYYY =  WK-KEISAN-YYYY  -  1
+                    GO        TO       GENZAN-EXIT.
+      *----------  日数(表示月数) ≦ 12 の場合
+           DIVIDE   IXCAL-DAYS         BY   12   GIVING   WK-ANS
+                                       REMAINDER WK-REM.
+           COMPUTE  WK-KEISAN-YYYY     =  WK-KEISAN-YYYY  -    WK-ANS.
+           IF       WK-REM    =        WK-KEISAN-MM
+                    COMPUTE   WK-KEISAN-YYYY =  WK-KEISAN-YYYY  -    1
+                    MOVE      12       TO   WK-KEISAN-MM
+                    GO        TO       GENZAN-EXIT.
+           IF       WK-KEISAN-MM       >    WK-REM
+                    COMPUTE   WK-KEISAN-MM  =  WK-KEISAN-MM  -  WK-REM
+                    GO        TO      GENZAN-EXIT.
+           COMPUTE  WK-ANS     =      WK-REM  -    WK-KEISAN-MM.
+           COMPUTE  WK-KEISAN-MM      =       12      -    WK-ANS.
+           COMPUTE  WK-KEISAN-YYYY    =  WK-KEISAN-YYYY   -    1.
+       GENZAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月減算処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* CALND-NISSU-SANSHUTSU *****************************/CAP/**
+      *             ｶﾚﾝﾀﾞ- ｹｲｻﾝ                                        *
+      *             ３.２.３.２.１カレンダー日数算出処理               *
+      ******************************************************************
+       CALND-NISSU-SANSHUTSU       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日数算出処理  START  *****".
+      *-----------------------------------------------------------------
+       CALND-NISSU-SANSHUTSU-START.
+           MOVE     WK-KEISAN-YMD       TO  S-JDATE-ARG1.
+           IF       IXCAL-ZENGO-KBN-1  =  '1'
+                    MOVE  IXCAL-DAYS    TO  S-JDATE-ARG2
+           ELSE
+                    COMPUTE  S-JDATE-ARG2  =  IXCAL-DAYS  * -1.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-3-ERR  TO  IXCAL-CD-1
+      *             GO  TO  CALND-NISSU-SANSHUTSU-EXIT.
+           MOVE     S-JDATE-ARG3        TO  WK-KEISAN-YMD
+                                            WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4        TO  WK-YOUBI.
+       CALND-NISSU-SANSHUTSU-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日数算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      /****** EIGYOBI-HANTEI ************************************/CAP/**
+      *             ｴｲｷﾞﾖｳﾋﾞ ﾊﾝﾃｲ                                      *
+      *                               ｷﾉｳ ｸﾌﾞﾝ  =   "4"                *
+      *             ３.２.４ 営業日判定処理                            *
+      ******************************************************************
+       EIGYOBI-HANTEI              SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  営業日判定処理  START  *****".
+      D    DISPLAY  "基準年月日１       = ["IXCAL-KJN-YMD-1   "]".
+      D    DISPLAY  "計算ベース区分     = ["IXCAL-COMP-BASE   "]".
+      D    DISPLAY  "前後区分１         = ["IXCAL-ZENGO-KBN-1 "]".
+      *-----------------------------------------------------------------
+       EIGYOBI-HANTEI-START.
+      *----------  ﾖｳﾋﾞ  ｻﾝｼﾕﾂ
+      *----------  ３.２.１.１ 曜日算出処理
+           MOVE     IXCAL-KJN-YMD-1  TO  S-JDATE-ARG1.
+           MOVE     ZERO             TO  ZENGO-FLG.
+           MOVE     ZERO             TO  IXCAL-KJN-YMD-2.
+           MOVE     ZERO             TO  IXCAL-KJN-2-YOBI.
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2  NOT  =   R2-NOMAL-END
+      *             MOVE  R1-YOUBI-4-ERR    TO  IXCAL-CD-1
+      *             GO  TO  EIGYOBI-HANTEI-EXIT.
+      *----------  ｴｲｷﾞﾖｳﾋﾞ  ｻﾝｼﾕﾂ  ﾁｴﾂｸ
+      *----------  営業日算出チェック
+           MOVE     IXCAL-KJN-YMD-1  TO  WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4     TO  WK-YOUBI.
+       EIGYOBI-HANTEI-010.
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2    NOT =  R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-4-ERR  TO   IXCAL-CD-1
+      *             GO TO     EIGYOBI-HANTEI-EXIT.
+           IF       HOLIDAY-FLG       =  'NO '
+                    GO  TO    EIGYOBI-HANTEI-020.
+      *----------  ﾋﾂﾞｹ  ｻﾝｼﾕﾂ
+      *----------  前後日付算出
+           MOVE     WK-KIJUNBI  TO  S-JDATE-ARG1.
+           IF       IXCAL-ZENGO-KBN-1  =  '1'
+                    MOVE  '1'      TO  ZENGO-FLG
+                    MOVE  1        TO  S-JDATE-ARG2
+           ELSE
+                    MOVE  '2'      TO  ZENGO-FLG
+                    MOVE  -1       TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2     NOT =       R2-NOMAL-END
+      *             MOVE      R1-HIZUKE-4-ERR  TO  IXCAL-CD-1
+      *             GO        TO   EIGYOBI-HANTEI-EXIT.
+           MOVE     S-JDATE-ARG3   TO  WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4   TO  WK-YOUBI.
+           GO  TO   EIGYOBI-HANTEI-010.
+       EIGYOBI-HANTEI-020.
+      *----------  前後フラグの判定、リターンコード２を設定
+           IF       ZENGO-FLG  = '1'
+                    MOVE  R2-YMD-YOKU          TO  IXCAL-HIZUKE-KBN.
+           IF       ZENGO-FLG  = '2'
+                    MOVE  R2-YMD-ZEN           TO  IXCAL-HIZUKE-KBN.
+      *----------  出力セット
+           MOVE     WK-KIJUNBI  TO  IXCAL-KJN-YMD-2.
+           MOVE     WK-YOUBI    TO  IXCAL-KJN-2-YOBI.
+       EIGYOBI-HANTEI-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "基準年月日２       = ["IXCAL-KJN-YMD-2   "]".
+      D    DISPLAY  "基準日２－曜日     = ["IXCAL-KJN-2-YOBI  "]".
+      D    DISPLAY  "*****  営業日判定処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      /****** GS-GM-EIGYOBI *************************************/CAP/**
+      *             ｹﾞﾂｼﾖ ｹﾞﾂﾏﾂ ｴｲｷﾞﾖｳﾋﾞ GET                           *
+      *                               ｷﾉｳ ｸﾌﾞﾝ  =   "5"                *
+      *             ３.２.５ 初日末日取得処理                          *
+      ******************************************************************
+       GS-GM-EIGYOBI               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  初日末日取得処理  START  *****".
+      D    DISPLAY  "基準年月日１       = ["IXCAL-KJN-YMD-1   "]".
+      D    DISPLAY  "計算ベース区分     = ["IXCAL-COMP-BASE   "]".
+      D    DISPLAY  "前後区分１         = ["IXCAL-ZENGO-KBN-1 "]".
+      D    DISPLAY  "単位区分           = ["IXCAL-TANI-KBN    "]".
+      *-----------------------------------------------------------------
+       GS-GM-EIGYOBI-START.
+           MOVE     ZERO             TO   IXCAL-KJN-YMD-2.
+           MOVE     ZERO             TO   IXCAL-KJN-2-YOBI.
+           IF       IXCAL-TANI-KBN   NOT  =  '1'
+                    GO  TO           EIGYOBI-HANTEI-010.
+      *----------  ﾖｳﾋﾞ  ｻﾝｼﾕﾂ
+      *----------  ３.２.１.１ 曜日算出処理
+           MOVE     IXCAL-KJN-YMD-1  TO   S-JDATE-ARG1.
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2  NOT  =    R2-NOMAL-END
+      *             MOVE  R1-YOUBI-5-ERR  TO  IXCAL-CD-1
+      *             GO  TO  GS-GM-EIGYOBI-EXIT.
+           MOVE     IXCAL-KJN-YMD-1  TO   WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4     TO   WK-YOUBI.
+           IF       IXCAL-ZENGO-KBN-1     =  '1'
+      *----------  ３.２.５.１週初暦日・週初営業日算出処理
+                    PERFORM  START-WEEK
+           ELSE
+      *----------  ３.２.５.２週末暦日・週末営業日算出処理
+                    PERFORM  END-WEEK.
+      *    IF       IXCAL-CD-2  NOT  =    R2-NOMAL-END
+      *             GO  TO  GS-GM-EIGYOBI-EXIT.
+           GO  TO   EIGYOBI-HANTEI-020.
+       EIGYOBI-HANTEI-010.
+           MOVE     IXCAL-KJN-YMD-1  TO  WK-KIJUNBI.
+           IF       IXCAL-ZENGO-KBN-1    =  '1'
+      *----------  ３.２.５.３月・年初暦日/営業日算出処理
+                    PERFORM  START-YEAR-MONTH
+           ELSE
+      *----------  ３.２.５.４月・年末暦日/営業日算出処理
+                    PERFORM  END-YEAR-MONTH.
+      *    IF       IXCAL-CD-2  NOT  =   R2-NOMAL-END
+      *             GO  TO  GS-GM-EIGYOBI-EXIT.
+       EIGYOBI-HANTEI-020.
+      *----------  出力セット
+           MOVE     WK-KIJUNBI       TO  IXCAL-KJN-YMD-2.
+           MOVE     WK-YOUBI         TO  IXCAL-KJN-2-YOBI.
+       GS-GM-EIGYOBI-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "基準年月日２       = ["IXCAL-KJN-YMD-2   "]".
+      D    DISPLAY  "基準日２－曜日     = ["IXCAL-KJN-2-YOBI  "]".
+      D    DISPLAY  "*****  初日末日取得処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* START-WEEK   **************************************/CAP/**
+      *            ｼﾕｳ ﾊｼﾞﾒ  ｻﾝｼﾕﾂ                                     *
+      *            ３.２.５.１週初暦日・週初営業日算出処理             *
+      ******************************************************************
+      *----------  ﾊｼﾞﾒ (ｼﾕｳ)
+       START-WEEK                  SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  週初暦日・週初営業日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       START-WEEK-START.
+      *----------  ワーク曜日の判定
+      *----------  日曜日の時
+           IF       WK-YOUBI   =  1
+                    MOVE  IXCAL-KJN-YMD-1  TO  S-JDATE-ARG3
+                    GO  TO  START-WEEK-020.
+      *----------  日曜日以外の時
+      *----------  ﾋｽﾞｹ  ｻﾝｼﾕﾂ (ｼﾕｳ ﾉ ﾊｼﾞﾒ)
+      *----------  週初（日曜日）算出
+           MOVE     WK-KIJUNBI      TO  S-JDATE-ARG1.
+           COMPUTE  S-JDATE-ARG2    =  (WK-YOUBI  -  1) * -1.
+       START-WEEK-010.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2      NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO    TO        START-WEEK-EXIT.
+       START-WEEK-020.
+           MOVE     S-JDATE-ARG3    TO  WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4    TO  WK-YOUBI.
+      *----------  計算ベース区分 = '1'(カレンダーベース)の時、処理終了
+           IF       IXCAL-COMP-BASE  =  '1'
+                    GO  TO  START-WEEK-EXIT.
+      *----------  計算ベース区分 NOT= '1'（カレンダーベース以外）の時
+      *----------  ｴｲｷﾞﾖｳﾋﾞ  ｻﾝｼﾕﾂ  ﾁｴﾂｸ (ｼﾕｳ ﾉ ﾊｼﾞﾒ)
+      *----------  週初営業日チェック
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO TO     START-WEEK-EXIT.
+           IF       HOLIDAY-FLG  =  'NO '
+                    GO  TO  START-WEEK-EXIT.
+      *----------  ｶﾞｲﾄｳ  ﾅｼ
+      *----------  該当なしの時
+           IF       WK-YOUBI  =  7
+      *             MOVE  R2-GAITOBI-NASHI  TO  IXCAL-CD-2
+      *             GO  TO  START-WEEK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  週初営業日取得なし  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0010"             TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-GAITOBI-NASHI  TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0             TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+                    PERFORM  ERR-RTN.
+      *----------  翌日算出
+           MOVE     WK-KIJUNBI       TO  S-JDATE-ARG1.
+           MOVE     1                TO  S-JDATE-ARG2.
+           GO  TO   START-WEEK-010.
+       START-WEEK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  週初暦日・週初営業日算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* END-WEEK     **************************************/CAP/**
+      *             ｼﾕｳ ﾏﾂ ｻﾝｼﾕﾂ                                       *
+      *             ３.２.５.２週末暦日・週末営業日算出処理            *
+      ******************************************************************
+      *----------  ｵﾜﾘ (ｼﾕｳ)
+       END-WEEK                    SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  週末暦日・週末営業日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       END-WEEK-START.
+      *----------  ワーク曜日の判定
+      *----------  土曜日の時
+           IF       WK-YOUBI  =  7
+                    MOVE  IXCAL-KJN-YMD-1   TO  S-JDATE-ARG3
+                    MOVE  WK-YOUBI          TO  S-JDATE-ARG4
+                    GO    TO    END-WEEK-020.
+      *----------  土曜日以外の時
+      *----------  ﾋｽﾞｹ  ｻﾝｼﾕﾂ (ｼﾕｳ ﾉ ｵﾜﾘ)
+      *----------  週末（土曜日）算出
+           MOVE     WK-KIJUNBI              TO  S-JDATE-ARG1.
+           COMPUTE  S-JDATE-ARG2   =  7  -  WK-YOUBI.
+       END-WEEK-010.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2     NOT =    R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO  TO  END-WEEK-EXIT.
+       END-WEEK-020.
+           MOVE     S-JDATE-ARG3  TO  WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4  TO  WK-YOUBI.
+      *----------  計算ベース区分 = '1'(カレンダーベース)の時、処理終了
+           IF       IXCAL-COMP-BASE   =  '1'
+                    GO  TO  END-WEEK-EXIT.
+      *----------  計算ベース区分 NOT= '1'（カレンダーベース以外）の時
+      *----------  ｴｲｷﾞﾖｳﾋﾞ  ｻﾝｼﾕﾂ  ﾁｴﾂｸ (ｼﾕｳ ﾉ ｵﾜﾘ)
+      *----------  週末営業日チェック
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO TO     END-WEEK-EXIT.
+           IF       HOLIDAY-FLG      =  'NO '
+                    GO  TO  END-WEEK-EXIT.
+      *----------  ｶﾞｲﾄｳ  ﾅｼ
+      *----------  該当なしの時
+           IF       WK-YOUBI  =  1
+      *             MOVE  R2-GAITOBI-NASHI  TO  IXCAL-CD-2
+      *             GO  TO  END-WEEK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  週末営業日取得なし  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0011"             TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-GAITOBI-NASHI  TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0             TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+                    PERFORM  ERR-RTN.
+      *----------  前日算出
+           MOVE     WK-KIJUNBI      TO  S-JDATE-ARG1.
+           MOVE     -1              TO  S-JDATE-ARG2.
+           GO  TO   END-WEEK-010.
+       END-WEEK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  週末暦日・週末営業日算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* START-YEAR-MONTH **********************************/CAP/**
+      *             ｹﾞﾂｼﾖ , ﾈﾝｼﾖ  ｻﾝｼﾕﾂ                                *
+      *             ３.２.５.３月・年初暦日/営業日算出処理             *
+      ******************************************************************
+      *----------  ﾊｼﾞﾒ (ﾄｼ ﾂｷ)
+       START-YEAR-MONTH            SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月・年初暦日/営業日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       START-YEAR-MONTH-START.
+      *----------  単位区分の判定
+           IF       IXCAL-TANI-KBN  =  '2'
+      *----------  単位区分 = '2'（月） の時、月初日付をセット
+                    MOVE  01       TO  WK-KIJUN-DD
+           ELSE
+      *----------  単位区分 = '3'（年） の時、年初日付をセット
+                    MOVE  '0101'   TO  WK-KIJUN-MMDD.
+           MOVE     IXCAL-YY-1     TO  WK-KIJUN-YYYY.
+      *----------  ﾖｳﾋﾞ  ｻﾝｼﾕﾂ (ﾄｼ ﾂｷ ﾉ ﾊｼﾞﾒ)
+      *----------  ３.２.１.１ 曜日算出処理
+           MOVE     WK-KIJUNBI     TO  S-JDATE-ARG1.
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2     NOT =  R2-NOMAL-END
+      *             MOVE  R1-YOUBI-5-ERR  TO  IXCAL-CD-1
+      *             GO  TO  START-YEAR-MONTH-EXIT.
+           MOVE     S-JDATE-ARG4 TO  WK-YOUBI.
+      *----------  計算ベース区分 = '1'(カレンダーベース)の時、処理終了
+           IF       IXCAL-COMP-BASE    =  '1'
+                    GO  TO  START-YEAR-MONTH-EXIT.
+      *----------  計算ベース区分 NOT= '1'（カレンダーベース以外）の時
+       START-YEAR-MONTH-010.
+      *----------  月初・年初営業日チェック処理
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO TO     START-YEAR-MONTH-EXIT.
+           IF       HOLIDAY-FLG  =  'NO '
+                    GO  TO  START-YEAR-MONTH-EXIT.
+      *----------  ﾋﾂﾞｹ  ｻﾝｼﾕﾂ (ﾄｼ ﾂｷ ﾉ ﾊｼﾞﾒ)
+      *----------  翌日算出
+           MOVE     WK-KIJUNBI     TO  S-JDATE-ARG1.
+           MOVE     1              TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO  TO  START-YEAR-MONTH-EXIT.
+           MOVE     S-JDATE-ARG3  TO  WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4  TO  WK-YOUBI.
+           GO  TO   START-YEAR-MONTH-010.
+       START-YEAR-MONTH-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月・年初暦日/営業日算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* END-YEAR-MONTH   **********************************/CAP/**
+      *           ｹﾞﾂﾏﾂ , ﾈﾝﾏﾂ  ｻﾝｼﾕﾂ                                  *
+      *           ３.２.５.４月・年末暦日/営業日算出処理               *
+      ******************************************************************
+      *----------  ｵﾜﾘ (ﾄｼ ﾂｷ)
+       END-YEAR-MONTH              SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月・年末暦日/営業日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       END-YEAR-MONTH-START.
+      *----------  単位区分の判定
+           IF       IXCAL-TANI-KBN   =  '2'
+      *----------  単位区分 = '2'（月） の時、月末日付をセット
+      *----------  ３.２.５.４.１月末数設定処理
+                    PERFORM  GETSUMATSU-BI-SET
+           ELSE
+      *----------  単位区分 = '3'（年） の時、年末日付をセット
+                    MOVE '1231'      TO  WK-KIJUN-MMDD.
+           MOVE     IXCAL-YY-1       TO  WK-KIJUN-YYYY.
+      *----------  ﾖｳﾋﾞ  ｻﾝｼﾕﾂ (ﾄｼ ﾂｷ ﾉ ｵﾜﾘ)
+      *----------  ３.２.１.１ 曜日算出処理
+           MOVE     WK-KIJUNBI       TO  S-JDATE-ARG1.
+           PERFORM  YOUBI-SANSHUTSU.
+      *    IF       IXCAL-CD-2  NOT  =   R2-NOMAL-END
+      *             MOVE  R1-YOUBI-5-ERR    TO  IXCAL-CD-1
+      *             GO  TO  END-YEAR-MONTH-EXIT.
+           MOVE     S-JDATE-ARG4     TO  WK-YOUBI.
+      *----------  計算ベース区分 = '1'(カレンダーベース)の時、処理終了
+           IF       IXCAL-COMP-BASE  =  '1'
+                    GO  TO  END-YEAR-MONTH-EXIT.
+      *----------  計算ベース区分 NOT= '1'（カレンダーベース以外）の時
+      *----------  ｴｲｷﾞﾖｳﾋﾞ  ｻﾝｼﾕﾂ  ﾁｴﾂｸ (ﾄｼ ﾂｷ ﾉ ｵﾜﾘ)
+      *----------  月末・年末営業日チェック処理
+       END-YEAR-MONTH-010.
+      *----------  ３.２.４.１営業日チェック処理
+           PERFORM  EIGYOBI-CHK.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO  TO  END-YEAR-MONTH-EXIT.
+           IF       HOLIDAY-FLG      =  'NO '
+                    GO  TO  END-YEAR-MONTH-EXIT.
+      *----------  ﾋﾂﾞｹ  ｻﾝｼﾕﾂ (ﾄｼ ﾂｷ ﾉ ｵﾜﾘ)
+      *----------  前日算出
+           MOVE     WK-KIJUNBI    TO  S-JDATE-ARG1.
+           MOVE     -1            TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2  NOT  =  R2-NOMAL-END
+      *             MOVE  R1-HIZUKE-5-ERR   TO  IXCAL-CD-1
+      *             GO  TO  END-YEAR-MONTH-EXIT.
+           MOVE     S-JDATE-ARG3  TO  WK-KIJUNBI.
+           MOVE     S-JDATE-ARG4  TO  WK-YOUBI.
+           GO  TO   END-YEAR-MONTH-010.
+       END-YEAR-MONTH-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月・年末暦日/営業日算出処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* GETSUMATSU-BI-SET  ********************************/CAP/**
+      *            ｹﾞﾂﾏﾂﾋﾞ ｾﾂﾄ                                         *
+      *            ３.２.５.４.１月末数設定処理                        *
+      ******************************************************************
+       GETSUMATSU-BI-SET           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月末数設定処理  START  *****".
+      *-----------------------------------------------------------------
+       GETSUMATSU-BI-SET-START.
+      *----------  基準年月日１の月の判定
+           IF       IXCAL-MM-1  =  02
+                    MOVE  IXCAL-YY-1  TO  WK-KIJUN-YYYY
+                                          WK-URU-YYYY
+      *----------  ３.２.１.１.３ 閏年判断処理
+                    PERFORM  URUUDOSHI-CHK
+           ELSE
+                    GO  TO  GETSUMATSU-BI-010.
+           IF       URUUDOSHI-FLG  =  'YES'
+                    MOVE  02       TO  WK-KIJUN-MM
+                    MOVE  29       TO  WK-KIJUN-DD
+                    GO    TO  GETSUMATSU-BI-SET-EXIT.
+       GETSUMATSU-BI-010.
+      *----------  月末数セット
+           MOVE     IXCAL-MM-1     TO  I  WK-KIJUN-MM.
+           MOVE     T-DAYS (I)     TO  WK-KIJUN-DD.
+       GETSUMATSU-BI-SET-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  月末数設定処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      /****** EIGYOBI-CHK ***************************************/CAP/**
+      *             ｴｲｷﾞﾖｳﾋﾞ ﾁｴﾂｸ                                      *
+      *                               ｷﾖｳﾂｳ ﾙ-ﾁﾝ                       *
+      *            I IXCAL-COMP-BASE  X(1)                             *
+      *            I WK-KIJUNBI       9(8)                             *
+      *            I WK-YOUBI        S9(2)  C-3  WEEK ( 1 - 7 )        *
+      *            I HOLIDAY (TBL)                                     *
+      *            O HOLIDAY-FLG      'YES' OR 'NO '                   *
+      *            O IXCAL-HIZUKE-KBN       X(4)  RET-CD               *
+      *            ３.２.４.１営業日チェック処理                       *
+      ******************************************************************
+       EIGYOBI-CHK                 SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  営業日チェック処理  START  *****".
+      *-----------------------------------------------------------------
+       EIGYOBI-CHK-START.
+           IF       IXCAL-COMP-BASE    =  '2'
+      *----------   ３.２.４.１.１証券営業日チェック処理
+                    PERFORM  S-EIGYOBI-CHK
+      *    ELSE
+      *             PERFORM  G-EIGYOBI-CHK.
+                    IF       HOLIDAY-FLG    =    'YES'
+                              GO TO          EIGYOBI-CHK-EXIT
+                    END-IF
+      *----------   ３.２.４.１.２カレンダー休日チェック処理
+                    PERFORM  CLN-HDAY-CHK.
+           IF       IXCAL-COMP-BASE    =  '3'
+      *----------  ３.２.１.１ 曜日算出処理
+                    MOVE     WK-KIJUNBI       TO  S-JDATE-ARG1
+                    PERFORM  YOUBI-SANSHUTSU
+                    IF     S-JDATE-ARG4  = 1  OR  7
+                           MOVE  'YES'        TO  HOLIDAY-FLG
+                    ELSE
+                           MOVE  'NO'         TO  HOLIDAY-FLG.
+       EIGYOBI-CHK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "HOLIDAY-FLG   = [" HOLIDAY-FLG   "]".
+      D    DISPLAY  "*****  営業日チェック処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* CLN-HDAY-CHK **************************************/CAP/**
+      *             ｶﾚﾝﾀﾞ- ｷﾕｳｼﾞﾂ ﾁｴﾂｸ                                 *
+      *            I WK-KIJUNBI       9(8)                             *
+      *            I WK-YOUBI        S9(2)  C-3  WEEK ( 1 - 7 )        *
+      *            I HOLIDAY (TBL)                                     *
+      *            O HOLIDAY-FLG      'YES' OR 'NO '                   *
+      *            O IXCAL-HIZUKE-KBN       X(4)  RET-CD               *
+      *            ３.２.４.１.２カレンダー休日チェック処理            *
+      ******************************************************************
+       CLN-HDAY-CHK                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー休日チェック処理  START  *****".
+      *-----------------------------------------------------------------
+       CLN-HDAY-CHK-START.
+      *----------  ﾌﾘｶｴ ｷﾕｳｼﾞﾂ ﾁｴﾂｸ (ﾁｴﾂｸ ﾋﾂﾞｹ ｶﾞ  ｹﾞﾂﾖｳﾋﾞﾉ ﾄｷ)
+      *----------   チェック日付が月曜日以外の時
+           IF       WK-YOUBI  NOT =     2
+                    GO        TO        CLN-HDAY-CHK-020.
+      *----------   振替休日チェック（チェック日付が月曜日の時）
+      *----------  ﾆﾁﾖｳﾋﾞ ｵ ﾓﾄﾒﾙ
+      *----------   日曜日を求める
+      *DEL MOVE     IXCAL-KJN-YMD-1     TO  S-JDATE-ARG1.               NS860909
+           MOVE     WK-KIJUNBI          TO  S-JDATE-ARG1.               NS860909
+           MOVE     -1                  TO  S-JDATE-ARG2.
+      *----------  ３.２.４.２ 日付算出処理
+           PERFORM  HIZUKE-SANSHUTSU.
+      *    IF       IXCAL-CD-2          NOT =  R2-NOMAL-END
+      *             GO        TO        CLN-HDAY-CHK-EXIT.
+           MOVE     S-JDATE-ARG3        TO  B-YMD.
+           MOVE     1         TO        M-IX.
+       CLN-HDAY-CHK-010.
+      *----------   振替休日のチェックする
+           IF       WK-HOLIDAY-MMDD (M-IX)      >  B-MMDD
+                    GO        TO        CLN-HDAY-CHK-020.
+           IF       WK-HOLIDAY-MMDD (M-IX)   NOT = B-MMDD
+                    ADD    1  TO        M-IX
+                    GO        TO        CLN-HDAY-CHK-010.
+      *****IF       B-YMD           >   WK-HOLIDAY-END-YMD (M-IX)       NU870518
+           IF       B-YMD       NOT >   WK-HOLIDAY-END-YMD (M-IX)       NU870518
+                    NEXT  SENTENCE
+           ELSE
+                    ADD    1  TO        M-IX
+                    GO        TO        CLN-HDAY-CHK-010.
+           IF       B-YMD           <   WK-HOLIDAY-START-YMD (M-IX)
+                    ADD    1  TO        M-IX
+                    GO TO    CLN-HDAY-CHK-010.
+      *----------  ﾌﾘｶｴ ｷﾕｳｼﾞﾂ
+      *----------   振替休日
+           MOVE     'YES'               TO  HOLIDAY-FLG.
+           GO  TO   CLN-HDAY-CHK-EXIT.
+      *----------  ﾄｳｼﾞﾂ ﾋﾂﾞｹ  ﾉ  ｻｲｼﾞﾂ ﾁｴﾂｸ
+      *----------   当日日付の祭日チェックする
+       CLN-HDAY-CHK-020.
+      *---------- ﾄｳｼﾞﾂ  ｶﾞ  ｻｲｼﾞﾂ
+      *----------   当日が祭日
+           MOVE     1         TO    M-IX.
+       CLN-HDAY-CHK-030.
+           IF       WK-HOLIDAY-MMDD (M-IX)      >  WK-KIJUN-MMDD
+                    GO        TO        CLN-HDAY-CHK-040.
+           IF       WK-HOLIDAY-MMDD (M-IX)   NOT = WK-KIJUN-MMDD
+                    ADD    1  TO        M-IX
+                    GO        TO        CLN-HDAY-CHK-030.
+           IF       WK-KIJUNBI  NOT >   WK-HOLIDAY-END-YMD (M-IX)
+                    NEXT  SENTENCE
+           ELSE
+                    ADD    1  TO        M-IX
+                    GO        TO        CLN-HDAY-CHK-030.
+           IF       WK-KIJUNBI      <   WK-HOLIDAY-START-YMD (M-IX)
+                    ADD    1  TO        M-IX
+                    GO        TO        CLN-HDAY-CHK-030.
+           MOVE     'YES'               TO  HOLIDAY-FLG.
+           GO TO    CLN-HDAY-CHK-EXIT.
+      *---------- ﾄｳｼﾞﾂ ｶﾞ ﾆﾁﾖｳﾋﾞ
+      *----------   当日が日曜日
+       CLN-HDAY-CHK-040.
+           IF       WK-YOUBI  =  1
+                    MOVE     'YES'      TO  HOLIDAY-FLG
+           ELSE
+                    MOVE     'NO'       TO  HOLIDAY-FLG.
+      *---------- HAPPY MONDAY  ﾀｲｵｳ                                    990730
+      *----------   HAPPY MONDAY　対応
+       CLN-HDAY-CHK-050.                                                990730
+           IF       WK-KIJUNBI   <   20000101                           990730
+                    GO TO    CLN-HDAY-CHK-EXIT.                         990730
+           IF       WK-YOUBI     NOT  =  2                              990730
+                    GO TO    CLN-HDAY-CHK-EXIT.                         990730
+           IF       WK-KIJUN-MMDD  NOT  <  0108                         990730
+             AND    WK-KIJUN-MMDD  NOT  >  0114                         990730
+                    MOVE     'YES'      TO  HOLIDAY-FLG.                990730
+           IF       WK-KIJUN-MMDD  NOT  <  1008                         990730
+             AND    WK-KIJUN-MMDD  NOT  >  1014                         990730
+                    MOVE     'YES'      TO  HOLIDAY-FLG.                990730
+      *---------- HAPPY MONDAY  ﾀｲｵｳ 2003 ﾈﾝ ｲｺｳ                        020412
+      *----------   HAPPY MONDAY　対応　2003年以降
+       CLN-HDAY-CHK-060.                                                020412
+           IF       WK-KIJUNBI   <   20030101                           020412
+                    GO TO    CLN-HDAY-CHK-EXIT.                         020412
+           IF       WK-YOUBI     NOT  =  2                              020412
+                    GO TO    CLN-HDAY-CHK-EXIT.                         020412
+           IF       WK-KIJUN-MMDD  NOT  <  0715                         020412
+             AND    WK-KIJUN-MMDD  NOT  >  0721                         020412
+                    MOVE     'YES'      TO  HOLIDAY-FLG.                020412
+           IF       WK-KIJUN-MMDD  NOT  <  0915                         020412
+             AND    WK-KIJUN-MMDD  NOT  >  0921                         020412
+                    MOVE     'YES'      TO  HOLIDAY-FLG.                020412
+       CLN-HDAY-CHK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー休日チェック処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* S-EIGYOBI-CHK *************************************/CAP/**
+      *             ｼﾖｳｹﾝ ｴｲｷﾞﾖｳﾋﾞ ﾁｴﾂｸ                                *
+      *            I WK-KIJUNBI       9(8)                             *
+      *            I WK-YOUBI        S9(2)  C-3  WEEK ( 1 - 7 )        *
+      *            O HOLIDAY-FLG      'YES' OR 'NO '                   *
+      *            ３.２.４.１.１証券営業日チェック処理                *
+      ******************************************************************
+       S-EIGYOBI-CHK               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  証券営業日チェック処理  START  *****".
+      *-----------------------------------------------------------------
+       S-EIGYOBI-CHK-START.
+      *----------   ワーク曜日の判定
+           IF       WK-YOUBI  NOT =  7
+                    GO TO    S-EIGYOBI-010.
+      *----------   ワーク曜日 = 土曜日の場合、
+      *---------- 1989.02 ﾖﾘ   ｽﾍﾞﾃ ﾉ ﾄﾞﾖｳﾋﾞ                            HI881026
+      *----------   1989.02後、すべての土曜日のチェック
+           IF       WK-KIJUN-YYMM    >   198901                         HI881026
+                    MOVE     'YES'      TO  HOLIDAY-FLG                 HI881026
+                    GO TO    S-EIGYOBI-CHK-EXIT.                        HI881026
+      *----------  ﾀﾞｲ 2  ﾄﾞﾖｳﾋﾞ
+      *----------  1989.02前、第2個土曜日のチェック
+           IF       ( WK-KIJUN-DD    >   7  )
+               AND  ( WK-KIJUN-DD    <   15 )
+                    MOVE     'YES'      TO  HOLIDAY-FLG
+                    GO TO    S-EIGYOBI-CHK-EXIT.
+      *---------- 1986.08 ﾖﾘ   ﾀﾞｲ 3  ﾄﾞﾖｳﾋﾞ
+      *----------  1986.08後、第3個土曜日のチェック
+           IF       ( WK-KIJUN-YYMM  >   198607 )
+               AND  ( WK-KIJUN-DD    >   14 )
+               AND  ( WK-KIJUN-DD    <   22 )
+                    MOVE     'YES'       TO  HOLIDAY-FLG
+                    GO TO    S-EIGYOBI-CHK-EXIT.
+       S-EIGYOBI-010.
+      *---------- 1989.12 ﾖﾘ   ﾈﾝﾏﾂ ﾉ ｴﾝﾁﾖｳ                             HI891122
+      *----------  1989.12後、年末の延長
+           IF       WK-KIJUN-YYMM    >   198911                         HI891122
+                    GO TO    S-EIGYOBI-020.                             HI891122
+      *----------  1989.12前、年末の延長
+      *----------  ﾈﾝﾏﾂ ﾈﾝｼ ｷﾕｳｼﾞﾂ                                      HI891122
+      *----------  年末　年始　休日
+           IF       WK-KIJUN-MMDD    =   '1229'  OR  '1230'  OR  '1231'
+                                     OR  '0101'  OR  '0102'  OR  '0103'
+                   MOVE      'YES'       TO  HOLIDAY-FLG
+           ELSE
+                   MOVE      'NO '       TO  HOLIDAY-FLG.
+           GO   TO  S-EIGYOBI-CHK-EXIT.                                 HI891122
+       S-EIGYOBI-020.                                                   HI891122
+      *----------  1989.12後、年末の延長
+      *----------  年末　年始　休日
+           IF       WK-KIJUN-MMDD    =   '1231'                         HI891122
+                                     OR  '0101'  OR  '0102'  OR  '0103' HI891122
+                   MOVE      'YES'       TO  HOLIDAY-FLG                HI891122
+           ELSE                                                         HI891122
+                   MOVE      'NO '       TO  HOLIDAY-FLG.               HI891122
+       S-EIGYOBI-CHK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  証券営業日チェック処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******* HIZUKE SANSHUTSU **********************************/CAP/**
+      *         HIZUKE SANSHUTSU  ( ﾋﾂﾞｹ ｹｲｻﾝ )                        *
+      *            I S-JDATE-ARG1  9(8)                                *
+      *            I S-JDATE-ARG2 S9(4)                                *
+      *            O S-JDATE-ARG3  9(8)                                *
+      *            O S-JDATE-ARG4  9(2) C-3  WEEK ( 1 - 7 ) OF ARG3    *
+      *            O IXCAL-HIZUKE-KBN    X(4)      RET-CD              *
+      *                                                                *
+      *            FUNCTION                                            *
+      *              S-JDATE-ARG3 = S-JDATE-ARG1 + S-JDATE-ARG2        *
+      *           ３.２.４.２ 日付算出処理                             *
+      ******************************************************************
+       HIZUKE-SANSHUTSU                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付算出処理  START  *****".
+      *-----------------------------------------------------------------
+       HIZUKE-SANSHUTSU-START.
+      *----------  初期化ワーク変数、ワーク日数除外
+           MOVE     ZERO   TO  I WK-SU.
+           MOVE     ZERO   TO  ANS1 ANS2 ANS3 ANS4 ANS5 AMARI.
+           MOVE     'NO'   TO  URUUDOSHI-FLG.
+           MOVE     S-JDATE-ARG1   TO  WK-YYMMDD.
+           MOVE     S-JDATE-ARG2   TO  WK-DAYS.
+           IF       WK-DAYS  <  0
+      *----------  ３.２.４.２.１日数減算処理
+                    PERFORM  NISSU-GENSAN-RTN
+           ELSE
+      *----------  ３.２.４.２.２日数加算処理
+                    PERFORM  NISSU-KASAN-RTN.
+           MOVE     WK-YYMMDD  TO  S-JDATE-ARG3
+                                   WK-URU-YYMMDD.
+      *----------  曜日リターン処理
+           PERFORM  YOUBI-RTN.
+           MOVE     S-JDATE-ARG5  TO  IXCAL-HIZUKE-KBN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日付算出処理  END  *****".
+      *-----------------------------------------------------------------
+       HIZUKE-SANSHUTSU-EXIT.
+           EXIT.
+      ******* YOUBI-SANSHUTSU ***********************************/CAP/**
+      *         YOUBI-SANSHUTSU  ( ﾖｳﾋﾞ ｹｲｻﾝ )                         *
+      *            I S-JDATE-ARG1  9(8)                                *
+      *            O S-JDATE-ARG4  9(2) C-3  WEEK ( 1 - 7 )            *
+      *            O IXCAL-HIZUKE-KBN    X(4)      RET-CD              *
+      *            ３.２.１.１ 曜日算出処理                            *
+      ******************************************************************
+       YOUBI-SANSHUTSU               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  曜日算出処理  START  *****".
+      *-----------------------------------------------------------------
+       YOUBI-SANSHUTSU-START.
+           MOVE     S-JDATE-ARG1  TO  WK-YYMMDD
+                                      WK-URU-YYMMDD.
+      *----------  曜日リターン処理
+           PERFORM  YOUBI-RTN.
+           MOVE     S-JDATE-ARG5  TO  IXCAL-HIZUKE-KBN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  曜日算出処理  END  *****".
+      *-----------------------------------------------------------------
+       YOUBI-SANSHUTSU-EXIT.
+           EXIT.
+      ******* NISSU-KASAN-RTN ***********************************/CAP/**
+      *          ﾆﾂｽｳ  ｶｻﾝ   ｼﾖﾘ                                       *
+      *           I/O WK-YYMMDD  X(8)                                  *
+      *            I  WK-DAYS   S9(4) >= 0                             *
+      *                                                                *
+      *           FUNCTION                                             *
+      *               WK-YYMMDD = WK-YYMMDD + WK-DAYS                  *
+      *           ３.２.４.２.２日数加算処理                           *
+      ******************************************************************
+       NISSU-KASAN-RTN    SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数加算処理  START  *****".
+      *-----------------------------------------------------------------
+       NISSU-KASAN-RTN-START.
+           MOVE     WK-YYMMDD          TO   WK-URU-YYMMDD.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+           ADD      WK-DD     TO  WK-DAYS.
+      *----------  翌日付算出
+       NISSU-KASAN-010.
+           IF       URUUDOSHI-FLG = 'YES'
+           AND      WK-MM     =   02
+                    MOVE      13       TO   M-IX
+           ELSE
+                    MOVE      WK-MM    TO   M-IX.
+      *----------  ワーク日付テーブル.DAYS(M-IX) NOT < ワーク日数 の場合
+           IF       T-DAYS (M-IX)   NOT <   WK-DAYS
+                    MOVE    WK-DAYS    TO   WK-DD
+                    GO  TO  NISSU-KASAN-EXIT.
+      *----------  ワーク日付テーブル.DAYS(M-IX) < ワーク日数 の場合
+           COMPUTE  WK-DAYS = WK-DAYS - T-DAYS (M-IX).
+           ADD      1   TO   WK-MM.
+           IF       WK-MM    >  12
+                    ADD   1  TO   WK-YYYY
+                    MOVE  1  TO   WK-MM
+                    MOVE     WK-YYMMDD  TO  WK-URU-YYMMDD
+      *----------  ３.２.１.１.３ 閏年判断処理
+                    PERFORM  URUUDOSHI-CHK.
+           GO  TO   NISSU-KASAN-010.
+       NISSU-KASAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数加算処理  END  *****".
+      *-----------------------------------------------------------------
+            EXIT.
+      ******* NISSU-GENSAN-RTN **********************************/CAP/**
+      *         ﾆﾂｽｳ ｹﾞﾝｻﾝ ｼﾖﾘ                                         *
+      *           I/O WK-YYMMDD  X(8)                                  *
+      *            I  WK-DAYS   S9(4) < 0                              *
+      *                                                                *
+      *           FUNCTION                                             *
+      *               WK-YYMMDD = WK-YYMMDD + WK-DAYS                  *
+      *           ３.２.４.２.１日数減算処理                           *
+      ******************************************************************
+       NISSU-GENSAN-RTN  SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数減算処理  START  *****".
+      *-----------------------------------------------------------------
+       NISSU-GENSAN-RTN-START.
+           MOVE     WK-YYMMDD          TO   WK-URU-YYMMDD.
+      *----------  ３.２.１.１.３ 閏年判断処理
+           PERFORM  URUUDOSHI-CHK.
+           COMPUTE  WK-DAYS = WK-DAYS * (-1).
+      *----------  前日付算出
+       NISSU-GENSAN-010.
+      *----------  ワーク年月日の日 > ワーク日数 の場合
+           IF       WK-DD  >   WK-DAYS
+                    COMPUTE WK-DD  =  WK-DD  -  WK-DAYS
+                    GO  TO  NISSU-GENSAN-EXIT.
+      *----------  ワーク年月日の日 <= ワーク日数 の場合
+           COMPUTE  WK-DAYS =  WK-DAYS - WK-DD.
+           COMPUTE  WK-MM   =  WK-MM   -  1.
+           IF       WK-MM   =  0
+                    MOVE    12  TO  WK-MM
+                    COMPUTE WK-YYYY  = WK-YYYY  -  1
+                    MOVE    WK-YYMMDD  TO  WK-URU-YYMMDD
+      *----------  ３.２.１.１.３ 閏年判断処理
+                    PERFORM URUUDOSHI-CHK.
+           IF       URUUDOSHI-FLG = 'YES'
+           AND      WK-MM         =  02
+                    MOVE    13      TO  M-IX
+           ELSE
+                    MOVE  WK-MM     TO  M-IX.
+           MOVE     T-DAYS (M-IX)   TO  WK-DD.
+           GO  TO   NISSU-GENSAN-010.
+       NISSU-GENSAN-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  日数減算処理  END  *****".
+      *-----------------------------------------------------------------
+            EXIT.
+      ******* YOUBI-RTN    **************************************/CAP/**
+      *         ﾖｳﾋﾞ ｻﾝｼﾕﾂ  ｼﾖﾘ                                        *
+      *           I WK-YYMMDD     X(8)                                 *
+      *           O S-JDATE-ARG4  S9(2) C-3  --- WEEK ( 1 (SUN)        *
+      *                                                 - 7 (SAT) )    *
+      *           O S-JDATE-ARG5  X(4)       --- RET-CD                *
+      *                                            NOMAL-END OR        *
+      *                                            YMD-ERR             *
+      *           ３.２.１.１.１ 曜日リターン処理                      *
+      ******************************************************************
+       YOUBI-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  曜日リターン処理  START  *****".
+      *-----------------------------------------------------------------
+       YOUBI-START.
+      *DEL PERFORM  URUUDOSHI-CHK.                                      NS860908
+      *
+      *             CHECK YMD AND GET URUUDOSHI-FLG
+      *-----------  ３.２.１.２ カレンダーチェック処理
+           PERFORM  CALENDAR-CHK.                                       NS860908
+           IF       S-JDATE-ARG5   NOT  =    SPACE                      NS860908
+               GO   TO   YOUBI-EXIT.                                    NS860908
+      *
+      *-----------  当年の日数算出
+           MOVE     WK-DD  TO  WK-SU.
+           MOVE     1   TO  I.
+       YOUBI-010.
+           IF       I  <  WK-MM
+                    NEXT  SENTENCE
+              ELSE
+                    GO  TO  YOUBI-020.
+           COMPUTE  WK-SU  =  WK-SU  +  T-DAYS (I).
+           ADD      1  TO  I.
+           GO  TO   YOUBI-010.
+       YOUBI-020.
+      *-----------  閏年数算出
+           COMPUTE  ANS1    =  (WK-YYYY  -  1)  *  365.
+           COMPUTE  ANS2    =  WK-YYYY  /  4.
+           COMPUTE  ANS3    =  WK-YYYY  /  100.
+           COMPUTE  ANS4    =  WK-YYYY  /  400.
+           COMPUTE  ANS5    =  ANS1  +  ANS2  -  ANS3  +  ANS4 + WK-SU.
+           DIVIDE   ANS5   BY  07   GIVING     YY-ANS
+                                               REMAINDER  AMARI.
+      *-----------  閏年を判定するして、曜日をセット
+           IF       URUUDOSHI-FLG  NOT =  'YES'
+                    COMPUTE  S-JDATE-ARG4  =   AMARI   +  1
+                    GO  TO   YOUBI-030.
+           IF       WK-MM    >   02
+                    COMPUTE S-JDATE-ARG4   =   AMARI   +  1
+                    GO  TO   YOUBI-030.
+           IF       AMARI    =  ZERO
+                    MOVE     7       TO    S-JDATE-ARG4
+           ELSE
+                    MOVE    AMARI    TO    S-JDATE-ARG4.
+       YOUBI-030.
+      ***  PERFORM  CALENDAR-CHK.                                       NS860906
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-SU(当年日数)    =[" WK-SU    "]".
+      D    DISPLAY  "ANS5(総日数)       =[" ANS5     "]".
+      D    DISPLAY  "AMARI(曜日)        =[" AMARI    "]".
+      D    DISPLAY  "*****  曜日リターン処理  END  *****".
+      *-----------------------------------------------------------------
+       YOUBI-EXIT.
+           EXIT.
+      ******* CALENDAR-RTN **************************************/CAP/**
+      *         ｻﾝｼﾕﾂ ﾋﾂﾞｹ               ﾉ ﾁｴﾂｸ                        *
+      *             I WK-YYMMDD       X(8)                             *
+      *             O URUUDOSHI-FLG   'YES' OR 'NO '                   *
+      *             O S-JDATE-ARG5    X(4) --- RET-CD                  *
+      *                                          YMD-ERR    OR         *
+      *                                          NOMAL-END             *
+      *             ３.２.１.１.２ カレンダーチェック処理              *
+      ******************************************************************
+       CALENDAR-CHK   SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダーチェック処理  START  *****".
+      *-----------------------------------------------------------------
+       CALENDAR-CHK-START.
+      *----------  ﾋﾂﾞｹ ﾁｴﾂｸ
+      *----------  日付チェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-YYMMDD   =[" WK-YYMMDD   "]".
+      *-----------------------------------------------------------------
+           IF       WK-YYYY    <    1
+      *             MOVE     R2-YMD-ERR   TO   S-JDATE-ARG5
+      *             GO  TO  CALENDAR-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日付チェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0005"               TO  ERR-POS
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-PARM-ERR         TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0               TO  DETAIL-RTN-CD-FLG
+                                               OF  PARM-SCZY1170-ARG1
+                    PERFORM   ERR-RTN.
+           IF       (WK-MM    =    01   OR   03   OR  05   OR  07
+                                        OR   08   OR  10   OR  12)
+           AND      (WK-DD  <   1  OR   WK-DD  >  31 )
+      *             MOVE    R2-YMD-ERR   TO   S-JDATE-ARG5
+      *             GO  TO  CALENDAR-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日付チェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0006"               TO  ERR-POS
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-PARM-ERR         TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0               TO  DETAIL-RTN-CD-FLG
+                                               OF  PARM-SCZY1170-ARG1
+                    PERFORM   ERR-RTN.
+           IF       (WK-MM    =     04   OR   06   OR   09   OR   11)
+           AND      (WK-DD   <   1  OR  WK-DD  >  30)
+      *             MOVE    R2-YMD-ERR   TO   S-JDATE-ARG5
+      *             GO  TO  CALENDAR-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日付チェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0007"               TO  ERR-POS
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-PARM-ERR         TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0               TO  DETAIL-RTN-CD-FLG
+                                               OF  PARM-SCZY1170-ARG1
+                    PERFORM   ERR-RTN.
+      *
+      *----------  ３.２.１.１.３ 閏年判断処理
+           MOVE     WK-YYMMDD          TO   WK-URU-YYMMDD.              NS860908
+           PERFORM  URUUDOSHI-CHK.                                      NS860908
+      *
+      *----------  年月日の月 = '02'の時、年月日の日をまたチェック
+           IF       WK-MM    =        02
+                    NEXT  SENTENCE
+           ELSE
+                    GO  TO   CALENDAR-YOUBI-CHK.
+      *DEL PERFORM  URUUDOSHI-CHK.                                      NS860908
+           IF       URUUDOSHI-FLG   =   'YES'
+                    NEXT  SENTENCE
+           ELSE
+                    GO  TO  CALENDAR-CHK-010.
+           IF       WK-DD  <    1   OR  WK-DD  >  29
+      *             MOVE   R2-YMD-ERR  TO  S-JDATE-ARG5
+      *             GO  TO  CALENDAR-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日付チェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0008"               TO  ERR-POS
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-PARM-ERR         TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0               TO  DETAIL-RTN-CD-FLG
+                                               OF  PARM-SCZY1170-ARG1
+                    PERFORM   ERR-RTN.
+           GO  TO   CALENDAR-YOUBI-CHK.
+       CALENDAR-CHK-010.
+           IF       WK-DD   <   1   OR  WK-DD  >   28
+      *             MOVE   R2-YMD-ERR   TO  S-JDATE-ARG5
+      *             GO  TO  CALENDAR-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日付チェック  ERROR  *****"
+      *-----------------------------------------------------------------
+                    MOVE  "0009"               TO  ERR-POS
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-PARM-ERR         TO  RTN-CD
+                                               OF  PARM-SCZY1170-ARG1
+                    MOVE  CNS-C0               TO  DETAIL-RTN-CD-FLG
+                                               OF  PARM-SCZY1170-ARG1
+                    PERFORM   ERR-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カレンダー日付チェック  正常  *****".
+      *-----------------------------------------------------------------
+      *----------  ﾖｳﾋﾞ ﾁｴﾂｸ
+       CALENDAR-YOUBI-CHK.
+      *DEL IF       S-JDATE-ARG4  <  1  OR   S-JDATE-ARG4  >  7         NS860908
+      *DEL          MOVE   R2-YOUBI-ERR TO   S-JDATE-ARG5               NS860908
+      *DEL          GO  TO  CALENDAR-EXIT.                              NS860908
+           MOVE     SPACE               TO   S-JDATE-ARG5.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "S-JDATE-ARG5   =[" S-JDATE-ARG5   "]".
+      D    DISPLAY  "*****  カレンダーチェック処理  END  *****".
+      *-----------------------------------------------------------------
+       CALENDAR-EXIT.
+           EXIT.
+      ******* URUUDOSHI-CHK *************************************/CAP/**
+      *             ｳﾙｳﾄﾞｼ ﾁｴﾂｸ                                        *
+      *               I WK-URU-YYMMDD  X(8)                            *
+      *               O URUUDOSHI-FLG  'YES' OR 'NO '                  *
+      *               ３.２.１.１.３ 閏年判断処理                      *
+      ******************************************************************
+       URUUDOSHI-CHK               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  閏年判断処理  START  *****".
+      D    DISPLAY  "WK-URU-YYMMDD   =[" WK-URU-YYMMDD   "]".
+      *-----------------------------------------------------------------
+       URUUDOSHI-CHK-START.
+           DIVIDE   WK-URU-YYYY     BY    04     GIVING  YY-ANS
+                                    REMAINDER    YY-AMARI.
+           IF       YY-AMARI        NOT =        ZERO
+                    MOVE     'NO '        TO  URUUDOSHI-FLG
+                    GO TO    URUUDOSHI-CHK-EXIT.
+           DIVIDE   WK-URU-YYYY     BY    100    GIVING  YY-ANS
+                                    REMAINDER    YY-AMARI.
+           IF       YY-AMARI        NOT =        ZERO
+                    MOVE     'YES'        TO  URUUDOSHI-FLG
+                    GO TO    URUUDOSHI-CHK-EXIT.
+           DIVIDE   WK-URU-YYYY     BY    400    GIVING  YY-ANS
+                                    REMAINDER    YY-AMARI.
+           IF       YY-AMARI        =     ZERO
+                    MOVE     'YES'        TO  URUUDOSHI-FLG
+           ELSE
+                    MOVE     'NO '        TO  URUUDOSHI-FLG.
+       URUUDOSHI-CHK-EXIT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "URUUDOSHI-FLG   =[" URUUDOSHI-FLG   "]"
+      D    DISPLAY  "*****  閏年判断処理  END  *****".
+      *-----------------------------------------------------------------
+           EXIT.
+      ******************************************************************
+      *                     ３.３．後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  START  ***".
+      D    DISPLAY  "RTN-CD    = ["RTN-CD  OF PARM-SCZY1170-ARG1 "]".
+      *----------------------------------------------------------------
+           IF  RTN-CD                        OF  PARM-SCZY1170-ARG1
+                                             NOT = CNS-HIZUKE-ERR
+           THEN
+               MOVE  CNS-RET-CD-NORMAL
+                 TO  RTN-CD                  OF  PARM-SCZY1170-ARG1
+           END-IF
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170開始".
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"                  USING  PARM-SCZY1170-INOUT
+                                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SCZY1020-ARG3.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170終了".
+      D    DISPLAY  "COUNTER     = ["COUNTER OF PARM-SCZY1170-ARG2  "]".
+      D    DISPLAY  "ERR-PGM-ID  = ["ERR-PGM-ID 
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "ERR-POS     = ["ERR-POS
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "RTN-CD      = ["RTN-CD
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "DETAIL-RTN-CD = ["DETAIL-RTN-CD
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "DETAIL-RTN-CD-FLG = ["DETAIL-RTN-CD-FLG
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "***   後処理  END  ***".
+      *-----------------------------------------------------------------
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *                     ３.４．エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ERR-RTN  START  ***".
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170開始".
+      *-----------------------------------------------------------------
+           MOVE  CNS-PROGRAM-ID
+             TO  ERR-PGM-ID                  OF  PARM-SCZY1170-ARG1
+           CALL  "SCZY1170"                  USING  PARM-SCZY1170-INOUT
+                                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SCZY1020-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170終了".
+      D    DISPLAY  "COUNTER     = ["COUNTER OF PARM-SCZY1170-ARG2  "]".
+      D    DISPLAY  "ERR-PGM-ID  = ["ERR-PGM-ID 
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "ERR-POS     = ["ERR-POS
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "RTN-CD      = ["RTN-CD
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "DETAIL-RTN-CD = ["DETAIL-RTN-CD
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "DETAIL-RTN-CD-FLG = ["DETAIL-RTN-CD-FLG
+      D        OF PARM-SCZY1170-ARG2(COUNTER OF PARM-SCZY1170-ARG2) "]".
+      D    DISPLAY  "***  ERR-RTN  END  ***".
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************

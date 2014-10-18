@@ -1,0 +1,596 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      *     システムＩＤ   : TSTAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラム名称 : テーブルID取得ルーチン
+      *     処理概要       : テーブルID取得ルーチン
+      *     参照ＤＢ       : なし
+      *     引数           : IN  利用会社コード
+      *                    : IN  テーブルID
+      *                    : OUT 編集後テーブルID
+      *                    : OUT RTNパッケージ
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20070919   新規  SCS        薛銀峰  新規作成
+      *     20080228   修正  SCS        薛銀峰  修正
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY1160.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-02-28.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      * SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+       ENVIRONMENT-NAME               ENV-NAME
+       ENVIRONMENT-VALUE              ENV-VALUE.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+           SELECT  TABLE-FILE ASSIGN  TO  TABLE-FILENAME
+                   ORGANIZATION IS LINE SEQUENTIAL
+                   FILE       STATUS  IS  ST-TABLEFILE.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       FILE                   SECTION.
+       FD  TABLE-FILE
+                         LABEL      RECORD    STANDARD.
+       01  TABLE-REC.
+         05  TABLE-ID              PIC  X(100).
+      ******************************************************************
+      *                作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                ファイル  エリア
+      ******************************************************************
+       01  FILE-AREA.
+         05  TABLE-FILENAME        PIC  X(256).
+      *----------  共通テーブル定義ファイルパス
+         05  TABLE-PATH            PIC  X(256).
+      *----------  共通テーブル定義ファイルステータス
+         05  ST-TABLEFILE          PIC  X(02).
+      *----------  ワークテーブルID
+         05  WK-TABLE-LIST  OCCURS  1 TO  1000  TIMES
+                           DEPENDING  ON
+                                        WK-TABLE-COUNTER.
+           10  WK-TABLE-ID         PIC  X(08).
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE "SCZY1160".
+         05  CNS-RET-CD-NORMAL     PIC  X(03)  VALUE "000".
+         05  CNS-RET-CD-PARERR     PIC  X(03)  VALUE "800".
+      *----------  システムエラー（環境変数）
+         05  CNS-RET-CD-SYSERR     PIC  X(03)  VALUE "910".
+      *----------  ファイルアクセスエラー（OPEN）
+         05  CNS-RET-CD-OPENERR    PIC  X(03)  VALUE "200".
+      *----------  ファイルアクセスエラー（READ）
+         05  CNS-RET-CD-READERR    PIC  X(03)  VALUE "210".
+      *----------  ファイルアクセスエラー（CLOSE）
+         05  CNS-RET-CD-CLOSEERR   PIC  X(03)  VALUE "230".
+         05  CNS-0                 PIC  X(01)  VALUE "0".
+      *----------  ファイルオープン SUCCESS
+         05  CNS-FILE-NORMAL       PIC  X(02)  VALUE "00".
+      *----------  ファイルオープン
+         05  CNS-FILE-ON           PIC  9(01)  VALUE 1.
+      *----------  ファイルクローズ
+         05  CNS-FILE-OFF          PIC  9(01)  VALUE 0.
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WK-AREA.
+      *---------- ワ－クテーブルCOUNT
+         05  WK-TBL-COUNTER        PIC  9(02).
+      *---------- ワークフラグ
+         05  WK-FLAG               PIC  X(01).
+      *---------- ワークファイルオープンフラグ
+         05  WK-FLG-FILE-OPEN      PIC  X(01).
+      *---------- ワークファイルENDフラグ
+         05  WK-FLG-END            PIC  X(01).
+      *---------- ワークファイルテーブルCOUNT
+         05  WK-TABLE-COUNTER      PIC  9(04).
+      *---------- ワークCOUNT
+         05  WK-COUNTER            PIC  9(04).
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+         COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY1160-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+         COPY  "SCZY1160.cpy".
+       01  PARM-SCZY1160-RTNPKG.
+         05  PARM-SCZY1160-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY1160-INOUT
+                  PARM-SCZY1160-RTNPKG.
+      ******************************************************************
+      *                 SCZY1160処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1160処理  START  ***"
+      *-----------------------------------------------------------------
+      *---------- 初期処理
+           PERFORM  INIT-RTN
+      *---------- メイン処理
+           PERFORM  MAIN-RTN
+      *---------- 終了処理
+           PERFORM  END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1160処理  END  ***".
+      *-----------------------------------------------------------------
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 初期処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  INIT-RTN  START  ***"
+      *-----------------------------------------------------------------
+      *---------- 初期化
+           INITIALIZE     WK-AREA
+                          FILE-AREA
+                          PARM-SCZY1160-ARG2
+                          PARM-SCZY1160-ARG3
+                          PARM-SCZY1170-INOUT
+                          PARM-SCZY1170-RTNPKG
+      *---------- パラメータチェック処理
+           IF  ( RIYO-CMP-CD  OF  PARM-SCZY1160-ARG1   =  SPACE )
+             OR  ( TBL-ID-GRP  OF  PARM-SCZY1160-ARG1  =  SPACE )
+           THEN
+               MOVE  CNS-RET-CD-PARERR       TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+               MOVE  "0001"                  TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-0                   TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-AREA            =["  WK-AREA           "]"
+      D    DISPLAY  "FILE-AREA          =["  FILE-AREA         "]"
+      D    DISPLAY  "PARM-SCZY1160-ARG2 =["  PARM-SCZY1160-ARG2"]"
+      D    DISPLAY  "PARM-SCZY1160-ARG3 =["  PARM-SCZY1160-ARG3"]"
+      D    DISPLAY  "PARM-SCZY1170-INOUT=["  PARM-SCZY1170-INOUT"]"
+      D    DISPLAY  "PARM-SCZY1170-RTNPKG=["  PARM-SCZY1170-RTNPKG"]"
+      *-----------------------------------------------------------------
+      *---------- 環境変数(APL_TMP_DIR)より
+      *---------- 共通テーブル定義ファイルパスを取得処理
+           PERFORM  PATH-SYUTOKU-RTN
+      *---------- 共通テーブル定義ファイルをオープン処理
+           PERFORM  FILE-OPEN-RTN
+      *---------- 共通テーブル定義ファイルを読み取る処理
+           PERFORM  FILE-READ-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  INIT-RTN  END  ***".
+      *-----------------------------------------------------------------
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                 共通テーブル定義ファイルパスを取得処理
+      ******************************************************************
+       PATH-SYUTOKU-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***共通テーブル定義ファイルパスを取得処理START ***"
+      *-----------------------------------------------------------------
+           DISPLAY  "APL_DATEFILE_DIR"  UPON  ENV-NAME
+           ACCEPT  TABLE-PATH           FROM  ENV-VALUE  ON EXCEPTION
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "環境変数取得エラーの場合"
+      *-------------------<DEBUG>---------------------------------------
+             MOVE  CNS-RET-CD-SYSERR         TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+             MOVE  "0002"                    TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+             MOVE  CNS-0                     TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1  =["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1  =["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1  =["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1  "]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           END-ACCEPT.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "TABLE-PATH         =["  TABLE-PATH              "]"
+      D    DISPLAY  "*** 共通テーブル定義ファイルパスを取得処理END ***".
+      *-----------------------------------------------------------------
+       PATH-SYUTOKU-EXT.
+           EXIT.
+      ******************************************************************
+      *                 共通テーブル定義ファイルをオープン処理
+      ******************************************************************
+       FILE-OPEN-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***共通テーブル定義ファイルをオープン処理START ***"
+      *-----------------------------------------------------------------
+      *---------- 共通テーブル定義ファイルをオープンする
+           STRING  TABLE-PATH,
+                   "/cmn_tbl_list_RX.dat"       DELIMITED BY SPACE
+                   INTO  TABLE-FILENAME
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "TABLE-FILENAME     =["  TABLE-FILENAME          "]"
+      D    DISPLAY  "***  オーペン処理 START  ***"
+      *-----------------------------------------------------------------
+           OPEN INPUT TABLE-FILE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-TABLEFILE       =["  ST-TABLEFILE            "]"
+      *-----------------------------------------------------------------
+           IF  ST-TABLEFILE   NOT = CNS-FILE-NORMAL  THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "共通テーブル定義ファイルをオーペン エラー !"
+      *-----------------------------------------------------------------
+             MOVE  CNS-RET-CD-OPENERR        TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+             MOVE  "0003"                    TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+             MOVE  FUNCTION NUMVAL(ST-TABLEFILE)
+               TO  DETAIL-RTN-CD             OF PARM-SCZY1170-ARG1
+             MOVE  CNS-0                     TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1  =["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1  =["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1  =["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1  "]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FLG-FILE-OPEN   =["  WK-FLG-FILE-OPEN        "]"
+      *-----------------------------------------------------------------
+             MOVE    CNS-FILE-ON             TO  WK-FLG-FILE-OPEN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FLG-FILE-OPEN   =["  WK-FLG-FILE-OPEN        "]"
+      D    DISPLAY "共通テーブル定義ファイルをオーペン 正常 !"
+      D    DISPLAY  "*** 共通テーブル定義ファイルをオープン処理END ***".
+      *-----------------------------------------------------------------
+       FILE-OPEN-EXT.
+           EXIT.
+      ******************************************************************
+      *                 共通テーブル定義ファイルを読み取る処理
+      ******************************************************************
+       FILE-READ-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***共通テーブル定義ファイルを読み取る処理START ***"
+      D    DISPLAY  "WK-FLG-END         =["  WK-FLG-END              "]"
+      *-----------------------------------------------------------------
+           PERFORM  WITH TEST BEFORE  UNTIL  WK-FLG-END = "1"
+             READ TABLE-FILE
+               AT END  MOVE  "1"             TO  WK-FLG-END
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FLG-END         =["  WK-FLG-END              "]"
+      D    DISPLAY  "WK-TABLE-COUNTER   =["  WK-TABLE-COUNTER        "]"
+      *-----------------------------------------------------------------
+             END-READ
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FLG-END         =["  WK-FLG-END              "]"
+      *-----------------------------------------------------------------
+             IF  WK-FLG-END NOT = "1"  THEN
+      *---------- ファイルステータス＝"00"（正常）の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-TABLEFILE       =["  ST-TABLEFILE            "]"
+      *-----------------------------------------------------------------
+               IF  ST-TABLEFILE    = CNS-FILE-NORMAL  THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-TABLE-COUNTER   =["  WK-TABLE-COUNTER        "]"
+      *-----------------------------------------------------------------
+                 COMPUTE  WK-TABLE-COUNTER = WK-TABLE-COUNTER + 1
+                 MOVE  TABLE-ID(1:8)
+                   TO  WK-TABLE-ID(WK-TABLE-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-TABLE-COUNTER   =["  WK-TABLE-COUNTER        "]"
+      D    DISPLAY  "WK-TABLE-ID("WK-TABLE-COUNTER                 ")=["
+      D              WK-TABLE-ID(WK-TABLE-COUNTER)                   "]"
+      *-----------------------------------------------------------------
+               ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "共通テーブル定義ファイルを読み エラー !"
+      *-----------------------------------------------------------------
+                 MOVE  CNS-RET-CD-READERR
+                   TO  RTN-CD                OF  PARM-SCZY1170-ARG1
+                 MOVE  "0004"                TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+                 MOVE  FUNCTION NUMVAL(ST-TABLEFILE)
+                   TO  DETAIL-RTN-CD         OF PARM-SCZY1170-ARG1
+                 MOVE  CNS-0                 TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1  =["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1  =["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1  =["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1  "]"
+      *-----------------------------------------------------------------
+                 PERFORM  ERR-RTN
+               END-IF
+             END-IF
+           END-PERFORM.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 共通テーブル定義ファイルを読み取る処理END ***".
+      *-----------------------------------------------------------------
+       FILE-READ-EXT.
+           EXIT.
+      ******************************************************************
+      *                 メイン処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  START  *****"
+      D    DISPLAY  "*****  テーブル判定処理 START  *****"
+      *-----------------------------------------------------------------
+           MOVE  1                           TO  WK-TBL-COUNTER
+      *---------- テーブルID＝SPACE or 配列＞20  まで
+           PERFORM  UNTIL  ( ( WK-TBL-COUNTER  >  20 )
+             OR  ( TBL-ID
+             OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)  = SPACE ) )
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "TBL-ID("  WK-TBL-COUNTER  ")                    =["
+      D              TBL-ID  OF PARM-SCZY1160-ARG1(WK-TBL-COUNTER)   "]"
+      D    DISPLAY  "*****  共通テーブル判定処理 START  *****"
+      *-----------------------------------------------------------------
+      *---------- テーブルIDの1-2桁目＝'TO'and 5-6桁目＝'SE'、'DA'、'EE'
+               IF  ( TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(1:2)  =  "TO"
+                 AND ((TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(5:2)  =  "SE" )
+                 OR ( TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(5:2)  =  "DA" )
+                 OR ( TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(5:2)  =  "EE" ))
+                                                                      )
+      *---------- テーブルIDの1-2桁目＝'TK'and3-4桁目＝'SY'、'EY'
+                 OR ( TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(1:2)  =  "TK"
+                 AND ((TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(3:2)  =  "SY" )
+                 OR ( TBL-ID
+                 OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)(3:2)  =  "EY" ))
+                                                                      )
+      *---------- ARG1．利用会社コード＝'C000'
+                 OR ( RIYO-CMP-CD  OF  PARM-SCZY1160-ARG1  =  "C000" )
+      *---------- ARG1．利用会社コードの頭１桁＝'3'、'4'の場合
+                 OR ( RIYO-CMP-CD  OF  PARM-SCZY1160-ARG1(1:1)  =  "3" )
+                 OR ( RIYO-CMP-CD  OF  PARM-SCZY1160-ARG1(1:1)  =  "4" )
+               THEN
+                   MOVE  TBL-ID
+                     OF  PARM-SCZY1160-ARG1(WK-TBL-COUNTER)
+                     TO  HENSYUGO-TBL-ID
+                     OF  PARM-SCZY1160-ARG2(WK-TBL-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  共通テーブル ***"
+      D    DISPLAY  "TBL-ID("  WK-TBL-COUNTER  ")                    =["
+      D              TBL-ID  OF PARM-SCZY1160-ARG1(WK-TBL-COUNTER)   "]"
+      D    DISPLAY  "HENSYUGO-TBL-ID("  WK-TBL-COUNTER             ")=["
+      D         HENSYUGO-TBL-ID OF PARM-SCZY1160-ARG2(WK-TBL-COUNTER)"]"
+      D    DISPLAY  "*****  共通テーブル判定処理 END  *****"
+      *-----------------------------------------------------------------
+               ELSE
+                 MOVE  "0"                 TO  WK-FLAG
+                 MOVE  1                   TO  WK-COUNTER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  共通テーブル判定処理 END  *****"
+      D    DISPLAY  "WK-FLAG            =["  WK-FLAG                 "]"
+      D    DISPLAY  "WK-COUNTER         =["  WK-COUNTER              "]"
+      D    DISPLAY  "***  共通テーブル定義ファイルを参照 START  ***"
+      *-----------------------------------------------------------------
+                 PERFORM  WITH TEST BEFORE
+                   UNTIL  WK-FLAG = "1" OR WK-COUNTER > WK-TABLE-COUNTER
+                   IF  WK-TABLE-ID(WK-COUNTER) = TBL-ID
+                                   OF PARM-SCZY1160-ARG1(WK-TBL-COUNTER)
+                   THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-TABLE-ID("WK-COUNTER                       ")=["
+      D              WK-TABLE-ID(WK-COUNTER)                         "]"
+      D    DISPLAY  "TBL-ID("  WK-TBL-COUNTER                      ")=["
+      D              TBL-ID  OF PARM-SCZY1160-ARG1(WK-TBL-COUNTER)   "]"
+      D    DISPLAY  "***  共通テーブル ***"
+      *-----------------------------------------------------------------
+                     MOVE  TBL-ID  OF PARM-SCZY1160-ARG1(WK-TBL-COUNTER)
+                       TO  HENSYUGO-TBL-ID
+                                   OF PARM-SCZY1160-ARG2(WK-TBL-COUNTER)
+                     MOVE  "1"               TO  WK-FLAG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "TBL-ID  OF PARM-SCZY1160-ARG1(" WK-TBL-COUNTER")=["
+      D              TBL-ID  OF PARM-SCZY1160-ARG1(  WK-TBL-COUNTER) "]"
+      D    DISPLAY  "HENSYUGO-TBL-ID("  WK-TBL-COUNTER             ")=["
+      D         HENSYUGO-TBL-ID OF PARM-SCZY1160-ARG2(WK-TBL-COUNTER)"]"
+      D    DISPLAY  "WK-FLAG            =["  WK-FLAG                 "]"
+      *-----------------------------------------------------------------
+                   ELSE
+                     COMPUTE  WK-COUNTER = WK-COUNTER + 1
+                   END-IF
+                 END-PERFORM
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-COUNTER         =["  WK-COUNTER              "]"
+      D    DISPLAY  "***  共通テーブル定義ファイルを参照 END  ***"
+      D    DISPLAY  "***  ワークフラグ判定処理 START  ***"
+      D    DISPLAY  "WK-FLAG            =["  WK-FLAG                 "]"
+      *-----------------------------------------------------------------
+      *---------- ワークフラグ＝'0'の場合
+                 IF  WK-FLAG = "0"  THEN
+                   STRING  TBL-ID  OF PARM-SCZY1160-ARG1(WK-TBL-COUNTER)
+                           DELIMITED BY SPACE
+                           "_"
+                           RIYO-CMP-CD       OF PARM-SCZY1160-ARG1
+                           DELIMITED BY SIZE
+                           INTO  HENSYUGO-TBL-ID
+                                   OF PARM-SCZY1160-ARG2(WK-TBL-COUNTER)
+                 END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "TBL-ID  OF  PARM-SCZY1160-ARG1("WK-TBL-COUNTER")=["
+      D              TBL-ID  OF  PARM-SCZY1160-ARG1( WK-TBL-COUNTER) "]"
+      D    DISPLAY  "HENSYUGO-TBL-ID("  WK-TBL-COUNTER             ")=["
+      D         HENSYUGO-TBL-ID OF PARM-SCZY1160-ARG2(WK-TBL-COUNTER)"]"
+      *-----------------------------------------------------------------
+               END-IF
+               COMPUTE  WK-TBL-COUNTER  =  WK-TBL-COUNTER + 1
+           END-PERFORM.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  START  ***"
+      D    DISPLAY "***  共通テーブル定義ファイルをクローズ START  ***"
+      *-----------------------------------------------------------------
+           CLOSE  TABLE-FILE
+      *---------- ファイルステータス＝"00"（正常）の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-TABLEFILE       =["  ST-TABLEFILE            "]"
+      *-----------------------------------------------------------------
+           IF  ST-TABLEFILE    = CNS-FILE-NORMAL  THEN
+             MOVE  CNS-FILE-OFF              TO  WK-FLG-FILE-OPEN
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "共通テーブル定義ファイルをクローズ エラー !"
+      *-----------------------------------------------------------------
+             MOVE  CNS-RET-CD-CLOSEERR       TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+             MOVE  "0005"                    TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+             MOVE  FUNCTION NUMVAL(ST-TABLEFILE)
+               TO  DETAIL-RTN-CD             OF PARM-SCZY1170-ARG1
+             MOVE  CNS-0                     TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1  =["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1  =["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1  =["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1  "]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  共通テーブル定義ファイルをクローズ END  ***"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RET-CD-NORMAL
+             TO  RTN-CD                      OF  PARM-SCZY1170-ARG1
+           CALL  "SCZY1170"                  USING  PARM-SCZY1170-INOUT
+                                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SCZY1160-ARG3.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  END  ***".
+      *-----------------------------------------------------------------
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *                 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ERR-RTN  START  ***"
+      D    DISPLAY  "WK-FLG-FILE-OPEN   =["  WK-FLG-FILE-OPEN        "]"
+      *-----------------------------------------------------------------
+      *---------- 共通テーブル定義ファイルがオープンしている場合
+           IF  WK-FLG-FILE-OPEN = CNS-FILE-ON  THEN
+             CLOSE  TABLE-FILE
+      *---------- ファイルステータス＝"00"（正常）の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-TABLEFILE       =["  ST-TABLEFILE            "]"
+      *-----------------------------------------------------------------
+             IF  ST-TABLEFILE    = CNS-FILE-NORMAL  THEN
+               MOVE  CNS-FILE-OFF            TO  WK-FLG-FILE-OPEN
+             ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "共通テーブル定義ファイルをクローズ エラー !"
+      *-----------------------------------------------------------------
+               MOVE  CNS-RET-CD-CLOSEERR     TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+               MOVE  "0006"                  TO  ERR-POS
+                                             OF  PARM-SCZY1170-ARG1
+               MOVE  FUNCTION NUMVAL(ST-TABLEFILE)
+               TO  DETAIL-RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-0                   TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1  =["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1  =["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  =["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1  "]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1  =["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1  "]"
+      *-----------------------------------------------------------------
+             END-IF
+           END-IF
+           MOVE  CNS-PROGRAM-ID
+             TO  ERR-PGM-ID                  OF  PARM-SCZY1170-ARG1
+           CALL  "SCZY1170"                  USING  PARM-SCZY1170-INOUT
+                                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SCZY1160-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ERR-RTN  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************

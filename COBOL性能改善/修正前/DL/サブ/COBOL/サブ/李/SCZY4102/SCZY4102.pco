@@ -1,0 +1,1146 @@
+      ******************************************************************
+      * $Header$
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラムＩＤ : SCZY4102
+      *     プログラム名称 : 国全項目取得ルーチン
+      *     処理概要       : 利用会社コード、国コード、適用開始日より、
+      *                      国テーブルから有效的な直近適用開始日の
+      *                      全項目を取得する。
+      *     参照ＤＢ       : 国（TKCMKN00）
+      *     更新ＤＢ       : なし
+      *     引数           : IN   利用会社コード
+      *                      IN   国コード
+      *                      IN   適用開始日
+      *                      OUT  国コード
+      *                      OUT  適用開始日
+      *                      OUT  国コード_略式
+      *                      OUT  国名称_全角（日）
+      *                      OUT  国名称_半角（日）
+      *                      OUT  国名称（英）
+      *                      OUT  国名称_略称（日）
+      *                      OUT  国名称_略称（英）
+      *                      OUT  通貨コード
+      *                      OUT  出力順
+      *
+      *     改訂履歴
+      *     年月日   区分 所属     担当者  内容
+      *     -------- ---- -------- ------- -----------------------------
+      *     200804/14 新規 SCS      楊暁波 新規作成
+      *
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY4102.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-04-14.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *    環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *    デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *    作  業  場  所  節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *    コンスタント  エリア
+      ******************************************************************
+      *----------  共通コンスタント定義の宣言
+       01  CONSTANT-AREA.
+         05  CNS-SCZYCNS.
+           COPY  "KOMONCNS.cpy".
+      *----------  プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SCZY4102".
+      *----------  カウンターパーティ
+         05  CNS-TBL-TKCMKN00      PIC  X(08)  VALUE  "TKCMKN00".
+      *----------  日付区分用
+         05  CNS-DATE-FLG-0        PIC  X(01)  VALUE  "0".
+      ******************************************************************
+      *    オラクルホスト  変数
+      ******************************************************************
+      *----------  ＳＱＬコミュニケーション領域
+           EXEC  SQL  INCLUDE  SQLCA             END-EXEC.
+           EXEC  SQL  INCLUDE  ORACA             END-EXEC.
+           EXEC  SQL  BEGIN   DECLARE   SECTION  END-EXEC.
+       01  HST-AREA.
+      *----------  カウンターパーティエリア
+         05  H-TKCMKN00-S.
+      *----------  国コード
+           10  H-KUNI-CD-1         PIC  X(04).
+      *----------  適用開始日
+           10  H-TEKIYO-FROM-1     PIC  S9(08).
+      *----------  国コード_略式
+           10  H-KUNI-CD-RYAKU     PIC  X(02).
+      *----------  国名称_全角（日）
+           10  H-KUNI-NAME-J-ZK    PIC  X(60).
+      *----------  国名称_半角（日）
+           10  H-KUNI-NAME-J-HK    PIC  X(60).
+      *----------  国名称（英）
+           10  H-KUNI-NAME-E       PIC  X(60).
+      *----------  国名称_略称（日）
+           10  H-KUNI-AB-NAME-J    PIC  X(30).
+      *----------  国名称_略称（英）
+           10  H-KUNI-AB-NAME-E    PIC  X(30).
+      *----------  通貨コード
+           10  H-TUKA-CD           PIC  X(04).
+      *----------  出力順
+           10  H-OUT-JUN           PIC  S9(04).
+         05  H-KEY-TKCMKN00.
+      *----------  利用会社コード
+           10  H-RIYO-CMP-CD       PIC  X(04).
+      *----------  国コード
+           10  H-KUNI-CD-2         PIC  X(04).
+      *----------  適用開始日
+           10  H-TEKIYO-FROM-2     PIC  S9(08).
+      *----------  削除区分
+           10  H-SAKUJO-KBN        PIC  X(01).
+      *----------  動的SQL文をいれるバッファ
+         05  SQLSTMT               PIC  X(2500).
+           EXEC  SQL  END DECLARE       SECTION  END-EXEC.
+      ******************************************************************
+      *    フラグエリア
+      ******************************************************************
+       01  FLG-AREA.
+      *----------  カーソルオープンフラグ
+         05  FLG-CR1-OPEN          PIC  9(01).
+      ******************************************************************
+      *    サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+       01  PARM-SCZY1160-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+           COPY  "SCZY1160.cpy".
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-IN.
+           COPY  "SCZY1170.cpy".
+      *----------  日付チェックルーチン
+       01  PARM-SCZY7120-INOUT.
+           COPY  "SCZY7120.cpy".
+      *----------  RTNパッケージコピー句
+       01  PARM-RTNPKG.
+         05  PARM-RTNPKG-ARG.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *    SQL  エリア
+      ******************************************************************
+       01  SQL-AREA.
+         05  SQL-SELECT-DATA.
+           10  FILLER              PIC  X(07)
+               VALUE  "SELECT ".
+      *----------  国コード
+           10  FILLER              PIC  X(08)
+               VALUE  "KUNI_CD,".
+      *----------  適用開始日
+           10  FILLER              PIC  X(12)
+               VALUE  "TEKIYO_FROM,".
+      *----------  国コード_略式
+           10  FILLER              PIC  X(14)
+               VALUE  "KUNI_CD_RYAKU,".
+      *----------  国名称_全角（日）
+           10  FILLER              PIC  X(15)
+               VALUE  "KUNI_NAME_J_ZK,".
+      *----------  国名称_半角（日）
+           10  FILLER              PIC  X(15)
+               VALUE  "KUNI_NAME_J_HK,".
+      *----------  国名称（英）
+           10  FILLER              PIC  X(12)
+               VALUE  "KUNI_NAME_E,".
+      *----------  国名称_略称（日）
+           10  FILLER              PIC  X(15)
+               VALUE  "KUNI_AB_NAME_J,".
+      *----------  国名称_略称（英）
+           10  FILLER              PIC  X(15)
+               VALUE  "KUNI_AB_NAME_E,".
+      *----------  通貨コード
+           10  FILLER              PIC  X(08)
+               VALUE  "TUKA_CD,".
+      *----------  出力順
+           10  FILLER              PIC  X(07)
+               VALUE  "OUT_JUN".
+      *----------  FROM
+           10  FILLER              PIC  X(06)
+               VALUE  " FROM ".
+      *----------  ワークテーブルID
+           10  SQL-TBL-ID-1        PIC  X(13).
+      *----------  ＳＱＬ文編集用
+         05  SQL-SELECT-WHERE.
+      *----------  WHERE
+           10  FILLER              PIC  X(07)
+               VALUE  " WHERE ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(28)
+               VALUE  "RIYO_CMP_CD = :V_RIYO_CMP_CD".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  国コード
+           10  FILLER              PIC  X(20)
+               VALUE  "KUNI_CD = :V_KUNI_CD".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  適用開始日
+           10  FILLER              PIC  X(16)
+               VALUE  "TEKIYO_FROM IN (".
+           10  FILLER              PIC  X(08)
+               VALUE  " SELECT ".
+      *----------  MAX(適用開始日)
+           10  FILLER              PIC  X(16)
+               VALUE  "MAX(TEKIYO_FROM)".
+      *----------  FROM
+           10  FILLER              PIC  X(06)
+               VALUE  " FROM ".
+      *----------  ワークテーブルID
+           10  SQL-TBL-ID-2        PIC  X(13).
+      *----------  FROM
+           10  FILLER              PIC  X(07)
+               VALUE  " WHERE ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(28)
+               VALUE  "RIYO_CMP_CD = :V_RIYO_CMP_CD".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  国コード
+           10  FILLER              PIC  X(20)
+               VALUE  "KUNI_CD = :V_KUNI_CD".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  適用開始日
+           10  FILLER              PIC  X(29)
+             VALUE  "TEKIYO_FROM <= :V_TEKIYO_FROM".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  削除区分
+           10  FILLER              PIC  X(26)
+               VALUE  "SAKUJO_KBN = :V_SAKUJO_KBN".
+      *----------  GROUP BY 国コード
+           10  FILLER              PIC  X(18)
+               VALUE  " GROUP BY KUNI_CD)".
+      *----------  フリーメッセージ編集用
+         05  SQL-SELECT-WHERE-E.
+      *----------  WHERE
+           10  FILLER              PIC  X(07)
+               VALUE  " WHERE ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(15)  VALUE  "RIYO_CMP_CD = '".
+           10  SQL-RIYO-CMP-CD     PIC  X(04).
+           10  FILLER              PIC  X(01)  VALUE  "'".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  国コード
+           10  FILLER              PIC  X(11)  VALUE  "KUNI_CD = '".
+           10  SQL-KUNI-CD         PIC  X(04).
+           10  FILLER              PIC  X(01)  VALUE  "'".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  適用開始日
+           10  FILLER              PIC  X(16)
+               VALUE  "TEKIYO_FROM IN (".
+           10  FILLER              PIC  X(08)  VALUE  " SELECT ".
+      *----------  MAX(適用開始日)
+           10  FILLER              PIC  X(16)
+               VALUE  "MAX(TEKIYO_FROM)".
+      *----------  FROM
+           10  FILLER              PIC  X(06)  VALUE  " FROM ".
+      *----------  ワークテーブルID
+           10  SQL-TBL-ID-3        PIC  X(13).
+      *----------  FROM
+           10  FILLER              PIC  X(07)  VALUE  " WHERE ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(15)  VALUE  "RIYO_CMP_CD = '".
+           10  SQL-H-RIYO-CMP-CD   PIC  X(04).
+           10  FILLER              PIC  X(01)  VALUE  "'".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  国コード
+           10  FILLER              PIC  X(11)  VALUE  "KUNI_CD = '".
+           10  SQL-H-KUNI-CD       PIC  X(04).
+           10  FILLER              PIC  X(01)  VALUE  "'".
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  適用開始日
+           10  FILLER              PIC  X(15)
+               VALUE  "TEKIYO_FROM <= ".
+           10  SQL-H-TEKIYO-FROM   PIC  9(08).
+      *----------  AND
+           10  FILLER              PIC  X(05)  VALUE  " AND ".
+      *----------  削除区分
+           10  FILLER              PIC  X(16)
+               VALUE  "SAKUJO_KBN = ' '".
+      *----------  GROUP BY 国コード
+           10  FILLER              PIC  X(18)
+               VALUE  " GROUP BY KUNI_CD)".
+      ******************************************************************
+      *    ワ－ク  エリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  ワークのフリーメッセージ
+         05  WK-SQLSTMT            PIC  X(2500).
+      ******************************************************************
+      *    連  絡  節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY4102-INOUT.
+           COPY  "SCZY4102.cpy".
+       01  PARM-SCZY4102-RTNPKG.
+      *----------  RTNパッケージ
+         05  PARM-SCZY4102-ARG3.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *    手 続 き 部
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY4102-INOUT
+                  PARM-SCZY4102-RTNPKG.
+      ******************************************************************
+      *    メイン処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** SCZY4102 START ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** SCZY4102 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *    3.1.前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 前処理 START ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           PERFORM  INITIALIZE-RTN
+      *----------  3.1.2 パラメータチェック
+           PERFORM  PARM-CHK-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ": *** 前処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.1.初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 初期化処理 START ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           INITIALIZE     WORK-AREA
+                          HST-AREA
+                          SQL-AREA
+                          FLG-AREA
+                          PARM-SCZY1160-INOUT
+                          PARM-SCZY1170-IN
+                          PARM-SCZY7120-INOUT
+                          PARM-RTNPKG
+                          PARM-SCZY4102-ARG2
+                          PARM-SCZY4102-ARG3
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":WORK-AREA =[" WORK-AREA "]"
+      D    DISPLAY  CNS-PGM-ID ":HST-AREA =[" HST-AREA "]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-AREA =[" SQL-AREA "]"
+      D    DISPLAY  CNS-PGM-ID ":FLG-AREA =[" FLG-AREA "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY1160-INOUT =["
+      D                         PARM-SCZY1160-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY1170-IN =["
+      D                         PARM-SCZY1170-IN "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY7120-INOUT =["
+      D             PARM-SCZY7120-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4102-ARG2 =["
+      D             PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4102-ARG3 =["
+      D             PARM-SCZY4102-ARG3 "]"
+      D    DISPLAY  CNS-PGM-ID ":*** 初期化処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.2.パラメータチェック
+      ******************************************************************
+       PARM-CHK-RTN           SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** パラメータチェック START ***"
+      D    DISPLAY  CNS-PGM-ID ":上り電文・利用会社コード =["
+      D             RIYO-CMP-CD        OF  PARM-SCZY4102-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":上り電文・国コード  =["
+      D             KUNI-CD            OF  PARM-SCZY4102-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":上り電文・適用開始日              =["
+      D             TEKIYO-FROM        OF  PARM-SCZY4102-ARG1 "]"
+      *-----------------------------------------------------------------
+           IF  RIYO-CMP-CD             OF  PARM-SCZY4102-ARG1 NOT= SPACE
+            AND KUNI-CD                OF  PARM-SCZY4102-ARG1 NOT= SPACE
+            AND TEKIYO-FROM            OF  PARM-SCZY4102-ARG1 NOT= ZERO
+           THEN
+             CONTINUE
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***** パラメータエラー *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-001
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PARM-ERR
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ARG1.適用開始日の日付チェック
+           PERFORM  SCZY7120-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** パラメータチェック END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PARM-CHK-EXT.
+           EXIT.
+      ******************************************************************
+      *    【SCZY7120】日付チェックルーチン
+      ******************************************************************
+       SCZY7120-RTN           SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***【SCZY7120】日付チェックルーチン  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY7120-INOUT
+                       PARM-RTNPKG
+      *----------  基準日
+           MOVE  TEKIYO-FROM            OF  PARM-SCZY4102-ARG1
+             TO  INPUT-DATE             OF  PARM-SCZY7120-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.適用開始日=["
+      D             TEKIYO-FROM         OF  PARM-SCZY4102-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.基準日=["
+      D             INPUT-DATE          OF  PARM-SCZY7120-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":***  CALL SCZY7120  START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY7120"             USING  PARM-SCZY7120-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  CALL SCZY7120  END  ***"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG         =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SCZY7120)    =["
+      D              RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG) "]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D              COUNTER             OF PARM-RTNPKG "]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+             WHEN  CNS-RTN-000
+               INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":取得した日付区分 判定"
+      D    DISPLAY  CNS-PGM-ID ":ARG2.日付区分=["
+      D              DATE-FLG           OF  PARM-SCZY7120-ARG2 "]"
+      *-----------------------------------------------------------------
+               IF  DATE-FLG             OF  PARM-SCZY7120-ARG2
+                   = CNS-DATE-FLG-0
+               THEN
+                 CONTINUE
+               ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***** 取得した日付区分エラー *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+                 MOVE  CNS-PGM-ID
+                   TO  ERR-PGM-ID       OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+                 MOVE  CNS-POS-008
+                   TO  ERR-POS          OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                 MOVE  CNS-RTN-800
+                   TO  RTN-CD           OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                 MOVE  ZERO
+                   TO  DETAIL-RTN-CD    OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                 MOVE  CNS-DETAIL-0
+                   TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                 MOVE  CNS-PARM-ERR
+                   TO  FREE-MSG         OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+             WHEN  OTHER
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-009
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-901
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  ZERO
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  【SCZY7120】日付チェックルーチン  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY7120-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 主処理 START ***"
+      *-----------------------------------------------------------------
+      *----------  3.2.1.テーブルID取得処理
+           PERFORM  TBL-ID-GET-RTN
+      *----------  3.2.2.国全項目処理
+           PERFORM  CD-ITEM-GET-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 主処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.テーブルID取得処理
+      ******************************************************************
+       TBL-ID-GET-RTN         SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** テーブルID取得 START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      *-----------------------------------------------------------------
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD           OF  PARM-SCZY4102-ARG1
+             TO  RIYO-CMP-CD           OF  PARM-SCZY1160-ARG1
+      *----------  テーブルID
+           MOVE  CNS-TBL-TKCMKN00
+             TO  TBL-ID                 OF PARM-SCZY1160-ARG1(1)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY1160-ARG1:"
+      D    DISPLAY  CNS-PGM-ID ":利用会社コード =["
+      D             RIYO-CMP-CD        OF  PARM-SCZY1160-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":テーブルID(1) =["
+      D             TBL-ID             OF  PARM-SCZY1160-ARG1(1) "]"
+      D    DISPLAY  CNS-PGM-ID ":***  CALL SCZY1160 START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1160"            USING  PARM-SCZY1160-INOUT
+                                              PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  CALL SCZY1160 END  ***"
+      D    DISPLAY  CNS-PGM-ID ":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID ":RTN-CD(SCZY1160) =["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG) "]"
+      D    DISPLAY  CNS-PGM-ID ":COUNTER OF PARM-RTNPKG =["
+      D             COUNTER            OF  PARM-RTNPKG "]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD OF PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)
+            =  CNS-RTN-000
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":テーブルID正常取得"
+      *-----------------------------------------------------------------
+             MOVE  HENSYUGO-TBL-ID     OF  PARM-SCZY1160-ARG2(1)
+               TO  SQL-TBL-ID-1        OF  SQL-SELECT-DATA
+             MOVE  HENSYUGO-TBL-ID     OF  PARM-SCZY1160-ARG2(1)
+               TO  SQL-TBL-ID-2        OF  SQL-SELECT-WHERE
+             MOVE  HENSYUGO-TBL-ID     OF  PARM-SCZY1160-ARG2(1)
+               TO  SQL-TBL-ID-3        OF  SQL-SELECT-WHERE-E
+             INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID ":取得テーブルID1        =["
+      D             SQL-TBL-ID-1"]"
+      D    DISPLAY  CNS-PGM-ID ":取得テーブルID2        =["
+      D             SQL-TBL-ID-2"]"
+      D    DISPLAY  CNS-PGM-ID ":取得テーブルID3        =["
+      D             SQL-TBL-ID-3"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":テーブルID取得エラー"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-002
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-901
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  テーブルID取得  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TBL-ID-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.2.国全項目処理
+      ******************************************************************
+       CD-ITEM-GET-RTN        SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  国全項目CURSOR PREPARE
+           PERFORM  CR1-PREPARE-RTN
+      *----------  国全項目CURSOR OPEN
+           PERFORM  CR1-OPEN-RTN
+      *----------  国全項目CURSOR FETCH
+           PERFORM  CR1-FETCH-RTN
+      *----------  国全項目CURSOR CLOSE
+           PERFORM  CR1-CLOSE-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CD-ITEM-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *    国全項目CURSOR PREPARE
+      ******************************************************************
+       CR1-PREPARE-RTN        SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***国全項目CURSOR PREPARESTART***"
+      *-----------------------------------------------------------------
+      *----------  フリーメッセージ用動的SQL文作成
+           INITIALIZE  WK-SQLSTMT
+                       SQLSTMT
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD           OF  PARM-SCZY4102-ARG1
+             TO  SQL-RIYO-CMP-CD
+           MOVE  RIYO-CMP-CD           OF  PARM-SCZY4102-ARG1
+             TO  SQL-H-RIYO-CMP-CD
+      *----------  国コード
+           MOVE  KUNI-CD               OF  PARM-SCZY4102-ARG1
+             TO  SQL-KUNI-CD
+           MOVE  KUNI-CD               OF  PARM-SCZY4102-ARG1
+             TO  SQL-H-KUNI-CD
+      *----------  適用開始日
+           MOVE  TEKIYO-FROM           OF  PARM-SCZY4102-ARG1
+             TO  SQL-H-TEKIYO-FROM
+           STRING  SQL-SELECT-DATA,
+                   SQL-SELECT-WHERE-E
+           DELIMITED BY SIZE
+           INTO  WK-SQLSTMT
+      *----------  国全項目動的SQL文作成
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD           OF  PARM-SCZY4102-ARG1
+             TO  H-RIYO-CMP-CD
+      *----------  国コード
+           MOVE  KUNI-CD               OF  PARM-SCZY4102-ARG1
+             TO  H-KUNI-CD-2
+      *----------  適用開始日
+           MOVE  TEKIYO-FROM           OF  PARM-SCZY4102-ARG1
+             TO  H-TEKIYO-FROM-2
+      *----------  削除区分
+           MOVE  SPACE                 TO  H-SAKUJO-KBN
+           STRING  SQL-SELECT-DATA,
+                   SQL-SELECT-WHERE
+           DELIMITED BY SIZE
+           INTO  SQLSTMT
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SQL-TBL-ID1=["SQL-TBL-ID-1"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-TBL-ID2=["SQL-TBL-ID-2"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-TBL-ID3=["SQL-TBL-ID-3"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-RIYO-CMP-CD=["SQL-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-H-RIYO-CMP-CD=["
+      D             SQL-H-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-KUNI-CD=["SQL-KUNI-CD"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-H-KUNI-CD=["SQL-H-KUNI-CD"]"
+      D    DISPLAY  CNS-PGM-ID ":SQL-H-TEKIYO-FROM=["
+      D             SQL-H-TEKIYO-FROM"]"
+      D    DISPLAY  CNS-PGM-ID ":H-RIYO-CMP-CD=["H-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID ":H-KUNI-CD-2=["H-KUNI-CD-2"]"
+      D    DISPLAY  CNS-PGM-ID ":H-TEKIYO-FROM-2=["H-TEKIYO-FROM-2"]"
+      D    DISPLAY  CNS-PGM-ID ":H-SAKUJO-KBN=[" H-SAKUJO-KBN "]"
+      D    DISPLAY  CNS-PGM-ID ":SQLSTMT =[" SQLSTMT "]"
+      D    DISPLAY  CNS-PGM-ID ":WK-SQLSTMT =[" WK-SQLSTMT "]"
+      D    DISPLAY  CNS-PGM-ID ":*** SQL文作成（PREPARE)  END ***"
+      D    DISPLAY  CNS-PGM-ID ":*** PREPARE CURSOR START***"
+      *-----------------------------------------------------------------
+      *----------  PREPARE CURSOR
+           EXEC  SQL
+             PREPARE  SQLRECORD  FROM  :SQLSTMT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":CURSOR PREPARE SQLCODE =[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE = CNS-SQL-NORMAL
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** PREPARE CURSOR 正常 ***"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** PREPARE CURSOR エラー ***"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-003
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** PREPARE CURSOR END ***"
+      D    DISPLAY  CNS-PGM-ID ":*** DECLARE CURSOR START ***"
+      *-----------------------------------------------------------------
+      *----------  DECLARE CURSOR
+           EXEC  SQL
+             DECLARE  CR1  CURSOR  FOR  SQLRECORD
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SQLCODE(DECLARE) =[" SQLCODE "]"
+      D    DISPLAY  CNS-PGM-ID ":*** DECLARE CURSOR END ***"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR PREPARE END***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-PREPARE-EXT.
+           EXIT.
+      ******************************************************************
+      *    国全項目CURSOR OPEN
+      ******************************************************************
+       CR1-OPEN-RTN           SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR OPEN START ***"
+      *-----------------------------------------------------------------
+      *----------OPEN CURSOR
+           EXEC  SQL
+             OPEN  CR1
+             USING :H-RIYO-CMP-CD,
+                   :H-KUNI-CD-2,
+                   :H-RIYO-CMP-CD,
+                   :H-KUNI-CD-2,
+                   :H-TEKIYO-FROM-2,
+                   :H-SAKUJO-KBN
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SQLCODE(OPEN) =[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  =  CNS-SQL-NORMAL
+           THEN
+             MOVE  CNS-ON              TO  FLG-CR1-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":CURSOR OPEN 正常"
+      D    DISPLAY  CNS-PGM-ID ":FLG-CR1-OPEN =[" FLG-CR1-OPEN "]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":CURSOR OPEN エラー"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-004
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** OPEN CURSOR  END  ***"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR OPEN END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-OPEN-EXT.
+           EXIT.
+      ******************************************************************
+      *    国全項目CURSOR FETCH
+      ******************************************************************
+       CR1-FETCH-RTN          SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR FETCH START***"
+      *-----------------------------------------------------------------
+      *----------初期化
+           INITIALIZE  H-TKCMKN00-S
+      *----------CR1 FETCH
+           EXEC SQL
+             FETCH CR1
+             INTO  :H-KUNI-CD-1,
+                   :H-TEKIYO-FROM-1,
+                   :H-KUNI-CD-RYAKU,
+                   :H-KUNI-NAME-J-ZK,
+                   :H-KUNI-NAME-J-HK,
+                   :H-KUNI-NAME-E,
+                   :H-KUNI-AB-NAME-J,
+                   :H-KUNI-AB-NAME-E,
+                   :H-TUKA-CD,
+                   :H-OUT-JUN
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SQLCODE(FETCH) =[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE   SQLCODE
+      *----------  正常終了の場合
+             WHEN  CNS-SQL-NORMAL
+      *----------  出力データ編集
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 出力データ編集 START ***"
+      D    DISPLAY  CNS-PGM-ID ":FETCH取得データ:"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国コード =["
+      D             H-KUNI-CD-1        OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト適用開始日 =["
+      D             H-TEKIYO-FROM-1    OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国コード_略式 =["
+      D             H-KUNI-CD-RYAKU    OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国名称_全角（日）=["
+      D             H-KUNI-NAME-J-ZK   OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国名称_半角（日）=["
+      D             H-KUNI-NAME-J-HK   OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国名称（英）=["
+      D             H-KUNI-NAME-E      OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国名称_略称（日）=["
+      D             H-KUNI-AB-NAME-J   OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト国名称_略称（英）=["
+      D             H-KUNI-AB-NAME-E   OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト通貨コード    =["
+      D             H-TUKA-CD          OF  H-TKCMKN00-S "]"
+      D    DISPLAY  CNS-PGM-ID ":ホスト出力順        =["
+      D             H-OUT-JUN          OF  H-TKCMKN00-S "]"
+      *-----------------------------------------------------------------
+      *----------  国コード
+             MOVE  H-KUNI-CD-1         OF  H-TKCMKN00-S
+               TO  KUNI-CD             OF  PARM-SCZY4102-ARG2
+      *----------  適用開始日
+             MOVE  H-TEKIYO-FROM-1     OF  H-TKCMKN00-S
+               TO  TEKIYO-FROM         OF  PARM-SCZY4102-ARG2
+      *----------  国コード_略式
+             MOVE  H-KUNI-CD-RYAKU     OF  H-TKCMKN00-S
+               TO  KUNI-CD-RYAKU       OF  PARM-SCZY4102-ARG2
+      *----------  国名称_全角（日）
+             MOVE  H-KUNI-NAME-J-ZK    OF  H-TKCMKN00-S
+               TO  KUNI-NAME-J-ZK      OF  PARM-SCZY4102-ARG2
+      *----------  国名称_半角（日）
+             MOVE  H-KUNI-NAME-J-HK    OF  H-TKCMKN00-S
+               TO  KUNI-NAME-J-HK      OF  PARM-SCZY4102-ARG2
+      *----------  国名称（英）
+             MOVE  H-KUNI-NAME-E       OF  H-TKCMKN00-S
+               TO  KUNI-NAME-E         OF  PARM-SCZY4102-ARG2
+      *----------  国名称_略称（日）
+             MOVE  H-KUNI-AB-NAME-J    OF  H-TKCMKN00-S
+               TO  KUNI-AB-NAME-J      OF  PARM-SCZY4102-ARG2
+      *----------  国名称_略称（英）
+             MOVE  H-KUNI-AB-NAME-E    OF  H-TKCMKN00-S
+               TO  KUNI-AB-NAME-E      OF  PARM-SCZY4102-ARG2
+      *----------  通貨コード
+             MOVE  H-TUKA-CD           OF  H-TKCMKN00-S
+               TO  TUKA-CD             OF  PARM-SCZY4102-ARG2
+      *----------  出力順
+             MOVE  H-OUT-JUN           OF  H-TKCMKN00-S
+               TO  OUT-JUN             OF  PARM-SCZY4102-ARG2
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":国コード =["
+      D             KUNI-CD            OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":適用開始日 =["
+      D             TEKIYO-FROM        OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":国コード_略式 =["
+      D             KUNI-CD-RYAKU      OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":国名称_全角（日）   =["
+      D             KUNI-NAME-J-ZK     OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":国名称_半角（日）   =["
+      D             KUNI-NAME-J-HK     OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":国名称（英）   =["
+      D             KUNI-NAME-E        OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":国名称_略称（日） =["
+      D             KUNI-AB-NAME-J     OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":国名称_略称（英） =["
+      D             KUNI-AB-NAME-E     OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":通貨コード    =["
+      D             TUKA-CD            OF  PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":出力順        =["
+      D             OUT-JUN            OF  PARM-SCZY4102-ARG2 "]"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  出力データ編集  END  ***"
+      *-----------------------------------------------------------------
+      *----------  データなし の場合
+             WHEN  CNS-SQL-NOTFOUND
+      *----------  エラー検知プログラム名
+                 MOVE  CNS-PGM-ID
+                   TO  ERR-PGM-ID      OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+                 MOVE  CNS-POS-005
+                   TO  ERR-POS         OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                 MOVE  CNS-RTN-110
+                   TO  RTN-CD          OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE
+                   TO  DETAIL-RTN-CD   OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                 MOVE  CNS-DETAIL-1
+                   TO  DETAIL-RTN-CD-FLG
+                                       OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+                 MOVE  WK-SQLSTMT
+                   TO  FREE-MSG        OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+      *----------  上記以外の場合
+             WHEN  OTHER
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID        OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-006
+                 TO  ERR-POS           OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-900
+                 TO  RTN-CD            OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-1
+                 TO  DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  WK-SQLSTMT
+                 TO  FREE-MSG          OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR FETCH END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-FETCH-EXT.
+           EXIT.
+      ******************************************************************
+      *    国全項目CURSOR CLOSE
+      ******************************************************************
+       CR1-CLOSE-RTN          SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR CLOSE START***"
+      D    DISPLAY  CNS-PGM-ID ":FLG-CR1-OPEN =[" FLG-CR1-OPEN "]"
+      *-----------------------------------------------------------------
+           EXEC  SQL
+               CLOSE CR1
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SQLCODE(CLOSE) =[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE = CNS-SQL-NORMAL
+           THEN
+             MOVE  CNS-OFF             TO  FLG-CR1-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":FLG-CR1-OPEN =[" FLG-CR1-OPEN "]"
+      *-----------------------------------------------------------------
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-007
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** 国全項目CURSOR CLOSE END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-CLOSE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.3 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 後処理 START ***"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RTN-000
+             TO  RTN-CD                OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":エラー検知プログラム名 =["
+      D             ERR-PGM-ID         OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":ポジション =["
+      D             ERR-POS            OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":リターンコード =["
+      D             RTN-CD             OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":詳細リターンコード =["
+      D             DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":詳細リターンコードデコードフラグ =["
+      D             DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":フリーメッセージ =["
+      D             FREE-MSG           OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":*** CALL SCZY1170 START ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"            USING  PARM-SCZY1170-IN
+                                              PARM-RTNPKG
+           MOVE  PARM-RTNPKG           TO  PARM-SCZY4102-ARG3
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** CALL SCZY1170 END ***"
+      D    DISPLAY  CNS-PGM-ID ":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4102-ARG2 =["
+      D             PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4102-ARG3 =["
+      D             PARM-SCZY4102-ARG3 "]"
+      D    DISPLAY  CNS-PGM-ID ":*** 後処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.4 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** エラー処理 START ***"
+      D    DISPLAY  CNS-PGM-ID ":FLG-CR1-OPEN =[" FLG-CR1-OPEN "]"
+      *-----------------------------------------------------------------
+           IF  FLG-CR1-OPEN = CNS-ON
+           THEN
+             EXEC  SQL
+                 CLOSE CR1
+             END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SQLCODE(CLOSE) =[" SQLCODE "]"
+      *-----------------------------------------------------------------
+             MOVE  CNS-OFF             TO  FLG-CR1-OPEN
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":FLG-CR1-OPEN =[" FLG-CR1-OPEN "]"
+      D    DISPLAY  CNS-PGM-ID ":エラー検知プログラム名 =["
+      D             ERR-PGM-ID         OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":ポジション =["
+      D             ERR-POS            OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":リターンコード =["
+      D             RTN-CD             OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":詳細リターンコード =["
+      D             DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":詳細リターンコードデコードフラグ =["
+      D             DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":フリーメッセージ =["
+      D             FREE-MSG           OF  PARM-SCZY1170-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID ":*** CALL SCZY1170 START ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"            USING  PARM-SCZY1170-IN
+                                              PARM-RTNPKG
+           MOVE  PARM-RTNPKG           TO  PARM-SCZY4102-ARG3
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** CALL SCZY1170 END ***"
+      D    DISPLAY  CNS-PGM-ID ":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4102-ARG2 =["
+      D             PARM-SCZY4102-ARG2 "]"
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4102-ARG3 =["
+      D             PARM-SCZY4102-ARG3 "]"
+      D    DISPLAY  CNS-PGM-ID ":*** エラー処理 END ***"
+      D    DISPLAY  CNS-PGM-ID ":*** SCZY4102 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.

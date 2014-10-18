@@ -1,0 +1,900 @@
+      ******************************************************************
+      *$Header$
+      ******************************************************************
+      *
+      * システムＩＤ   : T-STAR
+      * システム名称   : 次期TSTARシステム
+      * プログラムＩＤ : SCZY4903
+      * プログラム名称 : PATH取得ルーチン
+      * 処理概要       : アーギュメントINより、
+      *                  環境変数からPATHを取得する。
+      * 参照ＤＢ       : なし
+      * 引数           : IN  利用会社コード
+      *                : IN  PATH区分
+      *                : OUT 返却PATH
+      *                : OUT RTNパッケージ
+      * 改訂履歴
+      * 年月日     区分  所属       担当者  内容
+      * ---------- ----  ---------  ------  ------------------------
+      * 20080721   新規  SCS        陸 委   新規作成
+      * 20081014   修正  SCS        李峰    連結テスト障害対応No.0000176
+      * 20081209   修正  SCS        宋 珈   テーマ④
+      * 20081229   修正  SCS        李峰    PF&CM 残タスク(No.0000181)
+      * 20090217   修正  SCS        王斌    総合テスト障害(No.0000040)
+      * 20090317   修正  SCS        王永建  PF&CM 残タスク(No.0000170)
+      * 20101215   追加  ISC        崔自強  テーマ2902
+      * 20110125   修正  ISC        厳瑜    テーマ2902追いつき
+      * 20110429   追加  ISC        崔自強  テーマ3009
+      * 20130206   修正  SCS        孫炯    テーマ3417（NAM）対応
+      * 20130114   追加  ISC        蒋小波  テーマ3406
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY4903.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-07-21.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+       ENVIRONMENT-NAME               ENV-NAME
+       ENVIRONMENT-VALUE              ENV-VALUE.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-SCZYCNS.
+           COPY  "KOMONCNS.cpy".
+         05  CNS-PGM-ID            PIC  X(08)  VALUE "SCZY4903".
+      *---------- PATH区分の値
+         05  CNS-PATH-KBN-01       PIC  X(02)  VALUE "01".
+         05  CNS-PATH-KBN-02       PIC  X(02)  VALUE "02".
+         05  CNS-PATH-KBN-03       PIC  X(02)  VALUE "03".
+         05  CNS-PATH-KBN-04       PIC  X(02)  VALUE "04".
+         05  CNS-PATH-KBN-05       PIC  X(02)  VALUE "05".
+         05  CNS-PATH-KBN-06       PIC  X(02)  VALUE "06".
+         05  CNS-PATH-KBN-07       PIC  X(02)  VALUE "07".
+         05  CNS-PATH-KBN-08       PIC  X(02)  VALUE "08".
+         05  CNS-PATH-KBN-09       PIC  X(02)  VALUE "09".
+         05  CNS-PATH-KBN-10       PIC  X(02)  VALUE "10".
+         05  CNS-PATH-KBN-11       PIC  X(02)  VALUE "11".
+         05  CNS-PATH-KBN-12       PIC  X(02)  VALUE "12".
+         05  CNS-PATH-KBN-13       PIC  X(02)  VALUE "13".
+         05  CNS-PATH-KBN-14       PIC  X(02)  VALUE "14".
+         05  CNS-PATH-KBN-15       PIC  X(02)  VALUE "15".
+         05  CNS-PATH-KBN-16       PIC  X(02)  VALUE "16".
+         05  CNS-PATH-KBN-17       PIC  X(02)  VALUE "17".
+         05  CNS-PATH-KBN-18       PIC  X(02)  VALUE "18".
+         05  CNS-PATH-KBN-19       PIC  X(02)  VALUE "19".
+         05  CNS-PATH-KBN-20       PIC  X(02)  VALUE "20".
+         05  CNS-PATH-KBN-21       PIC  X(02)  VALUE "21".
+         05  CNS-PATH-KBN-22       PIC  X(02)  VALUE "22".
+         05  CNS-PATH-KBN-23       PIC  X(02)  VALUE "23".
+      *******    テーマ④ 20081209 修正  開始    ***********************
+         05  CNS-PATH-KBN-24       PIC  X(02)  VALUE "24".
+      *******    テーマ④ 20081209 修正  終了    ***********************
+      *******    残タスク(No.00181)  20081229 修正  開始    ************
+         05  CNS-PATH-KBN-25       PIC  X(02)  VALUE "25".
+         05  CNS-PATH-KBN-26       PIC  X(02)  VALUE "26".
+      *******    残タスク(No.00181)  20081229 修正  終了    ************
+      *20101215 追加  テーマ2902 BEGIN
+         05  CNS-PATH-KBN-27       PIC  X(02)  VALUE "27".
+         05  CNS-PATH-KBN-28       PIC  X(02)  VALUE "28".
+      *20101215 追加  テーマ2902 EDN
+      *20110429 追加  テーマ3009 BEGIN
+         05  CNS-PATH-KBN-29       PIC  X(02)  VALUE "29".
+      *20110429 追加  テーマ3009 END
+         05  CNS-PATH-KBN-30       PIC  X(02)  VALUE "30".
+         05  CNS-PATH-KBN-31       PIC  X(02)  VALUE "31".
+      *20130114 追加  テーマ3406 BEGIN
+         05  CNS-PATH-KBN-32       PIC  X(02)  VALUE "32".
+         05  CNS-PATH-KBN-33       PIC  X(02)  VALUE "33".
+      *20130114 追加  テーマ3406 END
+      *---------- SQL*Loader実行ログファイル保存パス
+         05  CNS-APL-BAD-DIR       PIC  X(11)  VALUE "APL_BAD_DIR".
+      *---------- SQL*Loader制御ファイル保存パス
+         05  CNS-APL-CTL-DIR       PIC  X(11)  VALUE "APL_CTL_DIR".
+      *---------- 休日ファイル保存パス
+         05  CNS-APL-DATEFILE-DIR  PIC  X(16)  VALUE "APL_DATEFILE_DIR".
+      *---------- ＦＴＰ送受信ファイル保存パス
+         05  CNS-APL-FTP-DIR       PIC  X(11)  VALUE "APL_FTP_DIR".
+      *---------- メッセージファイル保存パス
+         05  CNS-APL-MSG-DIR       PIC  X(11)  VALUE "APL_MSG_DIR".
+      *---------- ＳＱＬファイル保存パス
+         05  CNS-APL-SQL-DIR       PIC  X(11)  VALUE "APL_SQL_DIR".
+      *---------- TMPファイルのパス
+         05  CNS-APL-TMP-DIR       PIC  X(11)  VALUE "APL_TMP_DIR".
+      *---------- アップロードファイルの保存パス
+         05  CNS-BL-UPFILE-PATH    PIC  X(14)  VALUE "BL_UPFILE_PATH".
+      ******    総合テスト障害(No.0000040)  20090217 修正  開始    *****
+      *---------- IDSファイル受信の保存パス
+         05  CNS-NAS-IDS-DIR       PIC  X(11)  VALUE "NAS_IDS_DIR".
+      ******    総合テスト障害(No.0000040)  20090217 修正  終了    *****
+      *---------- ＮＡＳ上の作業用・ﾒﾝﾃ用ﾜｰｸ・一時領域（日次削除）パス
+         05  CNS-NAS-DTMP-DIR      PIC  X(12)  VALUE "NAS_DTMP_DIR".
+      *---------- O3Wアクセスログコピー保存パス
+         05  CNS-NAS-FILE-DIR      PIC  X(12)  VALUE "NAS_FILE_DIR".
+      *---------- ＮＡＳ上の作業用・ﾒﾝﾃ用ﾜｰｸ・一時領域（恒久）パス
+         05  CNS-NAS-PTMP-DIR      PIC  X(12)  VALUE "NAS_PTMP_DIR".
+      *---------- オンライン後テーブルバックアップファイル保存パス
+         05  CNS-OLA-EXP-DIR       PIC  X(11)  VALUE "OLA_EXP_DIR".
+      *---------- バッチログファイル保存パス
+      *---------- $APL_LOG_DIR/<利用会社コード>の自動生成
+         05  CNS-APL-LOG-DIR       PIC  X(11)  VALUE "APL_LOG_DIR".
+      *---------- $NAS_APL_DIR/<利用会社コード>/dat
+      *---------- ＮＡＳのディレクトリ名（パス）
+      *---------- $NAS_APL_DIR/<利用会社コード>/zipの自動生成
+      *---------- $NAS_APL_DIR/<利用会社コード>/rcv/txの自動生成
+      *---------- $NAS_APL_DIR/<利用会社コード>/rcv/gxの自動生成
+      *---------- $NAS_APL_DIR/<利用会社コード>/tsvdlの自動生成
+      *---------- $NAS_APL_DIR/<利用会社コード>/workの自動生成
+      *******    テーマ④ 20081209 修正  開始    ***********************
+      *---------- $NAS_APL_DIR/C000/gdbの自動生成
+      *******    テーマ④ 20081209 修正  終了    ***********************
+         05  CNS-NAS-APL-DIR       PIC  X(11)  VALUE "NAS_APL_DIR".
+      *******    残タスク(No.00181)  20081229 修正  開始    ************
+         05  CNS-TX-NAS-APL-DIR    PIC  X(14)  VALUE "TX_NAS_APL_DIR".
+      *******    残タスク(No.00181)  20081229 修正  終了    ************
+      *20101215 追加  テーマ2902 BEGIN
+         05  CNS-BL-DMSFILE-PATH   PIC  X(15)  VALUE "BL_DMSFILE_PATH".
+      *20110125 修正  テーマ2902追いつき BEGIN
+         05  CNS-NAS-DMS-DIR       PIC  X(14)  VALUE "RX_NAS_DMS_DIR".
+      *20110125 修正  テーマ2902追いつき END
+      *20101215 追加  テーマ2902 END
+      *20130114 追加  テーマ3406 BEGIN
+         05  CNS-BL-SBAFILE-PATH   PIC  X(15)  VALUE
+                                   "BL_SBAFILE_PATH".
+         05  CNS-RX-NAS-SBA-DIR    PIC  X(14)  VALUE
+                                   "RX_NAS_SBA_DIR".
+      *20130114 追加  テーマ3406 END
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  ワーク利用会社コード
+         05  WK-RIYO-CMP-CD        PIC  X(04).
+      *----------  ワークPATH区分
+         05  WK-PATH-KBN           PIC  X(02).
+      *---------- ワークPATH
+         05  WK-TMP-PATH           PIC  X(256).
+      *---------- ワーク環境変数
+         05  WK-ENV-HENSU          PIC  X(50).
+      *---------- ワーク返却PATH
+         05  WK-RTN-PATH           PIC  X(256).
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-IN.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY4903-INOUT.
+           COPY  "SCZY4903.cpy".
+       01  PARM-SCZY4903-RTNPKG.
+         05  PARM-SCZY4903-ARG3.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY4903-INOUT
+                  PARM-SCZY4903-RTNPKG.
+      ******************************************************************
+      *                 端数処理（切捨て）
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  SCZY4903処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  SCZY4903処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 3.1 前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  INIT-RTN  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化処理
+           PERFORM  INITIALIZE-RTN
+      *----------  パラメータチェック処理
+           PERFORM  PARM-CHK-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  INIT-RTN  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  初期化処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE     WORK-AREA
+                          PARM-SCZY1170-IN
+                          PARM-SCZY1170-RTNPKG
+                          PARM-SCZY4903-ARG2  OF  PARM-SCZY4903-INOUT
+                          PARM-SCZY4903-ARG3  OF  PARM-SCZY4903-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WORK-AREA          =["WORK-AREA"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-IN   =["
+      D             PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-RTNPKG =["
+      D             PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4903-ARG2 =["
+      D             PARM-SCZY4903-ARG2  OF  PARM-SCZY4903-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4903-ARG3 =["
+      D             PARM-SCZY4903-ARG3  OF  PARM-SCZY4903-RTNPKG"]"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RTN-000
+             TO  RTN-CD                 OF  PARM-SCZY1170-ARG1
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY4903-ARG1
+             TO  WK-RIYO-CMP-CD
+           MOVE  PATH-KBN               OF  PARM-SCZY4903-ARG1
+             TO  WK-PATH-KBN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-ARG1 = ["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク利用会社コード=["WK-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID":ワークPATH区分      =["WK-PATH-KBN"]"
+      D    DISPLAY  CNS-PGM-ID":***  初期化処理 END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *    パラメータチェック処理
+      ******************************************************************
+       PARM-CHK-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  パラメータチェック処理  START  ***"
+      D    DISPLAY  CNS-PGM-ID":ARG1.利用会社コード=["WK-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.PATH区分      =["WK-PATH-KBN"]"
+      *-----------------------------------------------------------------
+           IF  WK-RIYO-CMP-CD  NOT =  SPACE
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.利用会社コード 正常"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-001
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  CNS-PARM-ERR
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.利用会社コードのチェック  異常"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名=["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション=["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード=["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード=["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ=["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+           EVALUATE  WK-PATH-KBN
+             WHEN  CNS-PATH-KBN-01
+             WHEN  CNS-PATH-KBN-02
+             WHEN  CNS-PATH-KBN-03
+             WHEN  CNS-PATH-KBN-04
+             WHEN  CNS-PATH-KBN-05
+             WHEN  CNS-PATH-KBN-06
+             WHEN  CNS-PATH-KBN-07
+             WHEN  CNS-PATH-KBN-08
+             WHEN  CNS-PATH-KBN-09
+             WHEN  CNS-PATH-KBN-10
+             WHEN  CNS-PATH-KBN-11
+             WHEN  CNS-PATH-KBN-12
+             WHEN  CNS-PATH-KBN-13
+             WHEN  CNS-PATH-KBN-14
+             WHEN  CNS-PATH-KBN-15
+             WHEN  CNS-PATH-KBN-16
+             WHEN  CNS-PATH-KBN-17
+             WHEN  CNS-PATH-KBN-18
+             WHEN  CNS-PATH-KBN-19
+             WHEN  CNS-PATH-KBN-20
+             WHEN  CNS-PATH-KBN-21
+             WHEN  CNS-PATH-KBN-22
+             WHEN  CNS-PATH-KBN-23
+      *******    テーマ④ 20081209 修正  開始    ***********************
+             WHEN  CNS-PATH-KBN-24
+      *******    テーマ④ 20081209 修正  終了    ***********************
+      *******    残タスク(No.00181)  20081229 修正  開始    ************
+             WHEN  CNS-PATH-KBN-25
+             WHEN  CNS-PATH-KBN-26
+      *******    残タスク(No.00181)  20081229 修正  終了    ************
+      *20101215 追加  テーマ2902 BEGIN
+             WHEN  CNS-PATH-KBN-27
+             WHEN  CNS-PATH-KBN-28
+      *20101215 追加  テーマ2902 END
+      *20110429 追加  テーマ3009 BEGIN
+             WHEN  CNS-PATH-KBN-29
+      *20110429 追加  テーマ3009 END
+             WHEN  CNS-PATH-KBN-30
+             WHEN  CNS-PATH-KBN-31
+      *20130114 追加  テーマ3406 BEGIN
+             WHEN  CNS-PATH-KBN-32
+             WHEN  CNS-PATH-KBN-33
+      *20130114 追加  テーマ3406 END
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.PATH区分 正常"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN  OTHER
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-002
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  ZERO
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+               MOVE  CNS-PARM-ERR
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.PATH区分のチェック  異常"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名=["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション=["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード=["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード=["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ=["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  パラメータチェック処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PARM-CHK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.2 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": *****  主処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  3.2.1.PATH取得処理
+           PERFORM  PATH-GET-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  主処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.PATH取得処理
+      ******************************************************************
+       PATH-GET-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  PATH取得処理  START  ***"
+      *-----------------------------------------------------------------
+      *---------- 1)ワーク環境変数の設定
+           PERFORM  ENV-HENSU-SET-RTN
+      *---------- 2)ワーク環境変数より、パスを取得する
+           PERFORM  RTN-PATH-GET-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  PATH取得処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PATH-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *    1)ワーク環境変数の設定
+      ******************************************************************
+       ENV-HENSU-SET-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  ワーク環境変数の設定処理  START  ***"
+      D    DISPLAY  CNS-PGM-ID":ARG1.PATH区分      =["WK-PATH-KBN"]"
+      *-----------------------------------------------------------------
+           EVALUATE  WK-PATH-KBN
+             WHEN  CNS-PATH-KBN-01
+               MOVE  CNS-APL-BAD-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-02
+               MOVE  CNS-APL-CTL-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-03
+               MOVE  CNS-NAS-APL-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-04
+               MOVE  CNS-APL-DATEFILE-DIR
+                                        TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-05
+               MOVE  CNS-APL-FTP-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-06
+               MOVE  CNS-APL-LOG-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-07
+               MOVE  CNS-APL-MSG-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-08
+               MOVE  CNS-APL-SQL-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-09
+               MOVE  CNS-APL-TMP-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-10
+               MOVE  CNS-NAS-APL-DIR    TO  WK-ENV-HENSU
+      *******    障害対応No.0000176  20081014 修正  開始    ************
+             WHEN  CNS-PATH-KBN-11
+               MOVE  CNS-NAS-APL-DIR    TO  WK-ENV-HENSU
+      *******    障害対応No.0000176  20081014 修正  終了    ************
+             WHEN  CNS-PATH-KBN-12
+               MOVE  CNS-BL-UPFILE-PATH
+                                        TO  WK-ENV-HENSU
+      ******    総合テスト障害(No.0000040)  20090217 修正  開始    *****
+             WHEN  CNS-PATH-KBN-13
+               MOVE  CNS-NAS-IDS-DIR
+                                        TO  WK-ENV-HENSU
+      ******    総合テスト障害(No.0000040)  20090217 修正  終了    *****
+             WHEN  CNS-PATH-KBN-14
+               MOVE  CNS-NAS-DTMP-DIR   TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-15
+               MOVE  CNS-NAS-FILE-DIR   TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-16
+               MOVE  CNS-NAS-PTMP-DIR   TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-17
+               MOVE  CNS-OLA-EXP-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-18
+               MOVE  CNS-APL-LOG-DIR    TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-19
+             WHEN  CNS-PATH-KBN-20
+             WHEN  CNS-PATH-KBN-21
+             WHEN  CNS-PATH-KBN-22
+             WHEN  CNS-PATH-KBN-23
+      *******    テーマ④ 20081209 修正  開始    ***********************
+             WHEN  CNS-PATH-KBN-24
+      *******    テーマ④ 20081209 修正  終了    ***********************
+               MOVE  CNS-NAS-APL-DIR    TO  WK-ENV-HENSU
+      *******    残タスク(No.00181)  20081229 修正  開始    ************
+             WHEN  CNS-PATH-KBN-25
+             WHEN  CNS-PATH-KBN-26
+      *20110429 追加  テーマ3009 BEGIN
+             WHEN  CNS-PATH-KBN-29
+      *20110429 追加  テーマ3009 END
+             WHEN  CNS-PATH-KBN-30
+             WHEN  CNS-PATH-KBN-31
+               MOVE  CNS-TX-NAS-APL-DIR TO  WK-ENV-HENSU
+      *******    残タスク(No.00181)  20081229 修正  終了    ************
+      *20101215 追加  テーマ2902 BEGIN
+             WHEN  CNS-PATH-KBN-27
+               MOVE  CNS-BL-DMSFILE-PATH
+                                        TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-28
+               MOVE  CNS-NAS-DMS-DIR    TO  WK-ENV-HENSU
+      *20101215 追加  テーマ2902 END
+      *20130114 追加  テーマ3406 BEGIN
+             WHEN  CNS-PATH-KBN-32
+               MOVE  CNS-BL-SBAFILE-PATH
+                                      TO  WK-ENV-HENSU
+             WHEN  CNS-PATH-KBN-33
+               MOVE  CNS-RX-NAS-SBA-DIR
+                                      TO  WK-ENV-HENSU
+      *20130114 追加  テーマ3406 END
+             WHEN  OTHER
+               CONTINUE
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワーク環境変数     =["WK-ENV-HENSU"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  ワーク環境変数の設定処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ENV-HENSU-SET-EXT.
+           EXIT.
+      ******************************************************************
+      *    2)ワーク環境変数より、パスを取得する
+      ******************************************************************
+       RTN-PATH-GET-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  ワーク環境変数より、"
+      D             "パスを取得処理  START  ***"
+      *-----------------------------------------------------------------
+           DISPLAY  WK-ENV-HENSU   UPON  ENV-NAME
+           ACCEPT  WK-TMP-PATH     FROM  ENV-VALUE  ON EXCEPTION
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":ワーク環境変数より、パスを取得エラーの場合"
+      *-------------------<DEBUG>---------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-003
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-910
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名=["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション=["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード=["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード=["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ=["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-ACCEPT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":ワーク環境変数より、パスを取得正常の場合"
+      *-------------------<DEBUG>---------------------------------------
+           MOVE  WK-TMP-PATH            TO  WK-RTN-PATH
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワーク返却PATH     =["WK-RTN-PATH"]"
+      *-------------------<DEBUG>---------------------------------------
+           IF  WK-RTN-PATH  = SPACE
+           THEN
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-004
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-110
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名=["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション=["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード=["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード=["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ=["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.PATH区分     =["WK-PATH-KBN"]"
+      *-------------------<DEBUG>---------------------------------------
+             EVALUATE  WK-PATH-KBN
+               WHEN  CNS-PATH-KBN-03
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/dat"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-11
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/btdl"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-18
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-19
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/zip"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-20
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/rcv/tx"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-21
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/rcv/gx"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-22
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/tsvdl"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-23
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/work"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+      *******    テーマ④ 20081209 修正  開始    ***********************
+      ******    PF&CM 残タスク(No.0000170) 20090317 修正  開始    ******
+               WHEN  CNS-PATH-KBN-24
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         "C000",
+                         "/gdb"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+      ******    PF&CM 残タスク(No.0000170) 20090317 修正  終了    ******
+      *******    テーマ④ 20081209 修正  終了    ***********************
+      *******    残タスク(No.00181)  20081229 修正  開始    ************
+               WHEN  CNS-PATH-KBN-25
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/SO/comp/RX"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-26
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/DB/comp/RX"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+      *******    残タスク(No.00181)  20081229 修正  終了    ************
+      *20101215 追加  テーマ2902 BEGIN
+               WHEN  CNS-PATH-KBN-29
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/GS/comp/RX"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+      *20101215 追加  テーマ2902 END
+               WHEN  CNS-PATH-KBN-30
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/SO/comp/RX/C000"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  CNS-PATH-KBN-31
+                 STRING  WK-RTN-PATH,
+                         "/",
+                         WK-RIYO-CMP-CD,
+                         "/DB/comp/RX/C000"
+                   DELIMITED  BY  SPACE
+                   INTO
+                   RTN-PATH             OF  PARM-SCZY4903-ARG2
+               WHEN  OTHER
+                 MOVE  WK-RTN-PATH
+                   TO  RTN-PATH         OF  PARM-SCZY4903-ARG2
+             END-EVALUATE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":返却PATH  =["RTN-PATH
+      D                                 OF  PARM-SCZY4903-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":***  ワーク環境変数より、"
+      D             "パスを取得処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       RTN-PATH-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.3.1 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***   後処理  START  ***"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4903-ARG1=["
+      D             PARM-SCZY4903-ARG1  OF PARM-SCZY4903-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4903-ARG2=["
+      D             PARM-SCZY4903-ARG2  OF PARM-SCZY4903-INOUT"]"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-ARG1 = ["
+      D             RTN-CD  OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"             USING  PARM-SCZY1170-IN
+                                               PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2     TO  PARM-SCZY4903-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY1170-ARG2 = ["
+      D      PARM-SCZY1170-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY4903-ARG3 = ["
+      D      PARM-SCZY4903-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  COUNT = ["
+      D      COUNTER OF PARM-SCZY4903-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  エラー検知プログラム名 = ["
+      D      ERR-PGM-ID
+      D      OF PARM-SCZY4903-ARG3(COUNTER  OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  ポジション = ["
+      D      ERR-POS
+      D      OF PARM-SCZY4903-ARG3(COUNTER  OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  リターンコード = ["
+      D      RTN-CD
+      D      OF PARM-SCZY4903-ARG3(COUNTER  OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコード = ["
+      D      DETAIL-RTN-CD
+      D      OF PARM-SCZY4903-ARG3(COUNTER  OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコードデコードフラグ = ["
+      D      DETAIL-RTN-CD-FLG
+      D      OF PARM-SCZY4903-ARG3(COUNTER  OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  フリーメッセージ = ["
+      D      FREE-MSG
+      D      OF PARM-SCZY4903-ARG3(COUNTER  OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  CNS-PGM-ID": ***   後処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.4.1 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  エラー処理  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY4903-ARG2    OF PARM-SCZY4903-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4903-ARG2=["
+      D             PARM-SCZY4903-ARG2  OF PARM-SCZY4903-INOUT"]"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"             USING  PARM-SCZY1170-IN
+                                               PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2     TO  PARM-SCZY4903-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY1170-ARG2 = ["
+      D      PARM-SCZY1170-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY4903-ARG3 = ["
+      D      PARM-SCZY4903-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  COUNT = ["
+      D      COUNTER OF PARM-SCZY4903-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":  エラー検知プログラム名 = ["
+      D      ERR-PGM-ID
+      D      OF PARM-SCZY4903-ARG3(COUNTER   OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  ポジション = ["
+      D      ERR-POS
+      D      OF PARM-SCZY4903-ARG3(COUNTER   OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  リターンコード = ["
+      D      RTN-CD
+      D      OF PARM-SCZY4903-ARG3(COUNTER   OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコード = ["
+      D      DETAIL-RTN-CD
+      D      OF PARM-SCZY4903-ARG3(COUNTER   OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  詳細リターンコードデコードフラグ = ["
+      D      DETAIL-RTN-CD-FLG
+      D      OF PARM-SCZY4903-ARG3(COUNTER   OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID":  フリーメッセージ = ["
+      D      FREE-MSG
+      D      OF PARM-SCZY4903-ARG3(COUNTER   OF PARM-SCZY4903-ARG3)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  CNS-PGM-ID": ***  エラー処理  END  ***"
+      D    DISPLAY  CNS-PGM-ID": ***  SCZY4903処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.

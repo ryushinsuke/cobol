@@ -1,0 +1,337 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      *     システムＩＤ   : TSTAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラムＩＤ : SCZY1190
+      *     プログラム名称 : 進捗管理ＩＮＳＵＰＤルーチン
+      *     処理概要       : 【SCZY1210】進捗管理ＩＮＳＵＰＤ
+      *                       ルーチン(残高向け)をコールする
+      *     引数           : IN  ARG1
+      *                    : IN  ARG2
+      *                    : OUT ARG3
+      *                    : OUT ARG4
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20090213   新規  SCS        蒋  磊  新規作成
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY1190.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  09-02-13.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                   コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SCZY1190".
+      *----------  正常リターンコード
+         05  CNS-RET-NORMAL        PIC  X(03)  VALUE  "000".
+      *----------  システムエラー（Oracle）
+         05  CNS-RET-ORACLE        PIC  X(03)  VALUE  "900".
+      *----------  システムエラー（Oracle以外）
+         05  CNS-RET-ORCIGAI       PIC  X(03)  VALUE  "901".
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+       01  PARM-SCZY1210-INOUT.
+      *----------  進捗管理ＩＮＳＵＰＤルーチン(残高向け)
+           COPY  "SCZY1210.cpy".
+       01  PARM-SCZY1210-RTNPKG.
+      *----------  RTNパッケージ
+         05  PARM-SCZY1210-ARG4.
+           10  RTN-PACKAGE.
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZY1170 リターンパッケージ取得ルーチン
+       01  PARM-SCZY1170-INOUT.
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY1190-INOUT.
+      *----------  進捗管理ＩＮＳＵＰＤルーチン
+           COPY "SCZY1190.cpy".
+       01  PARM-SCZY1190-RTNPKG.
+      *----------  RTNパッケージ
+         05  PARM-SCZY1190-ARG4.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY1190-INOUT
+                  PARM-SCZY1190-RTNPKG.
+      ******************************************************************
+      *          SCZY1190 進捗管理ＩＮＳＵＰＤルーチン
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1190 進捗管理ＩＮＳＵＰＤ START  ***"
+      *-----------------------------------------------------------------
+      *---------- 前処理
+           PERFORM  INIT-RTN
+      *---------- 主処理
+           PERFORM  MAIN-RTN
+      *---------- 後処理
+           PERFORM  END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1190 進捗管理ＩＮＳＵＰＤ END  ***".
+      *-----------------------------------------------------------------
+       BASE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 初期化処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  初期化処理  START  ***"
+      *-----------------------------------------------------------------
+      *---------- 初期化
+           INITIALIZE  PARM-SCZY1190-ARG3
+                       PARM-SCZY1190-ARG4
+                       PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-RTNPKG
+                       PARM-SCZY1210-INOUT
+                       PARM-SCZY1210-RTNPKG.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZY1190-ARG3  :["PARM-SCZY1190-ARG3  "]"
+      D    DISPLAY  "PARM-SCZY1190-ARG4  :["PARM-SCZY1190-ARG4  "]"
+      D    DISPLAY  "PARM-SCZY1170-INOUT :["PARM-SCZY1170-INOUT "]"
+      D    DISPLAY  "PARM-SCZY1170-RTNPKG:["PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  "PARM-SCZY1210-INOUT :["PARM-SCZY1210-INOUT "]"
+      D    DISPLAY  "PARM-SCZY1210-RTNPKG:["PARM-SCZY1210-RTNPKG"]"
+      D    DISPLAY  "***  初期化処理  END  ***".
+      *-----------------------------------------------------------------
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "進捗管理ＩＮＳＵＰＤルーチン(残高向け)  START"
+      *-----------------------------------------------------------------
+           MOVE  PARM-SCZY1190-ARG1     TO PARM-SCZY1210-ARG1
+           MOVE  RIYO-CMP-CD            OF PARM-SCZY1190-ARG2
+             TO  RIYO-CMP-CD            OF PARM-SCZY1210-ARG2
+           MOVE  SYORI-YMD              OF PARM-SCZY1190-ARG2
+             TO  SYORI-YMD              OF PARM-SCZY1210-ARG2
+           MOVE  KIDOU-ID               OF PARM-SCZY1190-ARG2
+             TO  KIDOU-ID               OF PARM-SCZY1210-ARG2
+           MOVE  GYOMU-TASK-ID          OF PARM-SCZY1190-ARG2
+             TO  GYOMU-TASK-ID          OF PARM-SCZY1210-ARG2
+           MOVE  KJN-YMD                OF PARM-SCZY1190-ARG2
+             TO  KJN-YMD                OF PARM-SCZY1210-ARG2
+           MOVE  SS-SYORI-YMD           OF PARM-SCZY1190-ARG2
+             TO  SS-SYORI-YMD           OF PARM-SCZY1210-ARG2
+           MOVE  0
+             TO  REDO-KJN-YMD-FROM      OF PARM-SCZY1210-ARG2
+           MOVE  BABY-MISYORI-FLG       OF PARM-SCZY1190-ARG2
+             TO  BABY-MISYORI-FLG       OF PARM-SCZY1210-ARG2
+           MOVE  FUND-CD                OF PARM-SCZY1190-ARG2
+             TO  FUND-CD                OF PARM-SCZY1210-ARG2
+           MOVE  PTF-CD                 OF PARM-SCZY1190-ARG2
+             TO  PTF-CD                 OF PARM-SCZY1210-ARG2
+           MOVE  HYK-KRTU-CD            OF PARM-SCZY1190-ARG2
+             TO  HYK-KRTU-CD            OF PARM-SCZY1210-ARG2
+           MOVE  REP-ID                 OF PARM-SCZY1190-ARG2
+             TO  REP-ID                 OF PARM-SCZY1210-ARG2
+           MOVE  REP-ANY-CD             OF PARM-SCZY1190-ARG2
+             TO  REP-ANY-CD             OF PARM-SCZY1210-ARG2
+           MOVE  KJN-YMD-FROM           OF PARM-SCZY1190-ARG2
+             TO  KJN-YMD-FROM           OF PARM-SCZY1210-ARG2
+           MOVE  JIKOU-STS              OF PARM-SCZY1190-ARG2
+             TO  JIKOU-STS              OF PARM-SCZY1210-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SESION-KBN         OF PARM-SCZY1210-ARG1:["
+      D              SESION-KBN         OF PARM-SCZY1210-ARG1"]"
+      D    DISPLAY  "OLBT-KBN           OF PARM-SCZY1210-ARG1:["
+      D              OLBT-KBN           OF PARM-SCZY1210-ARG1"]"
+      D    DISPLAY  "RIYO-CMP-CD        OF PARM-SCZY1210-ARG2:["
+      D              RIYO-CMP-CD        OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "SYORI-YMD          OF PARM-SCZY1210-ARG2:["
+      D              SYORI-YMD          OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "KIDOU-ID           OF PARM-SCZY1210-ARG2:["
+      D              KIDOU-ID           OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "GYOMU-TASK-ID      OF PARM-SCZY1210-ARG2:["
+      D              GYOMU-TASK-ID      OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "KJN-YMD            OF PARM-SCZY1210-ARG2:["
+      D              KJN-YMD            OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "SS-SYORI-YMD       OF PARM-SCZY1210-ARG2:["
+      D              SS-SYORI-YMD       OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "REDO-KJN-YMD-FROM  OF PARM-SCZY1210-ARG2:["
+      D              REDO-KJN-YMD-FROM  OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "BABY-MISYORI-FLG   OF PARM-SCZY1210-ARG2:["
+      D              BABY-MISYORI-FLG   OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "FUND-CD            OF PARM-SCZY1210-ARG2:["
+      D              FUND-CD            OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "PTF-CD             OF PARM-SCZY1210-ARG2:["
+      D              PTF-CD             OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "HYK-KRTU-CD        OF PARM-SCZY1210-ARG2:["
+      D              HYK-KRTU-CD        OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "REP-ID             OF PARM-SCZY1210-ARG2:["
+      D              REP-ID             OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "REP-ANY-CD         OF PARM-SCZY1210-ARG2:["
+      D              REP-ANY-CD         OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "KJN-YMD-FROM       OF PARM-SCZY1210-ARG2:["
+      D              KJN-YMD-FROM       OF PARM-SCZY1210-ARG2"]"
+      D    DISPLAY  "JIKOU-STS          OF PARM-SCZY1210-ARG2:["
+      D              JIKOU-STS          OF PARM-SCZY1210-ARG2"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1210"
+           USING  PARM-SCZY1210-INOUT
+                  PARM-SCZY1210-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1210-ARG4:["
+      D              RTN-CD             OF PARM-SCZY1210-ARG4
+      D                        (COUNTER OF PARM-SCZY1210-ARG4)"]"
+      *-----------------------------------------------------------------
+             EVALUATE  RTN-CD           OF PARM-SCZY1210-ARG4
+                               (COUNTER OF PARM-SCZY1210-ARG4)
+               WHEN  CNS-RET-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンコード='000'(正常)の場合、処理を続く"
+      *-----------------------------------------------------------------
+                 MOVE  PTF-JIKOU-KBN    OF PARM-SCZY1210-ARG3
+                   TO  PTF-JIKOU-KBN    OF PARM-SCZY1190-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PTF-JIKOU-KBN    OF PARM-SCZY1190-ARG3:["
+      D              PTF-JIKOU-KBN    OF PARM-SCZY1190-ARG3"]"
+      *-----------------------------------------------------------------
+               WHEN  CNS-RET-ORACLE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)の場合"
+      *-----------------------------------------------------------------
+                 MOVE  CNS-PGM-ID       TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  CNS-RET-ORACLE   TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  "0001"           TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  "0"              TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  PARM-SCZY1210-ARG4
+                   TO  PARM-SCZY1170-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "進捗管理ＩＮＳＵＰＤルーチン(残高向け)エラー"
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "PARM-SCZY1170-ARG2:[" PARM-SCZY1170-ARG2"]"
+      *-----------------------------------------------------------------
+                 PERFORM  ERR-RTN
+               WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "上記以外の場合"
+      *-----------------------------------------------------------------
+                 MOVE  CNS-PGM-ID       TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  CNS-RET-ORCIGAI  TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  "0002"           TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  "0"              TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+                 MOVE  PARM-SCZY1210-ARG4
+                   TO  PARM-SCZY1170-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "進捗管理ＩＮＳＵＰＤルーチン(残高向け)エラー"
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "PARM-SCZY1170-ARG2:[" PARM-SCZY1170-ARG2"]"
+      *-----------------------------------------------------------------
+                 PERFORM  ERR-RTN
+             END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "進捗管理ＩＮＳＵＰＤルーチン(残高向け) END"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                        後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  START  ***"
+      *-----------------------------------------------------------------
+           MOVE     "000"               TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1:["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"
+           USING  PARM-SCZY1170-INOUT
+                  PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2     TO PARM-SCZY1190-ARG4.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZY1190-ARG4:[" PARM-SCZY1190-ARG4"]"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  END  ***".
+      *-----------------------------------------------------------------
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ERR-RTN  START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"          USING PARM-SCZY1170-INOUT
+                                           PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2     TO PARM-SCZY1190-ARG4.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZY1190-ARG4:[" PARM-SCZY1190-ARG4"]"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ERR-RTN  END  ***".
+      *-----------------------------------------------------------------
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************

@@ -1,0 +1,987 @@
+      ******************************************************************
+      *$Header$
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラムＩＤ : SUSC0405
+      *     プログラム名称 : 運用成果進捗更新処理
+      *     処理概要       : 運用成果進捗更新処理を行う
+      *     更新ＤＢ       : なし
+      *     参照ＤＢ       : なし
+      *     引数           : IN  アーギュメントIN
+      *                      OUT アーギュメントOUT
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20090207   新規  SCS        劉新文  新規作成
+      *     20090608   修正  SCS        陳暁斌  連結障碍1656の対応
+      *     20100604   修正  SCS        梅春栄  2834-1の対応
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SUSC0405.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  09-02-07.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *    環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *    デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *    作  業  場  所  節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *    コンスタント  エリア
+      ******************************************************************
+      *----------  共通コンスタント定義の宣言
+       01  CONSTANT-AREA.
+         05  CNS-USCNS.
+           COPY  "USCNS.cpy".
+      *----------  プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SUSC0405".
+      *----------  基準日
+         05  CNS-KJN-DD-99         PIC  9(02)  VALUE  99.
+      ******************************************************************
+      *                ワーク  エリア
+      ******************************************************************
+       01  WORK-AREA.
+         05  WK-RUN-SDATETIME      PIC  X(14).                          GUT2013
+         05  WK-RUN-EDATETIME      PIC  X(14).                          GUT2013
+      *----------  ワーク日次評価法フラグ
+         05  WK-NITIJI-HYK-FLG     PIC  X(01).
+      *----------  ワークイベント日１
+         05  WK-EVENT-YMD1         PIC  S9(08).
+      *----------  ワークイベント日２
+         05  WK-EVENT-YMD2         PIC  S9(08).
+      *----------  ワークイベント日３
+         05  WK-EVENT-YMD3         PIC  S9(08).
+      *----------  設定日
+         05  WK-SET-YMD            PIC  S9(08).
+      *----------  ワーク基準日
+         05  WK-KJN-YMD            PIC  9(08).
+         05  WK-KJN-YMD-REC.
+           10  WK-KJN-YY           PIC  9(04).
+           10  WK-KJN-MM           PIC  9(02).
+           10  WK-KJN-DD           PIC  9(02).
+      *----------  ワーク最終処理基準日
+         05  WK-END-KJN-YMD        PIC  9(08).
+      *----------  ワーク決算日
+         05  WK-KESSAN-YMD         PIC  S9(08).
+      *----------  ワーク月末日
+         05  WK-GTMT-YMD           PIC  S9(08).
+      *----------  リターンパッケージセットルーチン
+         05  WK-RTN.
+      *----------  エラー検知プログラム名
+           10  WK-ERR-PGM-ID       PIC  X(16).
+      *----------  ポジション
+           10  WK-ERR-POS          PIC  X(04).
+      *----------  リターンコード
+           10  WK-RTN-CD           PIC  X(03).
+      *----------  詳細リターンコード
+           10  WK-DETAIL-RTN-CD    PIC  S9(09).
+      *----------  詳細リターンコードデコードフラグ
+           10  WK-DETAIL-RTN-CD-FLG
+                                   PIC  X(01).
+      *----------  フリーメッセージ
+           10  WK-FREE-MSG         PIC  X(2000).
+      *----------  RTNパッケージ
+         05  WK-RTN-PKGS.
+           10  WK-RTNPKG.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                ＳＱＬ通信領域
+      ******************************************************************
+           EXEC  SQL  INCLUDE  SQLCA             END-EXEC.
+           EXEC  SQL  INCLUDE  ORACA             END-EXEC.
+           EXEC  SQL  BEGIN    DECLARE  SECTION  END-EXEC.
+      *----------  ORACLE接続ユーザ
+           EXEC  SQL  END      DECLARE  SECTION  END-EXEC.
+      ******************************************************************
+      *    サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  ポートフォリオ属性取得ルーチン
+       01  PARM-SCZY4007-INOUT.
+           COPY  "SCZY4007.cpy".
+      *----------  決算日算出共通ルーチン
+       01  PARM-SCZY4026-INOUT.
+           COPY "SCZY4026.cpy".
+      *----------  カレンダールーチン
+       01  PARM-SCZY1020-INOUT.
+           COPY "SCZY1020.cpy".
+      *----------  進捗管理ＩＮＳＵＰＤルーチン
+       01  PARM-SCZY1190-INOUT.
+           COPY  "SCZY1190.cpy".
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  RTNパッケージコピー句
+       01  PARM-RTNPKG.
+         05  PARM-RTNPKG-ARG.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *    連  絡  節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SUSC0405-INOUT.
+           COPY  "SUSC0405.cpy".
+       01  PARM-SUSC0405-RTNPKG.
+         05  PARM-SUSC0405-ARG4.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *    手 続 き 部
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SUSC0405-INOUT
+                  PARM-SUSC0405-RTNPKG.
+      ******************************************************************
+      *    メイン処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-SDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [BASE-RTN]"                    GUT2013
+           DISPLAY "セクションの開始時間:["WK-RUN-SDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** メイン処理 START ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** メイン処理 END ***"
+      *-----------------------------------------------------------------
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-EDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [BASE-RTN]"                    GUT2013
+           DISPLAY "セクションの終了時間:["WK-RUN-EDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+           CONTINUE.
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *    3.1 前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           PERFORM  INITIALIZE-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  前処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.1.初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** 初期化処理 START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  WORK-AREA
+                       PARM-SCZY4007-INOUT
+                       PARM-SCZY4026-INOUT
+                       PARM-SCZY1020-INOUT
+                       PARM-SCZY1190-INOUT
+                       PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-RTNPKG
+                       PARM-SUSC0405-ARG3
+                       PARM-SUSC0405-RTNPKG
+                       PARM-RTNPKG
+           MOVE  CNS-RTN-000
+             TO  WK-RTN-CD  OF  WK-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":初期化処理正常"
+      D    DISPLAY  CNS-PGM-ID ":*** 初期化処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  主処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.2.1.ポートフォリオ属性の計算方法、イベント日、
+      *            決算日により、基準日を設定する
+           PERFORM  SCZY4007-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク日次評価法フラグ=["
+      D             WK-NITIJI-HYK-FLG"]"
+      *-----------------------------------------------------------------
+           IF  WK-NITIJI-HYK-FLG = CNS-X-1
+           THEN
+      *----------  ワーク基準日
+             MOVE  KJN-YMD              OF  PARM-SUSC0405-ARG2
+               TO  WK-KJN-YMD
+      *----------  ワーク最終処理基準日
+             MOVE  KJN-YMD              OF  PARM-SUSC0405-ARG2
+               TO  WK-END-KJN-YMD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク基準日=["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク最終処理基準日=["
+      D             WK-END-KJN-YMD"]"
+      *-----------------------------------------------------------------
+      *----------  3.2.2.進捗管理テーブルを更新する
+             PERFORM  SCZY1190-RTN
+      *----------  後処理
+             PERFORM  END-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *----------  決算日算出共通ルーチン
+           PERFORM  SCZY4026-RTN
+      *----------  カレンダールーチン
+           PERFORM  SCZY1020-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ARG2.基準年月日/基準年月=["
+      D             KJN-YMD             OF  PARM-SUSC0405-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID ":ワークイベント日１=["WK-EVENT-YMD1"]"
+      D    DISPLAY  CNS-PGM-ID ":ワークイベント日２=["WK-EVENT-YMD2"]"
+      D    DISPLAY  CNS-PGM-ID ":ワークイベント日３=["WK-EVENT-YMD3"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク設定日=["WK-SET-YMD"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク決算日=["WK-KESSAN-YMD"]"
+      *-----------------------------------------------------------------
+           IF  KJN-YMD  OF  PARM-SUSC0405-ARG2 = WK-EVENT-YMD1
+            OR KJN-YMD  OF  PARM-SUSC0405-ARG2 = WK-EVENT-YMD2
+            OR KJN-YMD  OF  PARM-SUSC0405-ARG2 = WK-EVENT-YMD3
+            OR KJN-YMD  OF  PARM-SUSC0405-ARG2 = WK-KESSAN-YMD
+            OR KJN-YMD  OF  PARM-SUSC0405-ARG2 = WK-SET-YMD
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ARG2.基準年月日/基準年月=["
+      D             KJN-YMD             OF  PARM-SUSC0405-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク月末日=["WK-GTMT-YMD"]"
+      *-----------------------------------------------------------------
+             IF  KJN-YMD  OF  PARM-SUSC0405-ARG2 NOT= WK-GTMT-YMD
+             THEN
+               INITIALIZE  WK-KJN-YMD
+                           WK-END-KJN-YMD
+      *----------  ワーク基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2
+                 TO  WK-KJN-YMD
+      *----------  ワーク最終処理基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2
+                 TO  WK-END-KJN-YMD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク基準日=["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク最終処理基準日=["
+      D             WK-END-KJN-YMD"]"
+      *-----------------------------------------------------------------
+      *----------  3.2.2.進捗管理テーブルを更新する
+               PERFORM  SCZY1190-RTN
+               INITIALIZE  WK-KJN-YMD
+                           WK-END-KJN-YMD
+                           WK-KJN-YMD-REC
+      *----------  ワーク基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2(1:4)
+                 TO  WK-KJN-YY
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2(5:2)
+                 TO  WK-KJN-MM
+               MOVE  CNS-KJN-DD-99      TO  WK-KJN-DD
+               MOVE  WK-KJN-YMD-REC     TO  WK-KJN-YMD
+      *----------  ワーク最終処理基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2
+                 TO  WK-END-KJN-YMD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク基準日=["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク最終処理基準日=["
+      D             WK-END-KJN-YMD"]"
+      *-----------------------------------------------------------------
+      *----------  3.2.2.進捗管理テーブルを更新する
+               PERFORM  SCZY1190-RTN
+      *----------  後処理
+               PERFORM  END-RTN
+             ELSE
+               INITIALIZE  WK-KJN-YMD
+                           WK-END-KJN-YMD
+                           WK-KJN-YMD-REC
+      *----------  ワーク基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2(1:4)
+                 TO  WK-KJN-YY
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2(5:2)
+                 TO  WK-KJN-MM
+               MOVE  CNS-KJN-DD-99      TO  WK-KJN-DD
+               MOVE  WK-KJN-YMD-REC     TO  WK-KJN-YMD
+      *----------  ワーク最終処理基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2
+                 TO  WK-END-KJN-YMD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク基準日=["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク最終処理基準日=["
+      D             WK-END-KJN-YMD"]"
+      *-----------------------------------------------------------------
+      *----------  3.2.2.進捗管理テーブルを更新する
+               PERFORM  SCZY1190-RTN
+      *----------  後処理
+               PERFORM  END-RTN
+             END-IF
+           ELSE
+             INITIALIZE  WK-KJN-YMD
+                         WK-END-KJN-YMD
+                         WK-KJN-YMD-REC
+      *----------  ワーク基準日
+             MOVE  KJN-YMD              OF  PARM-SUSC0405-ARG2(1:4)
+               TO  WK-KJN-YY
+             MOVE  KJN-YMD              OF  PARM-SUSC0405-ARG2(5:2)
+               TO  WK-KJN-MM
+             MOVE  CNS-KJN-DD-99        TO  WK-KJN-DD
+             MOVE  WK-KJN-YMD-REC       TO  WK-KJN-YMD
+      *----------  ワーク最終処理基準日
+             MOVE  KJN-YMD              OF  PARM-SUSC0405-ARG2
+               TO  WK-END-KJN-YMD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク基準日=["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク最終処理基準日=["
+      D             WK-END-KJN-YMD"]"
+      *-----------------------------------------------------------------
+      *----------  3.2.2.進捗管理テーブルを更新する
+             PERFORM  SCZY1190-RTN
+      *----------  後処理
+             PERFORM  END-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  主処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    イベント日、決算日を取得
+      ******************************************************************
+       SCZY4007-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*** イベント日を取得処理  START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY4007-INOUT
+                       PARM-RTNPKG
+                       WK-NITIJI-HYK-FLG
+                       WK-EVENT-YMD1
+                       WK-EVENT-YMD2
+                       WK-EVENT-YMD3
+                       WK-SET-YMD
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SUSC0405-ARG2
+             TO  RIYO-CMP-CD            OF  PARM-SCZY4007-ARG1
+      *----------  ファンドコード
+           MOVE  FUND-CD                OF  PARM-SUSC0405-ARG2
+             TO  FUND-CD                OF  PARM-SCZY4007-ARG1
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                 OF  PARM-SUSC0405-ARG2
+             TO  PTF-CD                 OF  PARM-SCZY4007-ARG1
+      *----------  適用開始日
+           MOVE  KJN-YMD                OF  PARM-SUSC0405-ARG2
+             TO  TEKIYO-FROM            OF  PARM-SCZY4007-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4007-ARG1:"
+      D    DISPLAY  CNS-PGM-ID ":利用会社コード=["
+      D             RIYO-CMP-CD         OF  PARM-SCZY4007-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID ":ファンドコード=["
+      D             FUND-CD             OF  PARM-SCZY4007-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID ":ポートフォリオコード=["
+      D             PTF-CD              OF  PARM-SCZY4007-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID ":適用開始日=["
+      D             TEKIYO-FROM         OF  PARM-SCZY4007-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID ":***  CALL SCZY4007  START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY4007"             USING  PARM-SCZY4007-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  CALL SCZY4007  END  ***"
+      D    DISPLAY  CNS-PGM-ID ":RTN-CD OF SCZY4007 =["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D             COUNTER              OF PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+             WHEN  CNS-RTN-000
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*****   イベント日を取得正常   *****"
+      *--------------------<DEBUG>--------------------------------------
+      *----------  ワーク日次評価法フラグ
+               MOVE  NITIJI-HYK-FLG     OF  PARM-SCZY4007-ARG2
+                 TO  WK-NITIJI-HYK-FLG
+      *----------  ワークイベント日１
+               MOVE  EVENT-YMD1         OF  PARM-SCZY4007-ARG2
+                 TO  WK-EVENT-YMD1
+      *----------  ワークイベント日２
+               MOVE  EVENT-YMD2         OF  PARM-SCZY4007-ARG2
+                 TO  WK-EVENT-YMD2
+      *----------  ワークイベント日３
+               MOVE  EVENT-YMD3         OF  PARM-SCZY4007-ARG2
+                 TO  WK-EVENT-YMD3
+      *----------   設定日
+               MOVE  SET-YMD            OF  PARM-SCZY4007-ARG2
+                 TO  WK-SET-YMD
+             WHEN  CNS-RTN-110
+             WHEN  CNS-RTN-800
+      *----------  リターンコード
+               MOVE  CNS-RTN-113
+                 TO  WK-RTN-CD          OF  WK-RTN
+      *----------  後処理
+               PERFORM  END-RTN
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*****   イベント日を取得エラー  *****"
+      *--------------------<DEBUG>--------------------------------------
+               MOVE  CNS-PGM-ID         TO  WK-ERR-PGM-ID
+                                        OF  WK-RTN
+               MOVE  CNS-POS-001        TO  WK-ERR-POS
+                                        OF  WK-RTN
+               MOVE  CNS-RTN-901        TO  WK-RTN-CD
+                                        OF  WK-RTN
+               MOVE  CNS-DETAIL-0       TO  WK-DETAIL-RTN-CD-FLG
+                                        OF  WK-RTN
+               MOVE  SPACE              TO  WK-FREE-MSG
+                                        OF  WK-RTN
+               MOVE  PARM-RTNPKG        TO  WK-RTN-PKGS
+      *----------  エラー処理
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク日次評価法フラグ=["
+      D             WK-NITIJI-HYK-FLG"]"
+      D    DISPLAY  CNS-PGM-ID ":ワークイベント日１=["WK-EVENT-YMD1"]"
+      D    DISPLAY  CNS-PGM-ID ":ワークイベント日２=["WK-EVENT-YMD2"]"
+      D    DISPLAY  CNS-PGM-ID ":ワークイベント日３=["WK-EVENT-YMD3"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク設定日=["WK-SET-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":***  イベント日を取得処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY4007-EXT.
+           EXIT.
+      ******************************************************************
+      *     決算日を取得
+      ******************************************************************
+       SCZY4026-RTN           SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*****  決算日を取得処理  START   *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY4026-INOUT
+                       PARM-RTNPKG
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SUSC0405-ARG2
+             TO  RIYO-CMP-CD            OF  PARM-SCZY4026-INOUT
+      *----------  ファンドコード
+           MOVE  FUND-CD                OF  PARM-SUSC0405-ARG2
+             TO  FUND-CD                OF  PARM-SCZY4026-INOUT
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                 OF  PARM-SUSC0405-ARG2
+             TO  PTF-CD                 OF  PARM-SCZY4026-INOUT
+      *----------  計算日From
+           MOVE  KJN-YMD                OF  PARM-SUSC0405-ARG2
+             TO  CALC-FROM              OF  PARM-SCZY4026-INOUT
+      *----------  計算日To
+           MOVE  KJN-YMD                OF  PARM-SUSC0405-ARG2
+             TO  CALC-TO                OF  PARM-SCZY4026-INOUT
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY4026-ARG1:"
+      D    DISPLAY  CNS-PGM-ID ":決算日情報区分=["
+      D              KESSAN-JYOUHOU-KBN OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":利用会社コード=["
+      D              RIYO-CMP-CD        OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":ファンドコード=["
+      D              FUND-CD            OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":ポートフォリオコード=["
+      D              PTF-CD             OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":決算日情報エリア=["
+      D              KESSAN-JYOUHOU-AREA OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":計算日From=["
+      D              CALC-FROM          OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID ":計算日To=["
+      D              CALC-TO            OF  PARM-SCZY4026-INOUT "]"
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY4026  START  ***"
+      *-----------------------------------------------------------------
+           CALL   "SCZY4026"              USING  PARM-SCZY4026-INOUT
+                                                 PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":***  CALL SCZY4026  END  ***"
+      D    DISPLAY  CNS-PGM-ID ":RTN-CD OF SCZY4026 =["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D             COUNTER              OF PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+             WHEN  CNS-RTN-000
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****    決算日を取得正常   *****"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":SCZY4026.決算日(1)=["
+      D             KESSAN-YMD          OF  PARM-SCZY4026-ARG2(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワーク決算日
+               INITIALIZE  WK-KESSAN-YMD
+               MOVE  KESSAN-YMD         OF  PARM-SCZY4026-ARG2(CNS-1)
+                 TO  WK-KESSAN-YMD
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワーク決算日=["WK-KESSAN-YMD"]"
+      *-----------------------------------------------------------------
+             WHEN  CNS-RTN-110
+               INITIALIZE  WK-KJN-YMD
+                           WK-END-KJN-YMD
+                           WK-KJN-YMD-REC
+      *----------  ワーク基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2(1:4)
+                 TO  WK-KJN-YY
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2(5:2)
+                 TO  WK-KJN-MM
+               MOVE  CNS-KJN-DD-99      TO  WK-KJN-DD
+               MOVE  WK-KJN-YMD-REC     TO  WK-KJN-YMD
+      *----------  ワーク最終処理基準日
+               MOVE  KJN-YMD            OF  PARM-SUSC0405-ARG2
+                 TO  WK-END-KJN-YMD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":ワーク基準日=["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID ":ワーク最終処理基準日=["
+      D             WK-END-KJN-YMD"]"
+      *-----------------------------------------------------------------
+      *----------  3.2.2.進捗管理テーブルを更新する
+               PERFORM  SCZY1190-RTN
+      *----------  後処理
+               PERFORM  END-RTN
+             WHEN  CNS-RTN-800
+      *----------  リターンコード
+               MOVE  CNS-RTN-113
+                 TO  WK-RTN-CD          OF  WK-RTN
+      *----------  後処理
+               PERFORM  END-RTN
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*****    決算日を取得エラー *****"
+      *--------------------<DEBUG>--------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID         TO  WK-ERR-PGM-ID
+                                        OF  WK-RTN
+               MOVE  CNS-POS-002        TO  WK-ERR-POS
+                                        OF  WK-RTN
+               MOVE  CNS-RTN-901        TO  WK-RTN-CD
+                                        OF  WK-RTN
+               MOVE  CNS-DETAIL-0       TO  WK-DETAIL-RTN-CD-FLG
+                                        OF  WK-RTN
+               MOVE  SPACE              TO  WK-FREE-MSG
+                                        OF  WK-RTN
+               MOVE  PARM-RTNPKG        TO  WK-RTN-PKGS
+      *----------  エラー処理
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*****  決算日を取得処理  END   *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY4026-EXT.
+           EXIT.
+      ******************************************************************
+      *    月末日を取得処理
+      ******************************************************************
+       SCZY1020-RTN           SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":*****  月末日を取得処理  START   *****"
+      *--------------------<DEBUG>--------------------------------------
+           INITIALIZE  PARM-SCZY1020-INOUT
+                       PARM-RTNPKG
+                       WK-GTMT-YMD
+      *----------  機能区分
+           MOVE  CNS-X-5
+             TO  IXCAL-FUNCTION         OF  PARM-SCZY1020-INOUT
+      *----------  基準年月日1
+           MOVE  KJN-YMD                OF  PARM-SUSC0405-ARG2
+             TO  IXCAL-KJN-YMD-1        OF  PARM-SCZY1020-INOUT
+      *----------  計算ベース区分
+           MOVE  CNS-X-1
+             TO  IXCAL-COMP-BASE        OF  PARM-SCZY1020-INOUT
+      *----------  前後区分1
+           MOVE  CNS-X-2
+             TO  IXCAL-ZENGO-KBN-1      OF  PARM-SCZY1020-INOUT
+      *----------  単位区分
+           MOVE  CNS-X-2
+             TO  IXCAL-TANI-KBN         OF  PARM-SCZY1020-INOUT
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY1020-ARG1:"
+      D    DISPLAY  CNS-PGM-ID ":機能区分=["
+      D             IXCAL-FUNCTION      OF  PARM-SCZY1020-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID ":基準年月日1=["
+      D             IXCAL-KJN-YMD-1     OF  PARM-SCZY1020-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID ":計算ベース区分=["
+      D             IXCAL-COMP-BASE     OF  PARM-SCZY1020-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID ":前後区分1=["
+      D             IXCAL-ZENGO-KBN-1   OF  PARM-SCZY1020-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID ":単位区分=["
+      D             IXCAL-TANI-KBN      OF  PARM-SCZY1020-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY1020  START  ***"
+      *--------------------<DEBUG>--------------------------------------
+           CALL   "SCZY1020"              USING  PARM-SCZY1020-INOUT
+                                                 PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY1020  END  ***"
+      D    DISPLAY  CNS-PGM-ID ":RTN-CD OF SCZY1020 =["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D             COUNTER              OF PARM-RTNPKG"]"
+      *--------------------<DEBUG>--------------------------------------
+           EVALUATE  RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+             WHEN  CNS-RTN-000
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****   月末日を取得正常   *****"
+      *--------------------<DEBUG>--------------------------------------
+      *----------  ワーク月末日
+               MOVE  IXCAL-KJN-YMD-2    OF  PARM-SCZY1020-INOUT
+                 TO  WK-GTMT-YMD
+             WHEN  CNS-RTN-800
+      *----------  リターンコード
+               MOVE  CNS-RTN-113
+                 TO  WK-RTN-CD          OF  WK-RTN
+      *----------  後処理
+               PERFORM  END-RTN
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****   月末日を取得エラー  *****"
+      *--------------------<DEBUG>--------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID         TO  WK-ERR-PGM-ID
+                                        OF  WK-RTN
+               MOVE  CNS-POS-003        TO  WK-ERR-POS
+                                        OF  WK-RTN
+               MOVE  CNS-RTN-901        TO  WK-RTN-CD
+                                        OF  WK-RTN
+               MOVE  CNS-DETAIL-0       TO  WK-DETAIL-RTN-CD-FLG
+                                        OF  WK-RTN
+               MOVE  SPACE              TO  WK-FREE-MSG
+                                        OF  WK-RTN
+               MOVE  PARM-RTNPKG        TO  WK-RTN-PKGS
+      *----------  エラー処理
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワーク月末日=["WK-GTMT-YMD"]"
+      D    DISPLAY  CNS-PGM-ID":*****  月末日を取得処理  END   *****"
+      *--------------------<DEBUG>--------------------------------------
+           CONTINUE.
+       SCZY1020-EXT.
+           EXIT.
+      ******************************************************************
+      *    ポートフォリオ実行可能区分を取得処理
+      ******************************************************************
+       SCZY1190-RTN           SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** ポートフォリオ実行可能区分を取得"
+      D             "処理 START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY1190-INOUT
+                       PARM-RTNPKG
+      *----------  セッション区分
+           MOVE  SESION-KBN             OF  PARM-SUSC0405-ARG1
+             TO  SESION-KBN             OF  PARM-SCZY1190-ARG1
+      *----------  OL/BT区分
+           MOVE  OLBT-KBN               OF  PARM-SUSC0405-ARG1
+             TO  OLBT-KBN               OF  PARM-SCZY1190-ARG1
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SUSC0405-ARG2
+             TO  RIYO-CMP-CD            OF  PARM-SCZY1190-ARG2
+      *----------  処理実行日
+           MOVE  SYORI-YMD              OF  PARM-SUSC0405-ARG2
+             TO  SYORI-YMD              OF  PARM-SCZY1190-ARG2
+      *----------  起動ID
+           MOVE  KIDOU-ID               OF  PARM-SUSC0405-ARG2
+             TO  KIDOU-ID               OF  PARM-SCZY1190-ARG2
+      *----------  業務タスクID
+           MOVE  GYOMU-TASK-ID          OF  PARM-SUSC0405-ARG2
+             TO  GYOMU-TASK-ID          OF  PARM-SCZY1190-ARG2
+      *----------  基準年月日/基準年月
+           MOVE  WK-KJN-YMD
+             TO  KJN-YMD                OF  PARM-SCZY1190-ARG2
+      *----------  最終処理基準日
+           MOVE  WK-END-KJN-YMD
+             TO  SS-SYORI-YMD           OF  PARM-SCZY1190-ARG2
+      *----------  ファンドコード
+           MOVE  FUND-CD                OF  PARM-SUSC0405-ARG2
+             TO  FUND-CD                OF  PARM-SCZY1190-ARG2
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                 OF  PARM-SUSC0405-ARG2
+             TO  PTF-CD                 OF  PARM-SCZY1190-ARG2
+      *----------  評価系列コード
+           MOVE  HYK-KRTU-CD            OF  PARM-SUSC0405-ARG2
+             TO  HYK-KRTU-CD            OF  PARM-SCZY1190-ARG2
+      *----------  基準日FROM
+           MOVE  KJN-YMD-FROM           OF  PARM-SUSC0405-ARG2
+             TO  KJN-YMD-FROM           OF  PARM-SCZY1190-ARG2
+      *----------  進捗ステータス
+           MOVE  JIKOU-STS              OF  PARM-SUSC0405-ARG2
+             TO  JIKOU-STS              OF  PARM-SCZY1190-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID ":PARM-SCZY1190-ARG:"
+      D    DISPLAY  CNS-PGM-ID":セッション区分=["
+      D             SESION-KBN          OF  PARM-SCZY1190-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":OL/BT区分=["
+      D             OLBT-KBN            OF  PARM-SCZY1190-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":利用会社コード=["
+      D             RIYO-CMP-CD         OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":処理実行日=["
+      D             SYORI-YMD           OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":起動ID=["
+      D             KIDOU-ID            OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":業務タスクID=["
+      D             GYOMU-TASK-ID       OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":基準年月日/基準年月=["
+      D             KJN-YMD             OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":最終処理基準日=["
+      D             SS-SYORI-YMD        OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":ベビー未処理フラグ=["
+      D             BABY-MISYORI-FLG    OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード=["
+      D             FUND-CD             OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオコード=["
+      D             PTF-CD              OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":評価系列コード=["
+      D             HYK-KRTU-CD         OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":帳票ID=["
+      D             REP-ID              OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":帳票任意コード=["
+      D             REP-ANY-CD          OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":基準日FROM=["
+      D             KJN-YMD-FROM        OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":進捗ステータス=["
+      D             JIKOU-STS           OF  PARM-SCZY1190-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY1190  START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1190"             USING  PARM-SCZY1190-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY1190  END  ***"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG       =["PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SCZY1190)=["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER   OF PARM-RTNPKG) "]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D             COUNTER              OF PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+            =  CNS-RTN-000
+           THEN
+             PERFORM DB-COMMIT-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  ポートフォリオ実行可能区分を取得"
+      D             " 正常  ***"
+      D    DISPLAY  CNS-PGM-ID":SCZY1190.ポートフォリオ実行可能区分=["
+      D             PTF-JIKOU-KBN       OF  PARM-SCZY1190-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":ARG3.ポートフォリオ実行可能区分=["
+      D             PTF-JIKOU-KBN       OF  PARM-SUSC0405-ARG3"]"
+      *-----------------------------------------------------------------
+             IF  PTF-JIKOU-KBN          OF  PARM-SCZY1190-ARG3
+              >= PTF-JIKOU-KBN          OF  PARM-SUSC0405-ARG3
+             THEN
+      *----------  ARG3.ポートフォリオ実行可能区分
+               MOVE  PTF-JIKOU-KBN      OF  PARM-SCZY1190-ARG3
+                 TO  PTF-JIKOU-KBN      OF  PARM-SUSC0405-ARG3
+             ELSE
+               CONTINUE
+             END-IF
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  ポートフォリオ実行可能区分を取得"
+      D             " エラー  ***"
+      *-----------------------------------------------------------------
+             MOVE  CNS-PGM-ID           TO  WK-ERR-PGM-ID
+                                        OF  WK-RTN
+             MOVE  CNS-POS-004          TO  WK-ERR-POS
+                                        OF  WK-RTN
+             MOVE  CNS-RTN-901          TO  WK-RTN-CD
+                                        OF  WK-RTN
+             MOVE  CNS-DETAIL-0         TO  WK-DETAIL-RTN-CD-FLG
+                                        OF  WK-RTN
+             MOVE  SPACE                TO  WK-FREE-MSG
+                                        OF  WK-RTN
+             MOVE  PARM-RTNPKG          TO  WK-RTN-PKGS
+      *----------  エラー処理
+             PERFORM  ERROR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG3.ポートフォリオ実行可能区分=["
+      D             PTF-JIKOU-KBN       OF  PARM-SUSC0405-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":*** ポートフォリオ実行可能区分を取得"
+      D             "処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY1190-EXT.
+           EXIT.
+      ******************************************************************
+      *    ＤＢコミット処理
+      ******************************************************************
+       DB-COMMIT-RTN          SECTION.
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-SDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [DB-COMMIT-RTN]"               GUT2013
+           DISPLAY "セクションの開始時間:["WK-RUN-SDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  ＤＢコミット処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  COMMIT
+           EXEC SQL
+               COMMIT
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLCODE(COMMIT)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+      *----------  SQLCODEのチェック
+           IF  SQLCODE = CNS-SQL-NORMAL
+           THEN
+             CONTINUE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ＤＢコミット処理 正常"
+      *-----------------------------------------------------------------
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ＤＢコミット処理 システムエラー"
+      *-----------------------------------------------------------------
+             MOVE  CNS-PGM-ID           TO  WK-ERR-PGM-ID
+                                        OF  WK-RTN
+             MOVE  CNS-POS-005          TO  WK-ERR-POS
+                                        OF  WK-RTN
+             MOVE  CNS-RTN-900          TO  WK-RTN-CD
+                                        OF  WK-RTN
+             MOVE  SQLCODE              TO  WK-DETAIL-RTN-CD
+                                        OF  WK-RTN
+             MOVE  CNS-DETAIL-1         TO  WK-DETAIL-RTN-CD-FLG
+                                        OF  WK-RTN
+             MOVE  CNS-COMMIT-ERR       TO  WK-FREE-MSG
+                                        OF  WK-RTN
+      *----------  エラー処理
+             PERFORM  ERROR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  ＤＢコミット処理  END  ***"
+      *-----------------------------------------------------------------
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-EDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [DB-COMMIT-RTN]"               GUT2013
+           DISPLAY "セクションの終了時間:["WK-RUN-EDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+           CONTINUE.
+       DB-COMMIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":◆◇◆◇◆◇終了処理"
+      D             "  START  ◆◇◆◇◆◇"
+      D    DISPLAY  CNS-PGM-ID":PARM-SUSC0405-ARG3:"
+      D    DISPLAY  CNS-PGM-ID":ARG3.ポートフォリオ実行可能区分=["
+      D             PTF-JIKOU-KBN       OF  PARM-SUSC0405-ARG3"]"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-RTNPKG
+           MOVE  WK-RTN-CD                      OF  WK-RTN
+             TO  RTN-CD                         OF  PARM-SCZY1170-ARG1
+           CALL  "SCZY1170"          USING  PARM-SCZY1170-INOUT
+                                            PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2  TO  PARM-SUSC0405-ARG4
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-ARG1:"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD          OF PARM-SCZY1170-ARG1=["
+      D             RTN-CD                      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-PGM-ID      OF PARM-SCZY1170-ARG1=["
+      D             ERR-PGM-ID                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-POS         OF PARM-SCZY1170-ARG1=["
+      D             ERR-POS                     OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD          OF PARM-SCZY1170-ARG1=["
+      D             RTN-CD                      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD   OF PARM-SCZY1170-ARG1"
+      D             "=["DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD-FLG OF PARM-SCZY1170-ARG1"
+      D            "=["DETAIL-RTN-CD-FLG        OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":FREE-MSG        OF PARM-SCZY1170-ARG1=["
+      D             FREE-MSG                    OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF SUSC0405=["RTN-CD
+      D    OF PARM-SUSC0405-RTNPKG(COUNTER OF PARM-SUSC0405-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SUSC0405-ARG4=["
+      D             PARM-SUSC0405-ARG4"]"
+      D    DISPLAY  CNS-PGM-ID":◆◇◆◇◆◇終了処理  END  ◆◇◆◇◆◇"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *    エラー処理
+      ******************************************************************
+       ERROR-RTN              SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":◆◇◆◇◆◇エラー処理"
+      D             "  START  ◆◇◆◇◆◇"
+      D    DISPLAY  CNS-PGM-ID":PARM-SUSC0405-ARG3:"
+      D    DISPLAY  CNS-PGM-ID":ARG3.ポートフォリオ実行可能区分=["
+      D             PTF-JIKOU-KBN       OF  PARM-SUSC0405-ARG3"]"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチン
+           MOVE  WK-RTN                      TO  PARM-SCZY1170-INOUT
+           MOVE  WK-RTN-PKGS                 TO  PARM-SCZY1170-RTNPKG
+           CALL  "SCZY1170"               USING  PARM-SCZY1170-INOUT
+                                                 PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SUSC0405-ARG4
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-ARG1:"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD          OF PARM-SCZY1170-ARG1=["
+      D             RTN-CD                      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-PGM-ID      OF PARM-SCZY1170-ARG1=["
+      D             ERR-PGM-ID                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-POS         OF PARM-SCZY1170-ARG1=["
+      D             ERR-POS                     OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD          OF PARM-SCZY1170-ARG1=["
+      D             RTN-CD                      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD   OF PARM-SCZY1170-ARG1"
+      D             "=["DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD-FLG OF PARM-SCZY1170-ARG1"
+      D            "=["DETAIL-RTN-CD-FLG        OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":FREE-MSG        OF PARM-SCZY1170-ARG1=["
+      D             FREE-MSG                    OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF SUSC0405=["RTN-CD
+      D    OF PARM-SUSC0405-RTNPKG(COUNTER OF PARM-SUSC0405-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SUSC0405-ARG4=["
+      D             PARM-SUSC0405-ARG4"]"
+      D    DISPLAY  CNS-PGM-ID":◆◇◆◇◆◇エラー処理"
+      D             "  END  ◆◇◆◇◆◇"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERROR-EXT.
+           GOBACK.
+      ******************************************************************
+      *        プログラムの末尾
+      ******************************************************************

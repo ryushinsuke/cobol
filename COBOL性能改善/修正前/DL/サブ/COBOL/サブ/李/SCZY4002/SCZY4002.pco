@@ -1,0 +1,3502 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラムＩＤ : SCZY4002
+      *     プログラム名称 : ポートフォリオと有効期間取得
+      *     処理概要       : ポートフォリオを範囲またはＡＬＬ指定して、
+      *                    : 条件に合致した複数のポートフォリオと
+      *                    : 有効期間の配列をすべて返却する
+      *                    : ポートフォリオが存在しても
+      *                    : 権限チェックで通らない場合は０件で返す。
+      *     更新ＤＢ       : なし
+      *     参照ＤＢ       : TKPFZK01  TKPFZK02  TKPFZK04
+      *     引数           : IN  ＡＩＦＡ共通ヘッダ
+      *                      IN  利用会社コード
+      *                      IN  オール指定1
+      *                      IN  ポートフォリオ選択リスト
+      *                      IN  オール指定2
+      *                      IN  評価系列
+      *                      IN  基準日FROM
+      *                      IN  基準日TO
+      *                      IN  権限チェック有無
+      *                      IN  メニューID
+      *                      IN  画面アクション区分
+      *                      IN  業務タスクID
+      *                      IN  日中夜間区分
+      *                      IN  APL指定出力件数
+      *                      OUT ヒット件数
+      *                      OUT 返却データ
+      *                      OUT RTN パッケージ
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20080709   新規  SCS        包香娟  新規作成
+      *     20081020   修正  SCS        楊明華  テーマ④
+      *                                         連結障害対応No.0000199
+      *     20081022   修正  SCS        楊明華  連結障害対応No.0000119
+      *     20081113   修正  SCS        王斌    連結障害対応No.0000487
+      *     20081209   修正   SCS       王斌    連結障害対応No.0000211
+      *     20081209   修正   SCS       王斌    残タスク    No.0000153
+      *     20090106   修正  SCS        韓  均  残タスク    No.0000169
+      *     20090218   修正  SCS        李峰    残タスクNo.0000196
+      *     20090219   修正  SCS        尹吉磊  総合障害対応No.0000014
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY4002.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-07-09.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *    環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *    デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *    作  業  場  所  節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *    コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-SCZYCNS.
+           COPY "KOMONCNS.cpy".
+      *----------  エラー検知プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SCZY4002".
+         05  CNS-TBL-TKPFZK01      PIC  X(08)  VALUE  "TKPFZK01".
+         05  CNS-TBL-TKPFZK02      PIC  X(08)  VALUE  "TKPFZK02".
+         05  CNS-TBL-TKPFZK04      PIC  X(08)  VALUE  "TKPFZK04".
+         05  CNS-0                 PIC  9(01)  VALUE  0.
+         05  CNS-1                 PIC  9(01)  VALUE  1.
+         05  CNS-2                 PIC  9(01)  VALUE  2.
+         05  CNS-10                PIC  9(02)  VALUE  10.
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+         05  CNS-10000             PIC  9(05)  VALUE  10000.
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+         05  CNS-X-0               PIC  X(01)  VALUE  "0".
+         05  CNS-X-1               PIC  X(01)  VALUE  "1".
+         05  CNS-X-2               PIC  X(01)  VALUE  "2".
+         05  CNS-X-3               PIC  X(01)  VALUE  "3".
+         05  CNS-TXRX-POS          PIC  9(03)  VALUE  267.
+         05  CNS-MAX-REC           PIC  9(05)  VALUE  50000.
+         05  CNS-PRMTR-E03         PIC  X(16)
+             VALUE  "パラメータエラー".
+         05  CNS-PRMTR-E04         PIC  X(16)
+             VALUE  "抽出件数超過警告".
+         05  CNS-PRMTR-E05         PIC  X(27)
+             VALUE  "パラメータオール指定1エラー".
+         05  CNS-PRMTR-E06         PIC  X(27)
+             VALUE  "パラメータオール指定2エラー".
+         05  CNS-PRMTR-E07         PIC  X(32)
+             VALUE  "パラメータ権限チェック有無エラー".
+         05  CNS-PRMTR-E08         PIC  X(28)
+             VALUE  "パラメータ日中夜間区分エラー".
+         05  CNS-PRMTR-E09         PIC  X(22)
+             VALUE  "パラメータ基準日エラー".
+         05  CNS-PRMTR-E10         PIC  X(26)
+             VALUE  "パラメータメニューIDエラー".
+         05  CNS-PRMTR-E11         PIC  X(34)
+             VALUE  "パラメータ画面アクション区分エラー".
+      ******************************************************************
+      *    ホスト  変数
+      ******************************************************************
+           EXEC  SQL  INCLUDE  SQLCA             END-EXEC.
+           EXEC  SQL  INCLUDE  ORACA             END-EXEC.
+           EXEC  SQL  BEGIN    DECLARE  SECTION  END-EXEC.
+       01  HST-ORA-WORKING-AREA.
+      *----------  動的SQL文をいれるバッファ
+         05  SQLSTMT               PIC  X(8000).
+      *----------  WHERE条件
+         05  HST-WHERE.
+      *----------  利用会社コード
+           10  HST-RIYO-CMP-CD     PIC  X(04).
+      *******    テーマ④ 20081020 修正  開始    ***********************
+      *----------  基準日FROM
+           10  HST-KZYN-YMD-FROM   PIC  S9(08).
+      *----------  基準日TO
+           10  HST-KZYN-YMD-TO     PIC  S9(08).
+      *******    テーマ④ 20081020 修正  終了    ***********************
+      *----------  抽出項目
+         05  HST-FETCH.
+      *----------  HST-ファンドコード
+           10  HST-FUND-CD         PIC  X(12).
+      *----------  HST-ファンド名（日）
+           10  HST-FND-MEI-JPN     PIC  X(60).
+      *----------  HST-ポートフォリオコード
+           10  HST-PTF-CD          PIC  X(04).
+      *----------  HST-ポートフォリオ名（日）
+           10  HST-PTF-MEI-JPN     PIC  X(60).
+      *----------  HST-評価系列コード
+           10  HST-HYK-KRTU-CD     PIC  X(04).
+      *----------  HST-基準日FROM
+           10  HST-KZYN-YMD-FROM   PIC  S9(08).
+      *----------  HST-基準日TO
+           10  HST-KZYN-YMD-TO     PIC  S9(08).
+      *----------  HST-基準日TO翌日
+           10  HST-KZYN-YMD-TO-NEXT
+                                   PIC  S9(09).
+           EXEC  SQL  END      DECLARE  SECTION  END-EXEC.
+      ******************************************************************
+      *    フラグエリア
+      ******************************************************************
+       01  FLG-AREA.
+      *----------  カーソルCR1フェッチ処理へ進むのフラグ
+         05  FLG-CONTINUE          PIC  9(01).
+      *----------  ポートフォリオ所属処理グループCURSOR OPEN FLAG
+         05  FLG-CR1-OPEN          PIC  9(01).
+      *----------  ポートフォリオ、ポートフォリオ評価系列FETCH FLAG
+         05  FLG-CR1-FETCH         PIC  9(01).
+      *----------  利用権限チェックフラグ
+         05  CHECK-OK-FLG          PIC  9(01).
+      ******************************************************************
+      *    サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  監査ログＩＮＳルーチン
+       01  PARM-SCZY1100-AIFA-HEADER.
+         05  PARM-SCZC1100-ARG1.
+           COPY  "WOMCMAIFA.CPY".
+           COPY  "CZCOMMONHEADER.cpy".
+       01  PARM-SCZY1100-INOUT.
+           COPY  "SCZY1100.cpy".
+      *******    連結障害対応No.0000119  20081022 修正  開始    ********
+      *----------  バッチ用監査ログＩＮＳルーチン
+       01  PARM-SCZY7110-AIFA-HEADER.
+         05  PARM-SCZY7110-ARG1.
+           COPY  "WOMCMAIFA.CPY".
+           COPY  "CZCOMMONHEADER.cpy".
+       01  PARM-SCZY7110-INOUT.
+           COPY  "SCZY7110.cpy".
+      *******    連結障害対応No.0000119  20081022 修正  終了    ********
+      *----------  利用権限チェックルーチンパラメータ
+       01  PARM-SCZY1130-IN.
+           COPY  "SCZY1130.cpy".
+      *----------  テーブルID取得ルーチンパラメータ
+       01  PARM-SCZY1160-INOUT.
+           COPY  "SCZY1160.cpy".
+      *----------  リターンパッケージセットルーチン
+       01  PARM-SCZY1170-IN.
+           COPY  "SCZY1170.cpy".
+      *----------  日付チェックルーチン
+       01  PARM-SCZY7120-INOUT.
+           COPY  "SCZY7120.cpy".
+      *----------  RTNパッケージコピー句
+       01  PARM-RTNPKG.
+         05  PARM-RTNPKG-ARG.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *    ワーク  エリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  WK-ＡＩＦＡ共通ヘッダ
+         05  WK-AIFA-HEADER        PIC  X(700).
+      *----------  ワークテーブルID1
+         05  WK-TABID-1            PIC  X(13).
+      *----------  ワークテーブルID2
+         05  WK-TABID-2            PIC  X(13).
+      *----------  ワークテーブルID3
+         05  WK-TABID-3            PIC  X(13).
+      *******    テーマ④ 20081020 修正  開始    ***********************
+      *----------  ワークカウント
+         05  WK-COUNT              PIC  9(06).
+      *******    テーマ④ 20081020 修正  終了    ***********************
+      *----------  ワーク日付
+         05  WK-HIDUKE             PIC  9(08).
+      *----------  WK-IN-APL指定出力件数
+         05  WK-IN-APL-OUT-CNT     PIC  9(05).
+      *----------  WK-IN-オール指定1
+         05  WK-IN-ALL-SITEI-1     PIC  X(01).
+      *----------  WK-IN-オール指定2
+         05  WK-IN-ALL-SITEI-2     PIC  X(01).
+      *----------  WK-IN-ファンド＆ポートフォリオ
+         05  WK-IN-FUND-PTF-CD     OCCURS  10
+                                   PIC  X(16).
+      *----------  WK-IN-ファンドコード
+      *******    残タスク   No.0000169  20090106 修正  開始    *********
+         05  WK-IN-FUND-CD-GRP.
+           10  WK-IN-FUND-CD       PIC  X(12)
+                                   OCCURS  10.
+      *******    残タスク   No.0000169  20090106 修正  終了    *********
+      *----------  WK-IN-ポートフォリオコード
+         05  WK-IN-PTF-CD          OCCURS  10
+                                   PIC  X(04).
+      *----------  WK-IN-ポートフォリオグループコード
+         05  WK-IN-PTF-GRP-CD      OCCURS  10
+                                   PIC  X(08).
+      *----------  WK-IN-基準日FROM
+         05  WK-IN-KZYN-YMD-FROM   PIC  9(08).
+      *----------  WK-IN-基準日TO
+         05  WK-IN-KZYN-YMD-TO     PIC  9(08).
+      *----------  WK-IN-件数
+         05  WK-IN-COUNT           PIC  9(05).
+      *----------   WK-IN-権限チェック有無
+         05  WK-IN-KGN-CHK-UMU     PIC  X(01).
+      *----------   WK-IN-日中夜間区分
+         05  WK-IN-NCHU-YAKN-KBN   PIC  X(01).
+      *----------  WK-IN-評価系列コード
+         05  WK-IN-HYK-KRTU        OCCURS  10
+                                   PIC  X(04).
+      *----------   WK-IN-利用会社コード
+         05  WK-IN-RIYO-CMP-CD     PIC  X(04).
+      *----------   WK-SQL-ファンドコード
+         05  WK-SQL-FUND-CD        PIC  X(12).
+      *----------   WK-SQL-ファンド名（日）
+         05  WK-SQL-FND-MEI-JPN    PIC  X(60).
+      *----------   WK-SQL-ポートフォリオコード
+         05  WK-SQL-PTF-CD         PIC  X(04).
+      *----------   WK-SQL-ポートフォリオ名（日）
+         05  WK-SQL-PTF-MEI-JPN    PIC  X(60).
+      *----------   WK-SQL-基準日FROM
+         05  WK-SQL-KZYN-YMD-FROM  PIC  9(08).
+      *----------   WK-SQL-基準日TO
+         05  WK-SQL-KZYN-YMD-TO    PIC  9(08).
+      *----------   WK-SQL-基準日TO後日
+         05  WK-SQL-KZYN-YMD-TO-NEXT
+                                   PIC  9(08).
+      *----------    WK-SQL-評価系列コード
+         05  WK-SQL-HYK-KRTU-CD    PIC  X(04).
+      *******    テーマ④ 20081020 修正  開始    ***********************
+      *----------  ファンド＆ポートフォリオ順
+         05  WK-SQL-FUND-PTF-CD.
+      *----------  WK-IN-ファンド＆ポートフォリオ
+           10  WK-FUND-PTF-DECODE
+                                   OCCURS  10
+                                   PIC  X(26).
+      *******    テーマ④ 20081020 修正  終了    ***********************
+      *----------  グループ順
+         05  WK-SQL-PTF-GRP-CD.
+      *----------  WK-IN-ファンド＆ポートフォリオ
+           10  WK-PTF-GRP-DECODE
+                                   OCCURS  10
+                                   PIC  X(25).
+      *----------  評価系列順
+         05  WK-SQL-HYK-CD.
+      *----------  WK-IN-ファンド＆ポートフォリオ
+           10  WK-HYK-CD-DECODE
+                                   OCCURS  10
+                                   PIC  X(25).
+      *----------  評価系列(WHERE)
+         05  WK-SQL-HYK-CD-WHERE.
+      *----------  WK-IN-ファンド＆ポートフォリオ
+           10  WK-HYK-CD-WHERE
+                                   OCCURS  10
+                                   PIC  X(20).
+      *----------  ヒット件数
+         05  WK-HIT-COUNT          PIC  9(05).
+      *----------   WK-ファンドコード指定フラグ
+         05  WK-FUND-CD-SHITEI-FLG PIC  9(01).
+      *----------   WK-前回データ存在フラグ
+         05  WK-ZENKAI-DATE-SONZAI-FLG
+                                   PIC  9(01).
+      *----------   WK-前回-ファンドコード
+         05  WK-ZENKAI-FUND-CD     PIC  X(12).
+      *----------   WK-前回-ファンド名（日）
+         05  WK-ZENKAI-FND-MEI-JPN PIC  X(60).
+      *----------   WK-前回-ポートフォリオコード
+         05  WK-ZENKAI-PTF-CD      PIC  X(04).
+      *----------   WK-前回-ポートフォリオ名（日）
+         05  WK-ZENKAI-PTF-MEI-JPN PIC  X(60).
+      *----------   WK-前回-基準日FROM
+         05  WK-ZENKAI-KZYN-YMD-FROM
+                                   PIC  9(08).
+      *----------   WK-前回-基準日TO
+         05  WK-ZENKAI-KZYN-YMD-TO PIC  9(08).
+      *----------   WK-前回-基準日TO後日
+         05  WK-ZENKAI-KZYN-YMD-TO-NEXT
+                                   PIC  9(08).
+      *----------   WK-前回-評価系列コード
+         05  WK-ZENKAI-HYK-KRTU-CD PIC  X(04).
+      *----------   WK-抽出件数超過警告
+         05  WK-KENSU-CHOUKA-KEIKOKU
+                                   PIC  X(01).
+      *******    連結障害対応No.0000199  20081020 修正  開始    ********
+      *----------   WK-TEMP-SQL-ファンドコード
+         05  WK-TEMP-SQL-FUND-CD   PIC  X(12).
+      *----------   WK-TEMP-SQL-ポートフォリオコード
+         05  WK-TEMP-SQL-PTF-CD    PIC  X(04).
+      *******    連結障害対応No.0000199  20081020 修正  終了    ********
+      *----------  SQL文の長さ
+         05  WK-SQL-LEN            PIC  9(05).
+      *----------  SQL文
+         05  WK-SQLSTMT-CR         PIC  X(8000).
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  ファンド&ポートフォリオ順&グループ順用カウント
+         05  WK-JUN-CNT            PIC  9(06).
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *******    残タスク   No.0000153  20081209 修正  開始    *********
+      *----------  ワークリターンコード
+         05  WK-RETURN-CODE        PIC  X(03).
+      *******    残タスク   No.0000153  20081209 修正  終了    *********
+      ******************************************************************
+      *    SQL  エリア
+      ******************************************************************
+       01  SQL-AREA.
+         05  SQL-SELECT-DATA-CR1.
+      *----------  SELECT
+           10  FILLER              PIC  X(07)
+               VALUE  "SELECT ".
+      *----------  C.ファンドコード
+           10  FILLER              PIC  X(15)
+               VALUE  "C.TAB_C_FUND_CD".
+           10  FILLER              PIC  X(16)
+               VALUE  " AS OUT_FUND_CD ".
+      *----------  MIN(C.ファンド名（日）)
+           10  FILLER              PIC  X(25)
+               VALUE  ",MIN(C.TAB_C_FND_MEI_JPN)".
+           10  FILLER              PIC  X(20)
+               VALUE  " AS OUT_FND_MEI_JPN ".
+      *----------  C.ポートフォリオコード
+           10  FILLER              PIC  X(15)
+               VALUE  ",C.TAB_C_PTF_CD".
+           10  FILLER              PIC  X(15)
+               VALUE  " AS OUT_PTF_CD ".
+      *----------  MIN(C.ポートフォリオ名（日）)
+           10  FILLER              PIC  X(25)
+               VALUE  ",MIN(C.TAB_C_PTF_MEI_JPN)".
+           10  FILLER              PIC  X(20)
+               VALUE  " AS OUT_PTF_MEI_JPN ".
+      *----------  D.評価系列コード
+           10  FILLER              PIC  X(14)
+               VALUE  ",D.HYK_KRTU_CD".
+           10  FILLER              PIC  X(20)
+               VALUE  " AS OUT_HYK_KRTU_CD ".
+      *----------  GREATEST(C.基準日FROM_TMP,WK-IN-基準日FROM)
+           10  FILLER              PIC  X(32)
+               VALUE ",GREATEST(C.KIJYUN_FROM_TMP,:V1)".
+           10  FILLER              PIC  X(22)
+               VALUE  " AS OUT_KZYN_YMD_FROM ".
+      *----------  C.基準日TO_TMP
+           10  FILLER              PIC  X(16)
+               VALUE  ",C.KIJYUN_TO_TMP".
+           10  FILLER              PIC  X(18)
+               VALUE  " AS OUT_KIJYUN_TO ".
+      *----------  TO_CHAR((TO_DATE(C.基準日TO_TMP,'YYYYMMDD')+1),
+      *            'YYYYMMDD')
+           10  FILLER              PIC  X(17)
+               VALUE  ",TO_CHAR((TO_DATE".
+           10  FILLER              PIC  X(43)
+               VALUE  "(C.KIJYUN_TO_TMP,'YYYYMMDD')+1),'YYYYMMDD')".
+           10  FILLER              PIC  X(23)
+               VALUE  " AS OUT_KIJYUN_TO_NEXT ".
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  WK-オール指定1='2'
+      *----------  ファンド＆ポートフォリオ
+         05  SQL-SELECT-DATA-CR2.
+           10  FILLER              PIC  X(14)  VALUE  ",LEAST(DECODE(".
+           10  FILLER              PIC  X(38)
+               VALUE  "CONCAT(C.TAB_C_FUND_CD,C.TAB_C_PTF_CD)".
+      *******    テーマ④ 20081020 修正  開始    ***********************
+           10  WK-FUND-PTF-SQL     PIC  X(260).
+      *******    テーマ④ 20081020 修正  終了    ***********************
+           10  FILLER              PIC  X(11)  VALUE  ",' ',110000".
+           10  FILLER              PIC  X(08)  VALUE  ",110000)".
+           10  FILLER              PIC  X(09)  VALUE  ",NVL(MIN(".
+           10  FILLER              PIC  X(20)
+               VALUE  "DECODE(E.PTF_GRP_CD ".
+           10  WK-PTF-GRP-SQL      PIC  X(250).
+           10  FILLER              PIC  X(11)  VALUE  ",' ',110000".
+           10  FILLER              PIC  X(35)
+               VALUE  ",110000) + E.GRP_SYRI_JUN),110000))".
+           10  FILLER              PIC  X(20)
+               VALUE  " AS FUND_GRP_CD_JUN ".
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *----------  WK-オール指定1≠'2'
+      *----------  ポートフォリオグループコード
+         05  SQL-SELECT-DATA-CR5.
+           10  FILLER              PIC  X(23)
+               VALUE  ", 1 AS FUND_GRP_CD_JUN ".
+      *----------  WK-オール指定2 ＝ '3'
+         05  SQL-SELECT-DATA-CR6.
+           10  FILLER              PIC  X(05)  VALUE  ",MIN(".
+           10  FILLER              PIC  X(22)
+               VALUE  " DECODE(D.HYK_KRTU_CD ".
+           10  WK-HYK-CD-SQL       PIC  X(250).
+           10  FILLER              PIC  X(25)
+               VALUE  ",11)) AS HYK_KRTU_CD_JUN ".
+      *----------  NOT(WK-オール指定2 ＝ '3')
+         05  SQL-SELECT-DATA-CR7.
+           10  FILLER              PIC  X(23)
+               VALUE  ", 1 AS HYK_KRTU_CD_JUN ".
+         05  SQL-SELECT-DATA-CR8.
+           10  FILLER              PIC  X(05)  VALUE "FROM ".
+           10  FILLER              PIC  X(09)  VALUE " (SELECT ".
+           10  FILLER              PIC  X(09)  VALUE "B.FUND_CD".
+           10  FILLER              PIC  X(17)
+               VALUE " AS TAB_C_FUND_CD".
+           10  FILLER              PIC  X(29)
+               VALUE " ,MIN(NVL(B.FND_MEI_JPN,' '))".
+           10  FILLER              PIC  X(22)
+               VALUE " AS TAB_C_FND_MEI_JPN ".
+           10  FILLER              PIC  X(11)  VALUE " ,B.PTF_CD ".
+           10  FILLER              PIC  X(17)
+               VALUE " AS TAB_C_PTF_CD ".
+           10  FILLER              PIC  X(30)
+               VALUE " ,MIN(NVL(B.PTF_MEI_JPN,' ')) ".
+           10  FILLER              PIC  X(21)
+               VALUE " AS TAB_C_PTF_MEI_JPN".
+           10  FILLER              PIC  X(16)  VALUE " ,B.TEKIYO_FROM ".
+           10  FILLER              PIC  X(20)
+               VALUE " AS KIJYUN_FROM_TMP ".
+           10  FILLER              PIC  X(19)
+               VALUE " ,TO_CHAR((TO_DATE(".
+           10  FILLER              PIC  X(47)
+               VALUE " MIN(A.TEKIYO_FROM),'YYYYMMDD')-1),'YYYYMMDD') ".
+           10  FILLER              PIC  X(18)
+               VALUE " AS KIJYUN_TO_TMP ".
+           10  FILLER              PIC  X(06)  VALUE " FROM ".
+      *----------  SELECT
+           10  FILLER              PIC  X(09)  VALUE  "((SELECT ".
+      *----------  ファンドコード
+           10  FILLER              PIC  X(09)  VALUE  " FUND_CD ".
+      *----------  ポートフォリオコード
+           10  FILLER              PIC  X(08)  VALUE  ",PTF_CD ".
+      *----------  適用開始日
+           10  FILLER              PIC  X(13)  VALUE  ",TEKIYO_FROM ".
+      *----------  FROM
+           10  FILLER              PIC  X(06)  VALUE  " FROM ".
+           10  WK-TKPFZK01-1       PIC  X(13).
+           10  FILLER              PIC  X(07)  VALUE  " WHERE ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(18)
+               VALUE  "RIYO_CMP_CD = :V2 ".
+      *----------  AND (適用開始日 ≦ WK-IN-基準日TO)
+           10  FILLER              PIC  X(25)
+               VALUE  "AND (TEKIYO_FROM <= :V3) ".
+      *----------  AND 削除区分    ＝ ' '
+           10  FILLER              PIC  X(19)
+               VALUE  "AND SAKUJO_KBN=' ' ".
+           10  FILLER              PIC  X(02)  VALUE  ") ".
+      *----------  UNION
+           10  FILLER              PIC  X(06)  VALUE  "UNION ".
+           10  FILLER              PIC  X(08)  VALUE  "(SELECT ".
+           10  FILLER              PIC  X(08)  VALUE  "FUND_CD ".
+           10  FILLER              PIC  X(08)  VALUE  ",PTF_CD ".
+           10  FILLER              PIC  X(19)
+               VALUE  ",TO_NUMBER(TO_CHAR ".
+           10  FILLER              PIC  X(41)
+               VALUE  "((TO_DATE(:V4,'YYYYMMDD')+1),'YYYYMMDD'))".
+      *----------  FROM
+           10  FILLER              PIC  X(06)  VALUE  " FROM ".
+           10  WK-TKPFZK01-2       PIC  X(13).
+           10  FILLER              PIC  X(07)  VALUE  " WHERE ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(18)
+               VALUE  "RIYO_CMP_CD = :V5 ".
+      *----------  AND 削除区分    ＝ ' '
+           10  FILLER              PIC  X(19)
+               VALUE  "AND SAKUJO_KBN=' ' ".
+      *----------  GROUP BY ファンドコード,ポートフォリオコード
+           10  FILLER              PIC  X(09)  VALUE  "GROUP BY ".
+           10  FILLER              PIC  X(15)  VALUE  "FUND_CD,PTF_CD ".
+           10  FILLER              PIC  X(02)  VALUE  ") ".
+           10  FILLER              PIC  X(05)  VALUE  ") A, ".
+           10  WK-TKPFZK01-3       PIC  X(13).
+           10  FILLER              PIC  X(03)  VALUE  " B ".
+           10  FILLER              PIC  X(07)  VALUE  " WHERE ".
+           10  FILLER              PIC  X(22)
+               VALUE  " A.FUND_CD = B.FUND_CD".
+           10  FILLER              PIC  X(25)
+               VALUE  " AND A.PTF_CD  = B.PTF_CD".
+           10  FILLER              PIC  X(34)
+               VALUE  " AND A.TEKIYO_FROM > B.TEKIYO_FROM".
+           10  FILLER              PIC  X(23)
+               VALUE  " AND B.RIYO_CMP_CD =:V6".
+           10  FILLER              PIC  X(21)
+               VALUE  " AND B.SAKUJO_KBN=' '".
+           10  FILLER              PIC  X(09)  VALUE  "GROUP BY ".
+           10  FILLER              PIC  X(11)  VALUE  " B.FUND_CD ".
+           10  FILLER              PIC  X(11)  VALUE  " ,B.PTF_CD ".
+           10  FILLER              PIC  X(15)  VALUE  " ,B.TEKIYO_FROM".
+           10  FILLER              PIC  X(33)
+               VALUE  " HAVING MIN (A.TEKIYO_FROM) > :V7".
+           10  FILLER              PIC  X(04)  VALUE  ") C,".
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+           10  WK-TKPFZK04         PIC  X(13).
+           10  FILLER              PIC  X(03)  VALUE  " D,".
+           10  WK-TKPFZK02         PIC  X(13).
+           10  FILLER              PIC  X(03)  VALUE  " E ".
+      *----------  WHERE
+         05  SQL-SELECT-DATA-CR10.
+           10  FILLER              PIC  X(07)  VALUE  " WHERE ".
+           10  FILLER              PIC  X(18)
+               VALUE  "D.RIYO_CMP_CD=:V8 ".
+           10  FILLER              PIC  X(34)
+               VALUE  " AND  C.TAB_C_FUND_CD = D.FUND_CD ".
+           10  FILLER              PIC  X(33)
+               VALUE  " AND  C.TAB_C_PTF_CD  = D.PTF_CD ".
+           10  FILLER              PIC  X(41)
+               VALUE  " AND  C.KIJYUN_FROM_TMP = D.TEKIYO_FROM  ".
+      *----------  WK-ポートフォリオグループコード指定フラグ ＝ '1'
+         05  SQL-SELECT-DATA-CR11.
+           10  FILLER              PIC  X(25)
+               VALUE  " AND E.RIYO_CMP_CD(+) = '".
+           10  WK-RIYO-CMP-CD-IN   PIC  X(04).
+           10  FILLER              PIC  X(38)
+               VALUE  "' AND  C.TAB_C_FUND_CD = E.FUND_CD(+) ".
+           10  FILLER              PIC  X(36)
+               VALUE  " AND  C.TAB_C_PTF_CD  = E.PTF_CD(+) ".
+      *----------  (WK-オール指定2 ＝ '0' OR WK-オール指定2 ＝ '3')
+         05  SQL-SELECT-DATA-CR12.
+           10  FILLER              PIC  X(22)
+               VALUE  " AND D.HYK_KRTU_CD IN(".
+           10  WK-HYK-KRTU-EXIST-SQL
+                                   PIC  X(200).
+           10  FILLER              PIC  X(03)  VALUE  " ) ".
+      *----------  WK-オール指定2 ＝ '2'
+         05  SQL-SELECT-DATA-CR13.
+           10  FILLER              PIC  X(28)
+               VALUE  " AND D.DEFAULT_HYK_FLG ='1' ".
+      *----------  WK-オール指定1 = '2'
+         05  SQL-SELECT-DATA-CR14.
+           10  FILLER              PIC  X(19)
+               VALUE  " AND (LEAST(DECODE(".
+           10  FILLER              PIC  X(38)
+               VALUE  "CONCAT(C.TAB_C_FUND_CD,C.TAB_C_PTF_CD)".
+           10  WK-FUND-PTF-SQL     PIC  X(260).
+           10  FILLER              PIC  X(11)  VALUE  ",' ',110000".
+           10  FILLER              PIC  X(08)  VALUE  ",110000)".
+           10  FILLER              PIC  X(05)  VALUE  ",NVL(".
+           10  FILLER              PIC  X(20)
+               VALUE  "DECODE(E.PTF_GRP_CD ".
+           10  WK-PTF-GRP-SQL      PIC  X(250).
+           10  FILLER              PIC  X(11)  VALUE  ",' ',110000".
+           10  FILLER              PIC  X(44)
+               VALUE  ",110000) + E.GRP_SYRI_JUN,110000)) < 110000)".
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+         05  SQL-SELECT-DATA-CR17.
+      *----------  GROUP BY
+           10  FILLER              PIC  X(10)  VALUE  " GROUP BY ".
+      *----------  C.ファンドコード
+           10  FILLER              PIC  X(16)
+               VALUE  " C.TAB_C_FUND_CD".
+      *----------  C.ポートフォリオコード
+           10  FILLER              PIC  X(15)  VALUE  ",C.TAB_C_PTF_CD".
+      *----------  D.評価系列コード
+           10  FILLER              PIC  X(14)  VALUE  ",D.HYK_KRTU_CD".
+      *----------  C.基準日FROM_TMP
+           10  FILLER              PIC  X(18)
+               VALUE  ",C.KIJYUN_FROM_TMP".
+      *----------  C.基準日TO_TMP
+           10  FILLER              PIC  X(16)
+               VALUE  ",C.KIJYUN_TO_TMP".
+      *----------  ORDER BY
+           10  FILLER              PIC  X(10)  VALUE  " ORDER BY ".
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  ファンド＆ポートフォリオ順＆グループ順
+           10  FILLER              PIC  X(16)
+               VALUE  " FUND_GRP_CD_JUN".
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *----------  ファンドコード
+           10  FILLER              PIC  X(12)  VALUE  ",OUT_FUND_CD".
+      *----------  ポートフォリオコード
+           10  FILLER              PIC  X(11)  VALUE  ",OUT_PTF_CD".
+      *----------  評価系列順
+           10  FILLER              PIC  X(16)
+               VALUE  ",HYK_KRTU_CD_JUN".
+      *----------  評価系列コード
+           10  FILLER              PIC  X(16)
+               VALUE  ",OUT_HYK_KRTU_CD".
+      *----------  基準日FROM_TMP
+           10  FILLER              PIC  X(18)
+               VALUE  ",OUT_KZYN_YMD_FROM".
+      ******************************************************************
+      *    連  絡  節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZC4002-AIFA-HEADER.
+         05  IN-AIFA.
+           COPY  "WOMCMAIFA.CPY".
+         05  IN-HEAD.
+           COPY  "CZCOMMONHEADER.cpy".
+       01  PARM-SCZY4002-INOUT.
+           COPY "SCZY4002.cpy".
+       01  PARM-SCZY4002-RTNPKG.
+         05  PARM-SCZY4002-ARG3.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZC4002-AIFA-HEADER
+                  PARM-SCZY4002-INOUT
+                  PARM-SCZY4002-RTNPKG.
+      ******************************************************************
+      *    SCZY4002 ポートフォリオ取得ルーチン
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** SCZY4002 ポートフォリオと"
+      D                        "有効期間取得ルーチン START ***"
+      *-----------------------------------------------------------------
+      *----------  前処理
+           PERFORM  START-RTN
+      *----------  主処理
+           PERFORM  MAIN-RTN
+      *----------  後処理
+           PERFORM  END-RTN
+           CONTINUE.
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *    3.1 前処理
+      ******************************************************************
+       START-RTN              SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化処理
+           PERFORM  INIT-RTN
+      *----------  件数取得処理
+           PERFORM  CNT-GET-RTN
+      *----------  テーブルID取得処理
+           PERFORM  TBL-ID-GET-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:前処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       START-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.1 初期化処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:初期化処理  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  HST-ORA-WORKING-AREA
+                       WORK-AREA
+                       FLG-AREA
+      *******    総合障害対応No.0000014  20090219 修正  開始    ********
+                       SQL-AREA
+      *******    総合障害対応No.0000014  20090219 修正  終了    ********
+                       PARM-SCZY1100-AIFA-HEADER
+                       PARM-SCZY1100-INOUT
+      *******    連結障害対応No.0000119  20081022 修正  開始    ********
+                       PARM-SCZY7110-AIFA-HEADER
+                       PARM-SCZY7110-INOUT
+      *******    連結障害対応No.0000119  20081022 修正  終了    ********
+                       PARM-SCZY1130-IN
+                       PARM-SCZY1160-INOUT
+                       PARM-SCZY1170-IN
+                       PARM-SCZY7120-INOUT
+                       PARM-RTNPKG
+                       PARM-SCZY4002-ARG2
+                       PARM-SCZY4002-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":HST-ORA-WORKING-AREA =["
+      D                         HST-ORA-WORKING-AREA"]"
+      D    DISPLAY  CNS-PGM-ID":WORK-AREA =["WORK-AREA"]"
+      D    DISPLAY  CNS-PGM-ID":FLG-AREA =["FLG-AREA"]"
+      *******    総合障害対応No.0000014  20090219 修正  開始    ********
+      D    DISPLAY  CNS-PGM-ID":SQL-AREA =["SQL-AREA"]"
+      *******    総合障害対応No.0000014  20090219 修正  終了    ********
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1100-AIFA-HEADER =["
+      D                         PARM-SCZY1100-AIFA-HEADER"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1100-INOUT =["
+      D                         PARM-SCZY1100-INOUT"]"
+      *******    連結障害対応No.0000119  20081022 修正  開始    ********
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY7110-AIFA-HEADER =["
+      D                         PARM-SCZY7110-AIFA-HEADER"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY7110-INOUT =["
+      D                         PARM-SCZY7110-INOUT"]"
+      *******    連結障害対応No.0000119  20081022 修正  終了    ********
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1130-IN =["
+      D                         PARM-SCZY1130-IN"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1160-INOUT =["
+      D                         PARM-SCZY1160-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1170-IN =["
+      D                         PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY7120-INOUT =["
+      D                         PARM-SCZY7120-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG =["PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4002-ARG2 =["
+      D                         PARM-SCZY4002-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4002-RTNPKG =["
+      D                         PARM-SCZY4002-RTNPKG"]"
+      *-----------------------------------------------------------------
+      *----------  ＡＩＦＡ共通ヘッダ
+           MOVE  PARM-SCZC4002-AIFA-HEADER
+                                        TO  WK-AIFA-HEADER
+      *----------  利用会社コード
+           MOVE  RIYO-COMPANY-CODE      OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-RIYO-CMP-CD
+      *----------  オール指定1
+           MOVE  ALL-SITEI-1            OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-ALL-SITEI-1
+      *----------  オール指定2
+           MOVE  ALL-SITEI-2            OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-ALL-SITEI-2
+      *----------  基準日FROM
+           MOVE  KZYN-YMD-FROM          OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-KZYN-YMD-FROM
+      *----------  基準日TO
+           MOVE  KZYN-YMD-TO            OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-KZYN-YMD-TO
+      *----------  権限チェック有無
+           MOVE  KGN-CHK-UMU            OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-KGN-CHK-UMU
+      *----------  日中夜間区分
+           MOVE  NCHU-YAKN-KBN          OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-NCHU-YAKN-KBN
+      *----------  APL指定出力件数
+           MOVE  APL-OUT-CNT            OF  PARM-SCZY4002-ARG1
+             TO  WK-IN-APL-OUT-CNT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-利用会社コード=["
+      D                          WK-IN-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-オール指定1=["
+      D                          WK-IN-ALL-SITEI-1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-オール指定2=["
+      D                          WK-IN-ALL-SITEI-2"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-基準日FROM=["
+      D                          WK-IN-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-基準日TO=["
+      D                          WK-IN-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-権限チェック有無=["
+      D                          WK-IN-KGN-CHK-UMU"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-日中夜間区分=["
+      D                          WK-IN-NCHU-YAKN-KBN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-APL指定出力件数=["
+      D                          WK-IN-APL-OUT-CNT"]"
+      *-----------------------------------------------------------------
+      *******    残タスク   No.0000153  20081209 修正  開始    *********
+      *----------  WK-RETURN-CODE  ←  '000'
+           MOVE  CNS-RTN-000           TO  WK-RETURN-CODE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-RETURN-CODE =["WK-RETURN-CODE"]"
+      *-----------------------------------------------------------------
+      *******    残タスク   No.0000153  20081209 修正  終了    *********
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+           PERFORM  VARYING  WK-COUNT  FROM  CNS-1  BY  CNS-1
+             UNTIL  WK-COUNT  >  CNS-10
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT = ["WK-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.ポートフォリオ区分("WK-COUNT") = ["
+      D             PTF-KBN          OF  PARM-SCZY4002-ARG1(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":ARG1.グループ又はファンドコード("WK-COUNT") = ["
+      D             GRP-FUND-CD      OF  PARM-SCZY4002-ARG1(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+             EVALUATE  PTF-KBN         OF  PARM-SCZY4002-ARG1(WK-COUNT)
+               WHEN  CNS-X-1
+                 MOVE  GRP-FUND-CD     OF  PARM-SCZY4002-ARG1(WK-COUNT)
+                   TO  WK-IN-PTF-GRP-CD(WK-COUNT)
+               WHEN  CNS-X-2
+                 MOVE  GRP-FUND-CD     OF  PARM-SCZY4002-ARG1(WK-COUNT)
+                   TO  WK-IN-FUND-CD(WK-COUNT)
+               WHEN  OTHER
+                 CONTINUE
+             END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-グループコード("WK-COUNT") = ["
+      D             WK-IN-PTF-GRP-CD(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ファンドコード("WK-COUNT") = ["
+      D             WK-IN-FUND-CD(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.ポートフォリオコード("WK-COUNT")=["
+      D             PTF-CD           OF  PARM-SCZY4002-ARG1(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":ARG1.評価系列コード("WK-COUNT")  = ["
+      D             PTF-CD           OF  PARM-SCZY4002-ARG1(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+             MOVE  PTF-CD              OF  PARM-SCZY4002-ARG1(WK-COUNT)
+               TO  WK-IN-PTF-CD(WK-COUNT)
+             MOVE  HYK-KRTU-CD         OF  PARM-SCZY4002-ARG1(WK-COUNT)
+               TO  WK-IN-HYK-KRTU(WK-COUNT)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ポートフォリオコード("WK-COUNT
+      D             ") = ["WK-IN-PTF-CD(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-評価系列コード("WK-COUNT") = ["
+      D             WK-IN-HYK-KRTU(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT = ["WK-COUNT"]"
+      *-----------------------------------------------------------------
+      *******    残タスクNo.196 20090218 修正  開始    *****************
+      *----------  ログインユーザ会社コード
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D            ":*****  ログインユーザ会社コードチェック処理  *****"
+      D    DISPLAY  CNS-PGM-ID":ログインユーザ会社コード=["
+      D             COMPANY-CODE        OF  IN-AIFA"]"
+      *-----------------------------------------------------------------
+           IF  COMPANY-CODE             OF  IN-AIFA NOT = SPACE
+           THEN
+             CONTINUE
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-023
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PARM-ERR
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  WK-IN-利用会社コード
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D            ":*****  WK-IN-利用会社コード処理  *****"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-利用会社コード    =["
+      D             WK-IN-RIYO-CMP-CD"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-RIYO-CMP-CD NOT = SPACE
+           THEN
+             CONTINUE
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-024
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PARM-ERR
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *******    残タスクNo.196 20090218 修正  終了    *****************
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *-----------------------------------------------------------------
+      *----------  ◇WK-IN-オール指定1 = '0' OR WK-オール指定1 = '1'
+      *----------  OR WK-オール指定1 = '2'の場合、
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  オール指定1チェック処理  *****"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-オール指定1 =["
+      D                          WK-IN-ALL-SITEI-1"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-1  =  CNS-X-0
+            OR WK-IN-ALL-SITEI-1  =  CNS-X-1
+            OR WK-IN-ALL-SITEI-1  =  CNS-X-2
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***** オール指定1正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***** オール指定1エラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-001
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E05
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ◇WK-IN-オール指定2 = '0' OR WK-オール指定2 = '1'
+      *----------  OR WK-オール指定2 = '2' OR WK-オール指定2 = '3'の場合
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  オール指定2チェック処理  *****"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-オール指定2=["
+      D                          WK-IN-ALL-SITEI-2"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-2  =  CNS-X-0
+            OR WK-IN-ALL-SITEI-2  =  CNS-X-1
+            OR WK-IN-ALL-SITEI-2  =  CNS-X-2
+            OR WK-IN-ALL-SITEI-2  =  CNS-X-3
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***** オール指定2正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***** オール指定2エラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-002
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E06
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ◇WK-IN-オール指定1 ≠ '1'
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***** ◇WK-IN-オール指定1 ≠ '1'"
+      D                        "チェック処理 *****"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-オール指定1 =["
+      D                          WK-IN-ALL-SITEI-1"]"
+      *******    残タスク   No.0000169  20090106 修正  開始    *********
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ファンドコード"
+      D             "=["WK-IN-FUND-CD-GRP"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-1  NOT =  CNS-X-1
+           THEN
+             IF  WK-IN-FUND-CD-GRP  NOT =  SPACE
+             THEN
+      *******    残タスク   No.0000169  20090106 修正  終了    *********
+               MOVE  CNS-1              TO  WK-FUND-CD-SHITEI-FLG
+             ELSE
+               MOVE  CNS-0              TO  WK-FUND-CD-SHITEI-FLG
+             END-IF
+           ELSE
+             MOVE  CNS-0                TO  WK-FUND-CD-SHITEI-FLG
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-ファンドコード指定フラグ=["
+      D             WK-FUND-CD-SHITEI-FLG"]"
+      *-----------------------------------------------------------------
+      *******    残タスクNo.196 20090218 修正  開始    *****************
+      *----------  WK-IN-オール指定1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D                     ":***** WK-IN-オール指定1チェック処理 *****"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-オール指定1=["WK-IN-ALL-SITEI-1"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-1 = CNS-X-0
+            OR WK-IN-ALL-SITEI-1 = CNS-X-2
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-FUND-CD(1)   =["
+      D             WK-IN-FUND-CD(CNS-1)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-PTF-GRP-CD(1)=["
+      D             WK-IN-PTF-GRP-CD(CNS-1)"]"
+      *-----------------------------------------------------------------
+             IF  WK-IN-FUND-CD(CNS-1) NOT = SPACE
+              OR WK-IN-PTF-GRP-CD(CNS-1) NOT = SPACE
+             THEN
+               CONTINUE
+             ELSE
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-003
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  CNS-0
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  CNS-PRMTR-E05
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+             END-IF
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-FUND-CD(1)   =["
+      D             WK-IN-FUND-CD(CNS-1)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-PTF-GRP-CD(1)=["
+      D             WK-IN-PTF-GRP-CD(CNS-1)"]"
+      *-----------------------------------------------------------------
+             IF  WK-IN-FUND-CD(CNS-1) = SPACE
+              AND WK-IN-PTF-GRP-CD(CNS-1) = SPACE
+             THEN
+               CONTINUE
+             ELSE
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-025
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  CNS-0
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  CNS-PRMTR-E05
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+             END-IF
+           END-IF
+      *******    残タスクNo.196 20090218 修正  終了    *****************
+      *----------  ◇WK-ファンドコード指定フラグ ＝ 1 (指定)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-ファンドコード指定フラグ=["
+      D             WK-FUND-CD-SHITEI-FLG"]"
+      *-----------------------------------------------------------------
+           IF  WK-FUND-CD-SHITEI-FLG  =  CNS-1
+           THEN
+      *----------  ワークカウントを、1から10まで、以下を処理する
+             PERFORM  VARYING  WK-COUNT  FROM  CNS-1  BY  CNS-1
+               UNTIL  WK-COUNT > 10
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT=["WK-COUNT"]"
+      *-----------------------------------------------------------------
+               STRING  WK-IN-FUND-CD(WK-COUNT)
+                       WK-IN-PTF-CD(WK-COUNT)
+                 DELIMITED  BY  SIZE
+                 INTO  WK-IN-FUND-PTF-CD(WK-COUNT)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-FUND-CD("WK-COUNT") =["
+      D             WK-IN-FUND-CD(WK-COUNT) "]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-PTF-CD("WK-COUNT")=["
+      D             WK-IN-PTF-CD(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-FUND-PTF-CD("WK-COUNT")=["
+      D             WK-IN-FUND-PTF-CD(WK-COUNT)"]"
+             END-PERFORM
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":処理を続く"
+      *-----------------------------------------------------------------
+           END-IF
+      *******    残タスクNo.196 20090218 修正  開始    *****************
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-オール指定2=["WK-IN-ALL-SITEI-2"]"
+      D    DISPLAY  CNS-PGM-ID"WK-IN-評価系列コード(1)=["
+      D             WK-IN-HYK-KRTU(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-オール指定2 = '0'
+           IF  WK-IN-ALL-SITEI-2  =  CNS-X-0
+            OR WK-IN-ALL-SITEI-2  =  CNS-X-3
+           THEN
+      *----------  ◇WK-IN-評価系列コード(1)≠SPACE
+             IF  WK-IN-HYK-KRTU(CNS-1)
+             NOT = SPACE
+             THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  評価系列コード正常  *****"
+      *-----------------------------------------------------------------
+               CONTINUE
+             ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  評価系列コードエラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-004
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  CNS-0
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  CNS-PRMTR-E06
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+             END-IF
+           ELSE
+      *----------  ◇WK-IN-評価系列コード(1)≠SPACE
+             IF  WK-IN-HYK-KRTU(CNS-1) = SPACE
+             THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  評価系列コード正常  *****"
+      *-----------------------------------------------------------------
+               CONTINUE
+             ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  評価系列コードエラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-026
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  CNS-0
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  CNS-PRMTR-E06
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+             END-IF
+           END-IF
+      *******    残タスクNo.196 20090218 修正  終了    *****************
+      *----------  WK-権限チェック有無 = "0" また
+      *----------  WK-権限チェック有無 = "1" また
+      *----------  WK-権限チェック有無 = "2"の場合
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****権限チェック有無チェック処理*****"
+      D    DISPLAY  CNS-PGM-ID":権限チェック有無=["WK-IN-KGN-CHK-UMU"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-KGN-CHK-UMU = CNS-X-0
+           OR  WK-IN-KGN-CHK-UMU = CNS-X-1
+           OR  WK-IN-KGN-CHK-UMU = CNS-X-2
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  権限チェック有無正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  権限チェック有無エラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-005
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E07
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  WK-日中夜間区分 = "0" また
+      *----------  WK-日中夜間区分 = "1"の場合
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  日中夜間区分チェック処理  *****"
+      D    DISPLAY  CNS-PGM-ID":日中夜間区分=["WK-IN-NCHU-YAKN-KBN"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-NCHU-YAKN-KBN = CNS-X-0
+           OR  WK-IN-NCHU-YAKN-KBN = CNS-X-1
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  日中夜間区分正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  日中夜間区分エラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-006
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E08
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ワーク日付  ←  ARG1.基準日FROM
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  ワーク日付チェック処理  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-HIDUKE
+           MOVE  KZYN-YMD-FROM          OF  PARM-SCZY4002-ARG1
+             TO  WK-HIDUKE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.基準日FROM=["
+      D             KZYN-YMD-FROM         OF  PARM-SCZY4002-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク日付=["WK-HIDUKE"]"
+      *-----------------------------------------------------------------
+           IF  WK-HIDUKE  NOT =  CNS-0
+           THEN
+      *----------  日付チェック
+             PERFORM  TEKIYO-FROM-CHK-RTN
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-008
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E03
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ワーク日付  ←  ARG1.基準日TO
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  ワーク日付チェック処理  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-HIDUKE
+           MOVE  KZYN-YMD-TO            OF  PARM-SCZY4002-ARG1
+             TO  WK-HIDUKE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.基準日TO=["
+      D             KZYN-YMD-TO         OF  PARM-SCZY4002-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク日付=["WK-HIDUKE"]"
+      *-----------------------------------------------------------------
+           IF  WK-HIDUKE  NOT =  CNS-0
+           THEN
+      *----------  日付チェック
+             PERFORM  TEKIYO-FROM-CHK-RTN
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-009
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E03
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *******    残タスクNo.196 20090218 修正  開始    *****************
+      *----------  基準日
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  基準日チェック処理  *****"
+      D    DISPLAY  CNS-PGM-ID":WK-基準日FROM                  =["
+      D              WK-IN-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-基準日TO                    =["
+      D              WK-IN-KZYN-YMD-TO"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-KZYN-YMD-FROM <= WK-IN-KZYN-YMD-TO
+           THEN
+             CONTINUE
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-007
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E09
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *******    残タスクNo.196 20090218 修正  終了    *****************
+      *----------  ◇権限チェック有無 = "1"(権限チェックする)
+      *----------  AND メニューID = SPACE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****権限チェック有無ANDメニューID"
+      D                        "チェック処理*****"
+      D    DISPLAY  CNS-PGM-ID":権限チェック有無=["
+      D             KGN-CHK-UMU         OF  PARM-SCZY4002-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":メニューID=["
+      D             MENU-ID             OF  PARM-SCZY4002-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  KGN-CHK-UMU  OF  PARM-SCZY4002-ARG1  =  CNS-X-1
+           AND MENU-ID      OF  PARM-SCZY4002-ARG1  =  SPACE
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  権限チェック有無ANDメニューID"
+      D                        "チェックエラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-010
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E10
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  権限チェック有無ANDメニューID"
+      D                        "チェック正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           END-IF
+      *----------  ◇権限チェック有無 = "1"(権限チェックする)
+      *----------  AND 画面アクション区分 = SPACE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****権限チェック有無AND画面アクション"
+      D                        "区分チェック処理*****"
+      *-----------------------------------------------------------------
+      D    DISPLAY  CNS-PGM-ID":権限チェック有無=["
+      D             KGN-CHK-UMU         OF  PARM-SCZY4002-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":画面アクション区分=["
+      D             GAMEN-ACT-KBN       OF  PARM-SCZY4002-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  KGN-CHK-UMU    OF  PARM-SCZY4002-ARG1  =  CNS-X-1
+           AND GAMEN-ACT-KBN  OF  PARM-SCZY4002-ARG1  =  SPACE
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  権限チェック有無AND画面"
+      D                        "アクション区分チェックエラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-011
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E11
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  権限チェック有無AND画面"
+      D                        "アクション区分チェック正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:初期化処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    日付チェック
+      ******************************************************************
+       TEKIYO-FROM-CHK-RTN    SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 適用開始日の日付チェック START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID":ワーク日付     =["WK-HIDUKE"]"
+      *-----------------------------------------------------------------
+      *----------  基準日
+           MOVE  WK-HIDUKE
+             TO  INPUT-DATE             OF  PARM-SCZY7120-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":基準日                  =["
+      D             INPUT-DATE          OF  PARM-SCZY7120-ARG1 "]"
+      D    DISPLAY  CNS-PGM-ID":***  CALL SCZY7120 START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY7120"             USING  PARM-SCZY7120-INOUT
+                                               PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  CALL SCZY7120 END  ***"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG =[" PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SCZY7120) =["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG) "]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF PARM-RTNPKG =["
+      D             COUNTER             OF  PARM-RTNPKG "]"
+      D    DISPLAY  CNS-PGM-ID":日付区分                =["
+      D             DATE-FLG            OF  PARM-SCZY7120-ARG2 "]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD  OF  PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)
+            =  CNS-RTN-000
+           AND DATE-FLG  OF  PARM-SCZY7120-ARG2  =  CNS-X-0
+           THEN
+             INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":日付チェック正常"
+      *-----------------------------------------------------------------
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":日付チェックエラー"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-013
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  CNS-PRMTR-E09
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 日付チェック END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TEKIYO-FROM-CHK-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.2 件数取得処理
+      ******************************************************************
+       CNT-GET-RTN            SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 件数取得処理 START *** "
+      D    DISPLAY  CNS-PGM-ID":WK-IN-件数=["WK-IN-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-APL指定出力件数=["
+      D                          WK-IN-APL-OUT-CNT"]"
+      *-----------------------------------------------------------------
+      *----------  W◇WK-IN-APL指定出力件数 <> 0 かつ
+      *----------  WK-IN-APL指定出力件数 < CNS-50000 の場合
+           IF  WK-IN-APL-OUT-CNT  NOT =  CNS-0
+           AND WK-IN-APL-OUT-CNT  <  CNS-MAX-REC
+           THEN
+             MOVE  WK-IN-APL-OUT-CNT    TO  WK-IN-COUNT
+           ELSE
+             MOVE  CNS-MAX-REC          TO  WK-IN-COUNT
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-件数=["WK-IN-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":*** 件数取得処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CNT-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.3 テーブルID取得処理
+      ******************************************************************
+       TBL-ID-GET-RTN         SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** SCZY1160:"
+      D                       "テーブルID取得処理 START *** "
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG=["PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+      *----------  接続用パラメータ設定
+      *----------  利用会社コード
+           MOVE  RIYO-COMPANY-CODE     OF  PARM-SCZY4002-ARG1
+             TO  RIYO-CMP-CD           OF  PARM-SCZY1160-ARG1
+      *----------  テーブルID
+           MOVE  CNS-TBL-TKPFZK01      TO  TBL-ID
+                                       OF  PARM-SCZY1160-ARG1(1)
+           MOVE  CNS-TBL-TKPFZK02      TO  TBL-ID
+                                       OF  PARM-SCZY1160-ARG1(2)
+           MOVE  CNS-TBL-TKPFZK04      TO  TBL-ID
+                                       OF  PARM-SCZY1160-ARG1(3)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1160-ARG1:"
+      D    DISPLAY  CNS-PGM-ID":利用会社コード =["
+      D              RIYO-CMP-CD       OF PARM-SCZY1160-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":テーブルID(1)  =["
+      D              TBL-ID            OF PARM-SCZY1160-ARG1(1)"]"
+      D    DISPLAY  CNS-PGM-ID":テーブルID(2)  =["
+      D              TBL-ID            OF PARM-SCZY1160-ARG1(2)"]"
+      D    DISPLAY  CNS-PGM-ID":テーブルID(3)  =["
+      D              TBL-ID            OF PARM-SCZY1160-ARG1(3)"]"
+      *-----------------------------------------------------------------
+           CALL   "SCZY1160"
+           USING  PARM-SCZY1160-INOUT
+                  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":テーブルID取得ルーチンSCZY1160"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG=["PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF SCZY1160=["
+      D              RTN-CD OF PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D                          COUNTER  OF  PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD OF PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG) =
+               CNS-RTN-000
+           THEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  テーブルID正常取得  *****"
+      D    DISPLAY  CNS-PGM-ID":TKPFZK01 ID =["
+      D             HENSYUGO-TBL-ID    OF  PARM-SCZY1160-ARG2(1)"]"
+      D    DISPLAY  CNS-PGM-ID":TKPFZK02 ID =["
+      D             HENSYUGO-TBL-ID    OF  PARM-SCZY1160-ARG2(2)"]"
+      D    DISPLAY  CNS-PGM-ID":TKPFZK04 ID =["
+      D             HENSYUGO-TBL-ID    OF  PARM-SCZY1160-ARG2(3)"]"
+      *-----------------------------------------------------------------
+             MOVE  HENSYUGO-TBL-ID     OF  PARM-SCZY1160-ARG2(1)
+               TO  WK-TABID-1
+             MOVE  HENSYUGO-TBL-ID     OF  PARM-SCZY1160-ARG2(2)
+               TO  WK-TABID-2
+             MOVE  HENSYUGO-TBL-ID     OF  PARM-SCZY1160-ARG2(3)
+               TO  WK-TABID-3
+             INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG =["PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****  テーブルID取得エラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-014
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-901
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY CNS-PGM-ID":*** SCZY1160:テーブルID取得処理  END"
+      D                       " ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TBL-ID-GET-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:主処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.2.1．データ抽出処理
+             PERFORM  DATE-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:主処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1．データ抽出処理
+      ******************************************************************
+       DATE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:データ抽出処理START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.2.1.1 カーソルCR1作成処理
+             PERFORM  CR1-PREPARE-RTN
+      *----------  3.2.1.2 カーソルCR1オープン処理
+             PERFORM  CR1-OPEN-RTN
+      *----------  3.2.1.3 カーソルCR1フェッチ処理
+             PERFORM  CR1-FETCH-RTN
+               UNTIL  FLG-CR1-FETCH = CNS-ON
+      *----------  3.2.1.4 カーソルCR1クロース処理
+             PERFORM  CR1-CLOSE-RTN
+      *----------  3.2.1.5.その他処理
+             PERFORM  SONOTA-CHECK-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:データ抽出処理END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       DATE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.1カーソルCR1作成処理
+      ******************************************************************
+       CR1-PREPARE-RTN        SECTION.
+      *-----------------------------------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** DECLARE CR1 CURSOR START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-SQLSTMT-CR
+                       SQLSTMT
+      *----------  フリーメッセージ用動的SQL文作成
+      *----------  利用会社コード
+           MOVE  WK-IN-RIYO-CMP-CD
+             TO  HST-RIYO-CMP-CD        OF  HST-WHERE
+      *----------  基準日FROM
+           MOVE  WK-IN-KZYN-YMD-FROM
+             TO  HST-KZYN-YMD-FROM      OF  HST-WHERE
+      *----------  基準日TO
+           MOVE  WK-IN-KZYN-YMD-TO
+             TO  HST-KZYN-YMD-TO        OF  HST-WHERE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-RIYO-CMP-CD=["
+      D             WK-IN-RIYO-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-KZYN-YMD-FROM=["
+      D             WK-IN-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-KZYN-YMD-TO=["
+      D             WK-IN-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":HST-RIYO-CMP-CD=["
+      D             HST-RIYO-CMP-CD     OF  HST-WHERE"]"
+      D    DISPLAY  CNS-PGM-ID":HST-KZYN-YMD-FROM=["
+      D             HST-KZYN-YMD-FROM   OF  HST-WHERE"]"
+      D    DISPLAY  CNS-PGM-ID":HST-KZYN-YMD-TO=["
+      D             HST-KZYN-YMD-TO     OF  HST-WHERE"]"
+      *-----------------------------------------------------------------
+           MOVE  WK-TABID-1
+             TO  WK-TKPFZK01-1          OF  SQL-SELECT-DATA-CR8
+                 WK-TKPFZK01-2          OF  SQL-SELECT-DATA-CR8
+                 WK-TKPFZK01-3          OF  SQL-SELECT-DATA-CR8
+           MOVE  WK-TABID-2
+             TO  WK-TKPFZK02            OF  SQL-SELECT-DATA-CR8
+           MOVE  WK-TABID-3
+             TO  WK-TKPFZK04            OF  SQL-SELECT-DATA-CR8
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-TABID-1=["WK-TABID-1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-TABID-2=["WK-TABID-2"]"
+      D    DISPLAY  CNS-PGM-ID":WK-TABID-3=["WK-TABID-3"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR8.WK-TKPFZK01-1=["
+      D             WK-TKPFZK01-1       OF  SQL-SELECT-DATA-CR8"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR8.WK-TKPFZK01-2=["
+      D             WK-TKPFZK01-2       OF  SQL-SELECT-DATA-CR8"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR8.WK-TKPFZK01-3=["
+      D             WK-TKPFZK01-3       OF  SQL-SELECT-DATA-CR8"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR9.WK-TKPFZK02=["
+      D             WK-TKPFZK02         OF  SQL-SELECT-DATA-CR8"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR8.WK-TKPFZK04=["
+      D             WK-TKPFZK04         OF  SQL-SELECT-DATA-CR8"]"
+      *-----------------------------------------------------------------
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  ファンド＆ポートフォリオ順
+           PERFORM  VARYING  WK-COUNT  FROM  CNS-1  BY  CNS-1
+             UNTIL  WK-COUNT  >  CNS-10
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT =["WK-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ファンド＆ポートフォリオ("
+      D             WK-COUNT")=["WK-IN-FUND-PTF-CD(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+             COMPUTE  WK-JUN-CNT  =  WK-COUNT * CNS-10000
+             IF  WK-IN-FUND-PTF-CD(WK-COUNT)  NOT =  SPACE
+             THEN
+               STRING  ",'"
+                       WK-IN-FUND-PTF-CD(WK-COUNT)
+                       "',"
+                       WK-JUN-CNT
+                 DELIMITED  BY  SIZE
+                 INTO  WK-FUND-PTF-DECODE(WK-COUNT)
+             ELSE
+               MOVE  SPACE              TO  WK-FUND-PTF-DECODE(WK-COUNT)
+             END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-FUND-PTF-DECODE("WK-COUNT")=["
+      D             WK-FUND-PTF-DECODE(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ファンド＆ポートフォリオ順=["
+      D             WK-SQL-FUND-PTF-CD"]"
+      *-----------------------------------------------------------------
+      *----------  グループ順
+           PERFORM  VARYING  WK-COUNT  FROM  CNS-1  BY  CNS-1
+             UNTIL  WK-COUNT  >  CNS-10
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT =["WK-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ポートフォリオグループコード("
+      D             WK-COUNT")=["WK-IN-PTF-GRP-CD(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+             COMPUTE  WK-JUN-CNT  =  WK-COUNT * CNS-10000
+             IF  WK-IN-PTF-GRP-CD(WK-COUNT)  NOT =  SPACE
+             THEN
+               STRING  ",'"
+                       WK-IN-PTF-GRP-CD(WK-COUNT)
+                       "',"
+                       WK-JUN-CNT
+                 DELIMITED  BY  SIZE
+                 INTO  WK-PTF-GRP-DECODE(WK-COUNT)
+             ELSE
+               MOVE  SPACE              TO  WK-PTF-GRP-DECODE(WK-COUNT)
+             END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-PTF-GRP-DECODE("WK-COUNT")=["
+      D             WK-PTF-GRP-DECODE(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":グループ順=["WK-SQL-PTF-GRP-CD"]"
+      *-----------------------------------------------------------------
+      *----------  評価系列順
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-評価系列コード(1)=["
+      D             WK-IN-HYK-KRTU(CNS-1)"]"
+      *-----------------------------------------------------------------
+           STRING  ",'"
+                   WK-IN-HYK-KRTU(CNS-1)
+                   "',"
+                   CNS-1
+             DELIMITED  BY  SIZE
+             INTO  WK-HYK-CD-DECODE(CNS-1)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HYK-CD-DECODE(1)=["
+      D             WK-HYK-CD-DECODE(CNS-1)"]"
+      *-----------------------------------------------------------------
+           PERFORM  VARYING  WK-COUNT  FROM  CNS-2  BY  CNS-1
+             UNTIL  WK-COUNT  >  CNS-10
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT =["WK-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-評価系列コード(WK-COUNT)=["
+      D             WK-IN-HYK-KRTU(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+             IF  WK-IN-HYK-KRTU(WK-COUNT)  NOT =  SPACE
+             THEN
+               STRING  ",'"
+                       WK-IN-HYK-KRTU(WK-COUNT)
+                       "',"
+                       WK-COUNT
+                 DELIMITED  BY  SIZE
+                 INTO  WK-HYK-CD-DECODE(WK-COUNT)
+             ELSE
+               MOVE  SPACE              TO  WK-HYK-CD-DECODE(WK-COUNT)
+             END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HYK-CD-DECODE("WK-COUNT")=["
+      D             WK-HYK-CD-DECODE(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":評価系列順 =["WK-SQL-HYK-CD"]"
+      *-----------------------------------------------------------------
+      *----------  評価系列(WHERE)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-評価系列コード(1)=["
+      D             WK-IN-HYK-KRTU(CNS-1)"]"
+      *-----------------------------------------------------------------
+           STRING  "'"
+                   WK-IN-HYK-KRTU(CNS-1)
+                   "'"
+             DELIMITED  BY  SIZE
+             INTO  WK-HYK-CD-WHERE(CNS-1)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HYK-CD-WHERE(1)=["
+      D             WK-HYK-CD-WHERE(CNS-1)"]"
+      *-----------------------------------------------------------------
+           PERFORM  VARYING  WK-COUNT  FROM  CNS-2  BY  CNS-1
+             UNTIL  WK-COUNT  >  CNS-10
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNT =["WK-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-IN-評価系列コード(WK-COUNT)=["
+      D             WK-IN-HYK-KRTU(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+             IF  WK-IN-HYK-KRTU(WK-COUNT)  NOT =  SPACE
+             THEN
+               STRING  ",'"
+                       WK-IN-HYK-KRTU(WK-COUNT)
+                       "'"
+                 DELIMITED  BY  SIZE
+                 INTO  WK-HYK-CD-WHERE(WK-COUNT)
+             ELSE
+               MOVE  SPACE              TO  WK-HYK-CD-WHERE(WK-COUNT)
+             END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HYK-CD-WHERE("WK-COUNT")=["
+      D             WK-HYK-CD-WHERE(WK-COUNT)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":評価系列(WHERE) =["
+      D             WK-SQL-HYK-CD-WHERE"]"
+      *-----------------------------------------------------------------
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+           MOVE  WK-SQL-FUND-PTF-CD
+             TO  WK-FUND-PTF-SQL        OF  SQL-SELECT-DATA-CR2
+                 WK-FUND-PTF-SQL        OF  SQL-SELECT-DATA-CR14
+           MOVE  WK-SQL-PTF-GRP-CD
+             TO  WK-PTF-GRP-SQL         OF  SQL-SELECT-DATA-CR2
+                 WK-PTF-GRP-SQL         OF  SQL-SELECT-DATA-CR14
+           MOVE  WK-SQL-HYK-CD
+             TO  WK-HYK-CD-SQL          OF  SQL-SELECT-DATA-CR6
+           MOVE  WK-SQL-HYK-CD-WHERE
+             TO  WK-HYK-KRTU-EXIST-SQL  OF  SQL-SELECT-DATA-CR12
+           MOVE  WK-IN-RIYO-CMP-CD
+             TO  WK-RIYO-CMP-CD-IN      OF  SQL-SELECT-DATA-CR11
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR2 =["
+      D             SQL-SELECT-DATA-CR2"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR6 =["
+      D             SQL-SELECT-DATA-CR6"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR11 =["
+      D             SQL-SELECT-DATA-CR11"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR12 =["
+      D             SQL-SELECT-DATA-CR12"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR14 =["
+      D             SQL-SELECT-DATA-CR14"]"
+      *-----------------------------------------------------------------
+           MOVE  CNS-1                  TO  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-オール指定1 = '2' AND WK-ファンドコード指定フラグ ＝ '1'
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ALL-SITEI-1 =["
+      D             WK-IN-ALL-SITEI-1"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-1  =  CNS-X-2
+           THEN
+             STRING  SQL-SELECT-DATA-CR1,
+                     SQL-SELECT-DATA-CR2
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR1の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR1)"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR2の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR2)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+             STRING  SQL-SELECT-DATA-CR1,
+                     SQL-SELECT-DATA-CR5
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR1の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR1)"]"
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR5の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR5)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-オール指定2 ＝ '3'
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ALL-SITEI-2 =["
+      D             WK-IN-ALL-SITEI-2"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-2  =  CNS-X-3
+           THEN
+             STRING  SQL-SELECT-DATA-CR6
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR6の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR6)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+             STRING  SQL-SELECT-DATA-CR7
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR7の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR7)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+           STRING  SQL-SELECT-DATA-CR8
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR8の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR8)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+           STRING  SQL-SELECT-DATA-CR10
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR10の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR10)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+           STRING  SQL-SELECT-DATA-CR11
+             DELIMITED BY SIZE
+             INTO  WK-SQLSTMT-CR
+             WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR11の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR11)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-オール指定2 ＝ '0' OR WK-オール指定2 ＝ '3'
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ALL-SITEI-2 =["
+      D             WK-IN-ALL-SITEI-2"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-2  =  CNS-X-0
+           OR  WK-IN-ALL-SITEI-2  =  CNS-X-3
+           THEN
+             STRING  SQL-SELECT-DATA-CR12
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR12の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR12)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+      *-----------------------------------------------------------------
+      *----------  ◇WK-オール指定2 ＝ '2'
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ALL-SITEI-2 =["
+      D             WK-IN-ALL-SITEI-2"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-2  =  CNS-X-2
+           THEN
+             STRING  SQL-SELECT-DATA-CR13
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR13の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR13)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-オール指定1 = '2'
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-ALL-SITEI-1 =["
+      D             WK-IN-ALL-SITEI-1"]"
+      *-----------------------------------------------------------------
+           IF  WK-IN-ALL-SITEI-1  =  CNS-X-2
+           THEN
+             STRING  SQL-SELECT-DATA-CR14
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR14の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR14)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+           STRING  SQL-SELECT-DATA-CR17
+               DELIMITED BY SIZE
+               INTO  WK-SQLSTMT-CR
+               WITH  POINTER  WK-SQL-LEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQL-SELECT-DATA-CR17の長さ =["
+      D             FUNCTION  LENGTH(SQL-SELECT-DATA-CR17)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-LEN =["WK-SQL-LEN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQLSTMT-CR =["
+      D             WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)"]"
+      *-----------------------------------------------------------------
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+           MOVE  WK-SQLSTMT-CR(CNS-1:WK-SQL-LEN)
+             TO  SQLSTMT
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLSTMT-ARR =["SQLSTMT"]"
+      *-----------------------------------------------------------------
+      *----------  PREPARE CURSOR
+           EXEC SQL
+             PREPARE  S1 FROM  :SQLSTMT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR PREPARE SQLCODE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  =  CNS-SQL-NORMAL
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** PREPARE CR1 CURSOR 正常 ***"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** PREPARE CR1 CURSOR エラー ***"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-015
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT-CR
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** PREPARE CR1 CURSOR END ***"
+      D    DISPLAY  CNS-PGM-ID":*** DECLARE CR1 CURSOR START ***"
+      *-----------------------------------------------------------------
+      *----------  DECLARE CURSOR
+           EXEC  SQL
+             DECLARE  CR1  CURSOR  FOR  S1
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR DECLARE SQLCODE=["SQLCODE"]"
+      D    DISPLAY  CNS-PGM-ID":*** DECLARE CR1 CURSOR END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-PREPARE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.2 カーソルCR1オープン処理CURSOR OPEN
+      ******************************************************************
+       CR1-OPEN-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** CR1 CURSOR OPEN START ***"
+      *-----------------------------------------------------------------
+      *----------  OPEN  CURSOR
+           EXEC SQL
+               OPEN CR1
+                 USING  :HST-WHERE.HST-KZYN-YMD-FROM,
+                        :HST-WHERE.HST-RIYO-CMP-CD,
+                        :HST-WHERE.HST-KZYN-YMD-TO,
+                        :HST-WHERE.HST-KZYN-YMD-TO,
+                        :HST-WHERE.HST-RIYO-CMP-CD,
+                        :HST-WHERE.HST-RIYO-CMP-CD,
+                        :HST-WHERE.HST-KZYN-YMD-FROM,
+                        :HST-WHERE.HST-RIYO-CMP-CD
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR OPEN SQLCODE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  =  CNS-SQL-NORMAL
+           THEN
+             MOVE  CNS-ON                    TO  FLG-CR1-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR OPEN 正常"
+      D    DISPLAY  CNS-PGM-ID":CR1 OPEN FLAG =["FLG-CR1-OPEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CURSOR OPEN エラー"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID                OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-016
+               TO  ERR-POS                   OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD                    OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG         OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT-CR
+               TO  FREE-MSG                  OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR OPEN END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-OPEN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.3 カーソルCR1フェッチ処理CURSOR FETCH
+      ******************************************************************
+       CR1-FETCH-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR FETCH START ***"
+      *-----------------------------------------------------------------
+           MOVE  CNS-OFF                TO  FLG-CONTINUE
+      *----------CR1 FETCH
+           EXEC SQL
+             FETCH CR1
+             INTO  :HST-FETCH.HST-FUND-CD,
+                   :HST-FETCH.HST-FND-MEI-JPN,
+                   :HST-FETCH.HST-PTF-CD,
+                   :HST-FETCH.HST-PTF-MEI-JPN,
+                   :HST-FETCH.HST-HYK-KRTU-CD,
+                   :HST-FETCH.HST-KZYN-YMD-FROM,
+                   :HST-FETCH.HST-KZYN-YMD-TO,
+                   :HST-FETCH.HST-KZYN-YMD-TO-NEXT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 CURSOR FETCH SQLCODE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+      *----------  正常
+           WHEN  CNS-SQL-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 FETCH取得データ:"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード=["
+      D             HST-FUND-CD         OF  HST-FETCH"]"
+      D    DISPLAY  CNS-PGM-ID":ファンド名（日）=["
+      D             HST-FND-MEI-JPN     OF  HST-FETCH"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオコード=["
+      D             HST-PTF-CD          OF  HST-FETCH"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ名（日）=["
+      D             HST-PTF-MEI-JPN     OF  HST-FETCH"]"
+      D    DISPLAY  CNS-PGM-ID":評価系列コード=["
+      D             HST-HYK-KRTU-CD     OF  HST-FETCH"]"
+      *******    テーマ④ 20081020 修正  開始    ***********************
+      D    DISPLAY  CNS-PGM-ID":基準日FROM=["
+      D             HST-KZYN-YMD-FROM   OF  HST-FETCH"]"
+      *******    テーマ④ 20081020 修正  終了    ***********************
+      D    DISPLAY  CNS-PGM-ID":基準日TO=["
+      D             HST-KZYN-YMD-TO     OF  HST-FETCH"]"
+      D    DISPLAY  CNS-PGM-ID":基準日TO翌日=["
+      D             HST-KZYN-YMD-TO-NEXT
+      D                                 OF  HST-FETCH"]"
+      *-----------------------------------------------------------------
+             MOVE  HST-FUND-CD          OF  HST-FETCH
+               TO  WK-SQL-FUND-CD
+             MOVE  HST-FND-MEI-JPN      OF  HST-FETCH
+               TO  WK-SQL-FND-MEI-JPN
+             MOVE  HST-PTF-CD           OF  HST-FETCH
+               TO  WK-SQL-PTF-CD
+             MOVE  HST-PTF-MEI-JPN      OF  HST-FETCH
+               TO  WK-SQL-PTF-MEI-JPN
+             MOVE  HST-HYK-KRTU-CD      OF  HST-FETCH
+               TO  WK-SQL-HYK-KRTU-CD
+             MOVE  HST-KZYN-YMD-FROM    OF  HST-FETCH
+               TO  WK-SQL-KZYN-YMD-FROM
+             MOVE  HST-KZYN-YMD-TO      OF  HST-FETCH
+               TO  WK-SQL-KZYN-YMD-TO
+             MOVE  HST-KZYN-YMD-TO-NEXT OF  HST-FETCH
+               TO  WK-SQL-KZYN-YMD-TO-NEXT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンドコード=["
+      D              WK-SQL-FUND-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンド名（日）=["
+      D              WK-SQL-FND-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオコード=["
+      D              WK-SQL-PTF-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオ名（日）=["
+      D              WK-SQL-PTF-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-評価系列コード=["
+      D              WK-SQL-HYK-KRTU-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日FROM=["
+      D              WK-SQL-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO=["
+      D              WK-SQL-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO翌日=["
+      D              WK-SQL-KZYN-YMD-TO-NEXT "]"
+      *-----------------------------------------------------------------
+      *----------  1)抽出データをチェックする
+      *******    連結障害対応No.0000199  20081020 修正  開始    ********
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****抽出データをチェック処理 START****"
+      D    DISPLAY  CNS-PGM-ID":WK-TEMP-SQL-ファンドコード       =["
+      D             WK-TEMP-SQL-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-TEMP-SQL-ポートフォリオコード =["
+      D             WK-TEMP-SQL-PTF-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンドコード            =["
+      D             WK-SQL-FUND-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオコード      =["
+      D             WK-SQL-PTF-CD "]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-前回-ファンドコード＝ WK-SQL-ファンドコード
+      *----------  AND WK-前回-ポートフォリオコード＝WK-SQL-ポートフォリオコードの場合
+             IF  WK-TEMP-SQL-FUND-CD    =  WK-SQL-FUND-CD
+               AND  WK-TEMP-SQL-PTF-CD  =  WK-SQL-PTF-CD
+      *******    連結障害対応No.0000199  20081020 修正  終了    ********
+             THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHECK-OK-FLG=[" CHECK-OK-FLG "]"
+      *-----------------------------------------------------------------
+               IF  CHECK-OK-FLG  =  CNS-OFF
+               THEN
+                 MOVE  CNS-ON           TO  FLG-CONTINUE
+               ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":処理を続く"
+      *-----------------------------------------------------------------
+                 CONTINUE
+               END-IF
+             ELSE
+      *******    連結障害対応No.0000199  20081020 修正  開始    ********
+               MOVE  WK-SQL-FUND-CD     TO  WK-TEMP-SQL-FUND-CD
+               MOVE  WK-SQL-PTF-CD      TO  WK-TEMP-SQL-PTF-CD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンドコード            =["
+      D             WK-SQL-FUND-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオコード      =["
+      D             WK-SQL-PTF-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-TEMP-SQL-ファンドコード       =["
+      D             WK-TEMP-SQL-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-TEMP-SQL-ポートフォリオコード =["
+      D             WK-TEMP-SQL-PTF-CD"]"
+      *-----------------------------------------------------------------
+      *----------  3.5.1.抽出レコードチェック処理
+      *******    連結障害対応No.0000199  20081020 修正  終了    ********
+               PERFORM  TYSYT-CD-CHK-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHECK-OK-FLG=[" CHECK-OK-FLG "]"
+      *-----------------------------------------------------------------
+               IF  CHECK-OK-FLG  =  CNS-OFF
+               THEN
+                 MOVE  CNS-ON           TO  FLG-CONTINUE
+               ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":処理を続く"
+      *-----------------------------------------------------------------
+                 CONTINUE
+               END-IF
+             END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":FLG-CONTINUE=["FLG-CONTINUE"]"
+      *-----------------------------------------------------------------
+             IF  FLG-CONTINUE  =  CNS-OFF
+             THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****抽出データをチェック処理 END****"
+      *-----------------------------------------------------------------
+      *----------  2)抽出データを出力する
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****抽出データを出力処理 START****"
+      *-----------------------------------------------------------------
+               PERFORM  DATA-HENSYU-CR1-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****抽出データを出力処理 END****"
+      *-----------------------------------------------------------------
+      *----------  3)最大件数チェック処理
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****最大件数チェック処理 START****"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-抽出件数超過警告 ＝ '1'
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-KENSU-CHOUKA-KEIKOKU=["
+      D             WK-KENSU-CHOUKA-KEIKOKU"]"
+      *-----------------------------------------------------------------
+               IF  WK-KENSU-CHOUKA-KEIKOKU  =  CNS-X-1
+               THEN
+      *******    連結障害対応No.0000487  20081113 修正  開始    ********
+      *----------  WK-ヒット件数
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HIT-COUNT=["WK-HIT-COUNT"]"
+      *-----------------------------------------------------------------
+                 COMPUTE  WK-HIT-COUNT  =  WK-HIT-COUNT  -  CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HIT-COUNT=["WK-HIT-COUNT"]"
+      *-----------------------------------------------------------------
+                 PERFORM  SONOTA-CHECK-RTN
+      *******    連結障害対応No.0000487  20081113 修正  終了    ********
+      *----------  エラー検知プログラム名
+                 MOVE  CNS-PGM-ID
+                   TO  ERR-PGM-ID       OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+                 MOVE  CNS-POS-017
+                   TO  ERR-POS          OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                 MOVE  CNS-RTN-002
+                   TO  RTN-CD           OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                 MOVE  CNS-0
+                   TO  DETAIL-RTN-CD    OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                 MOVE  CNS-DETAIL-0
+                   TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                 MOVE  CNS-PRMTR-E04
+                   TO  FREE-MSG         OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":カーソルCR1フェッチ処理へ進む"
+      *-----------------------------------------------------------------
+                 CONTINUE
+               END-IF
+             ELSE
+               CONTINUE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":カーソルCR1フェッチ処理へ進む"
+      *-----------------------------------------------------------------
+             END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****最大件数チェック処理 END****"
+      *-----------------------------------------------------------------
+      *----------  データなし
+           WHEN  CNS-SQL-NOTFOUND
+             MOVE  CNS-ON            TO  FLG-CR1-FETCH
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":FLG-CR1-FETCH:["FLG-CR1-FETCH"]"
+      *-----------------------------------------------------------------
+      *----------  SQLCODE ≠ 0 AND SQLCODE ≠ 1403
+           WHEN  OTHER
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID        OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-018
+               TO  ERR-POS           OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD            OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT-CR
+               TO  FREE-MSG          OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** CR1 CURSOR FETCH END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-FETCH-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.4 カーソルCR1クロース処理CURSOR CLOSE
+      ******************************************************************
+       CR1-CLOSE-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** CR1 CURSOR CLOSE START ***"
+      D    DISPLAY  CNS-PGM-ID":CR1 OPEN FLAG =[" FLG-CR1-OPEN "]"
+      *-----------------------------------------------------------------
+           EXEC  SQL
+               CLOSE CR1
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CURSOR CLOSE SQLCODE =[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE = CNS-SQL-NORMAL
+           THEN
+             MOVE  CNS-OFF              TO  FLG-CR1-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 OPEN FLAG =[" FLG-CR1-OPEN "]"
+      *-----------------------------------------------------------------
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-019
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-900
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  SQLCODE
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-1
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  WK-SQLSTMT-CR
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CURSOR CLOSE END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR1-CLOSE-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.5.その他処理
+      ******************************************************************
+       SONOTA-CHECK-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** その他処理 START ***"
+      D    DISPLAY  CNS-PGM-ID":WK-ヒット件数 =["WK-HIT-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-ZENKAI-DATE-SONZAI-FLG =["
+      D             WK-ZENKAI-DATE-SONZAI-FLG"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-前回データ存在フラグ ＝ 0
+           IF  WK-ZENKAI-DATE-SONZAI-FLG    = CNS-0
+           THEN
+      *----------  ARG2.ヒット件数<-0
+             MOVE  CNS-0           TO  HIT-KENSU
+                                   OF  PARM-SCZY4002-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-ヒット件数=["WK-HIT-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":ヒット件数=["
+      D             HIT-KENSU    OF  PARM-SCZY4002-ARG2"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *----------  WK-ヒット件数
+             COMPUTE  WK-HIT-COUNT  =  WK-HIT-COUNT  +  CNS-1
+      *----------  ARG2.ヒット件数
+             MOVE  WK-HIT-COUNT
+               TO  HIT-KENSU       OF PARM-SCZY4002-ARG2
+      *----------  ARG2.ファンドコード(WK-ヒット件数)
+             MOVE  WK-ZENKAI-FUND-CD
+               TO  FUND-CD         OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.ファンド名（日）(WK-ヒット件数)
+             MOVE  WK-ZENKAI-FND-MEI-JPN
+               TO  FND-MEI-JPN     OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.ポートフォリオコード(WK-ヒット件数)
+             MOVE  WK-ZENKAI-PTF-CD
+               TO  PTF-CD          OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.ポートフォリオ名（日）(WK-ヒット件数)
+             MOVE  WK-ZENKAI-PTF-MEI-JPN
+               TO  PTF-MEI-JPN     OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.デフォルト評価系列コード(WK-ヒット件数)
+             MOVE  WK-ZENKAI-HYK-KRTU-CD
+               TO  DEFAUL-THYK-CD  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.基準日FROM(WK-ヒット件数)
+             MOVE  WK-ZENKAI-KZYN-YMD-FROM
+               TO  KZYN-YMD-FROM   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.基準日TO(WK-ヒット件数)
+             MOVE  WK-ZENKAI-KZYN-YMD-TO
+               TO  KZYN-YMD-TO     OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-ヒット件数=["WK-HIT-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID":ヒット件数=["
+      D             HIT-KENSU    OF  PARM-SCZY4002-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンドコード=["
+      D             WK-ZENKAI-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード("WK-HIT-COUNT")=["
+      D             FUND-CD      OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンド名（日）=["
+      D             WK-ZENKAI-FND-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":ファンド名（日）("WK-HIT-COUNT")=["
+      D             FND-MEI-JPN  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオコード=["
+      D             WK-ZENKAI-PTF-CD"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオコード("WK-HIT-COUNT")=["
+      D             PTF-CD       OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオ名（日）=["
+      D             WK-ZENKAI-PTF-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ名(日)("WK-HIT-COUNT")=["
+      D             PTF-MEI-JPN  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-評価系列コード=["
+      D             WK-ZENKAI-HYK-KRTU-CD"]"
+      D    DISPLAY  CNS-PGM-ID":デフォルト評価系列コード("WK-HIT-COUNT
+      D             ")=["DEFAUL-THYK-CD
+      D                          OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日FROM=["
+      D             WK-ZENKAI-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":基準日FROM("WK-HIT-COUNT")=["
+      D             KZYN-YMD-FROM
+      D                          OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO=["
+      D             WK-ZENKAI-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":基準日TO("WK-HIT-COUNT")=["
+      D             KZYN-YMD-TO  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      *-----------------------------------------------------------------
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** その他処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SONOTA-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.5.1.抽出レコードチェック処理
+      ******************************************************************
+       TYSYT-CD-CHK-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 抽出レコードチェック処理 START ***"
+      *-----------------------------------------------------------------
+      *----------  利用権限チェック処理
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHECK-OK-FLG     =["CHECK-OK-FLG"]"
+      D    DISPLAY  CNS-PGM-ID":権限チェック有無 =["WK-IN-KGN-CHK-UMU"]"
+      *-----------------------------------------------------------------
+      *----------  権限チェック有無 ＝ '1'の場合
+           IF  WK-IN-KGN-CHK-UMU = CNS-X-1
+           OR  WK-IN-KGN-CHK-UMU = CNS-X-2
+           THEN
+      *----------  利用権限チェック処理
+             PERFORM  RYO-KGN-CHK-RTN
+           ELSE
+             MOVE  CNS-ON               TO  CHECK-OK-FLG
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHECK-OK-FLG    =[" CHECK-OK-FLG "]"
+      D    DISPLAY  CNS-PGM-ID":*** 抽出レコードチェック処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TYSYT-CD-CHK-EXT.
+           EXIT.
+      ******************************************************************
+      *    利用権限チェック処理
+      ******************************************************************
+       RYO-KGN-CHK-RTN        SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 利用権限チェック処理 START ***"
+      *-----------------------------------------------------------------
+      *******    テーマ④ 20081020 修正  開始    ***********************
+      *----------  初期化
+           INITIALIZE  PARM-RTNPKG
+                       PARM-SCZY1130-IN
+      *******    テーマ④ 20081020 修正  終了    ***********************
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG=["PARM-RTNPKG"]"
+      *--------------------<DEBUG>--------------------------------------
+      *----------  接続用パラメータ設定
+      *----------  業務グループコード
+           MOVE  GYOUMU-GROUP-CODE      OF  IN-HEAD
+             TO  GYOMU-GRP-CD           OF  PARM-SCZY1130-ARG1
+      *----------  利用会社コード
+           MOVE  WK-IN-RIYO-CMP-CD
+             TO  RIYO-CMP-CD            OF  PARM-SCZY1130-ARG1
+      *----------  ログインユーザ会社コード
+           MOVE  COMPANY-CODE           OF  IN-AIFA
+             TO  LOGIN-CMP-CD           OF  PARM-SCZY1130-ARG1
+      *----------  ファンドコード
+           MOVE  WK-SQL-FUND-CD
+             TO  FUND-CD                OF  PARM-SCZY1130-ARG1
+      *----------  ポートフォリオコード
+           MOVE  WK-SQL-PTF-CD
+             TO  PTF-CD                 OF  PARM-SCZY1130-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY1130-ARG1:"
+      D    DISPLAY  CNS-PGM-ID":業務グループコード =["
+      D              GYOMU-GRP-CD       OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":利用会社コード =["
+      D              RIYO-CMP-CD        OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ログインユーザ会社コード =["
+      D              LOGIN-CMP-CD       OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":メニューID =["
+      D              MENU-ID            OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":実行処理ID =["
+      D              JIKOU-SYORI-ID     OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード =["
+      D              FUND-CD            OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオコード =["
+      D              PTF-CD             OF  PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":予備 =["
+      D              YOBI               OF  PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           CALL   "SCZY1130"            USING  PARM-SCZY1130-IN
+                                               PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":利用権限チェックルーチン1SCZY1130:"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG=["PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF SCZY1130=["
+      D              RTN-CD OF PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER  OF  PARM-RTNPKG=["
+      D             COUNTER             OF  PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD OF PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)
+             WHEN  CNS-RTN-000
+               MOVE  CNS-ON             TO  CHECK-OK-FLG
+               INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHECK-OK-FLG=["CHECK-OK-FLG"]"
+      *-----------------------------------------------------------------
+             WHEN  CNS-RTN-130
+               MOVE  CNS-OFF            TO  CHECK-OK-FLG
+      *******    残タスク   No.0000169  20090106 修正  開始    *********
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHECK-OK-FLG=["CHECK-OK-FLG"]"
+      D    DISPLAY  CNS-PGM-ID":オール指定1  =["WK-IN-ALL-SITEI-1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-RETURN-CODE =["WK-RETURN-CODE"]"
+      *-----------------------------------------------------------------
+               IF  WK-IN-ALL-SITEI-1 NOT  =  CNS-1
+               THEN
+                 MOVE  CNS-RTN-130        TO  WK-RETURN-CODE
+               ELSE
+                 CONTINUE
+               END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-RETURN-CODE =["WK-RETURN-CODE"]"
+      *-----------------------------------------------------------------
+      *******    残タスク   No.0000169  20090106 修正  終了    *********
+               INITIALIZE  PARM-RTNPKG
+      *******    テーマ④ 20081020 修正  開始    ***********************
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CHCEK-OK-FLG     =["CHECK-OK-FLG"]"
+      D    DISPLAY  CNS-PGM-ID":権限チェック有無 =["WK-IN-KGN-CHK-UMU"]"
+      D    DISPLAY  CNS-PGM-ID":オール指定1      =["WK-IN-ALL-SITEI-1"]"
+      *-----------------------------------------------------------------
+      *----------  ◇権限チェック有無 ＝ "1" かつ
+      *----------    オール指定1 ≠ "1" の場合
+               IF  WK-IN-KGN-CHK-UMU = CNS-X-1
+                 AND  WK-IN-ALL-SITEI-1 NOT = CNS-X-1
+      *******    テーマ④ 20081020 修正  終了    ***********************
+               THEN
+      *******    連結障害対応No.0000119  20081022 修正  開始    ********
+      *******    残タスク   No.0000153  20081209 修正  開始    *********
+      *******    残タスク   No.0000153  20081209 修正  終了    *********
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG1.業務タスクID =["
+      D             GYOMU-TASK-ID       OF  PARM-SCZY4002-ARG1"]"
+      *-----------------------------------------------------------------
+                 IF  GYOMU-TASK-ID  OF  PARM-SCZY4002-ARG1 = SPACE
+                 THEN
+      *----------  監査ログ1ＩＮＳルーチン
+                   PERFORM  KANSA-LOG1-INS-RTN
+                 ELSE
+      *----------  バッチ用監査ログＩＮＳルーチン
+                   PERFORM  SCZY7110-RTN
+                 END-IF
+      *******    連結障害対応No.0000119  20081022 修正  終了    ********
+               ELSE
+                 CONTINUE
+               END-IF
+             WHEN  OTHER
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID        OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-020
+                 TO  ERR-POS           OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-901
+                 TO  RTN-CD            OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  CNS-0
+                 TO  DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG          OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG=["PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":*** 利用権限チェック1処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       RYO-KGN-CHK-EXT.
+           EXIT.
+      ******************************************************************
+      *    監査ログ1ＩＮＳルーチン
+      ******************************************************************
+       KANSA-LOG1-INS-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":監査ログ1ＩＮＳルーチン START"
+      *-----------------------------------------------------------------
+      *******    テーマ④ 20081020 修正  開始    ***********************
+           INITIALIZE  PARM-SCZY1100-AIFA-HEADER
+                       PARM-SCZY1100-INOUT
+                       PARM-RTNPKG
+      *******    テーマ④ 20081020 修正  終了    ***********************
+      *----------  AIFA・共通ヘッダ項目
+           MOVE  WK-AIFA-HEADER         TO  PARM-SCZY1100-AIFA-HEADER
+      *----------  システム処理ID
+           MOVE  MENU-ID                OF  PARM-SCZY4002-ARG1
+             TO  SYS-SYORI-ID           OF  PARM-SCZY1100-INOUT
+      *----------  起動ID
+           MOVE  SPACE
+             TO  KIDOU-ID               OF  PARM-SCZY1100-INOUT
+      *----------  画面アクション区分
+           MOVE  GAMEN-ACT-KBN          OF  PARM-SCZY4002-ARG1
+             TO  GAMEN-ACT-KBN          OF  PARM-SCZY1100-INOUT
+      *----------  正常エラー区分
+           MOVE  CNS-NML-ERR-KBN-07
+             TO  NML-ERR-KBN            OF  PARM-SCZY1100-INOUT
+      *----------  課金用検索区分
+           MOVE  CNS-EE-KBN-NORMAL
+             TO  EE-SEARCH-KBN          OF  PARM-SCZY1100-INOUT
+      *----------  基準年月日1
+           MOVE  KZYN-YMD-FROM          OF  PARM-SCZY4002-ARG1
+             TO  KIJUN-YMD1             OF  PARM-SCZY1100-INOUT
+      *----------  基準年月日2
+           MOVE  KZYN-YMD-TO            OF  PARM-SCZY4002-ARG1
+             TO  KIJUN-YMD2             OF  PARM-SCZY1100-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  委託会社コード
+           MOVE  SPACE
+             TO  ITK-CMP-CD             OF  PARM-SCZY1100-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *----------  ファンドコード
+           MOVE  SPACE
+             TO  FND-CD                 OF  PARM-SCZY1100-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  銘柄コード
+           MOVE  SPACE
+             TO  MEG-CD                 OF  PARM-SCZY1100-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *----------  データ特定用ID
+           MOVE  GYOMU-TASK-ID          OF  PARM-SCZY4002-ARG1
+             TO  DATA-ID                OF  PARM-SCZY1100-INOUT
+      *----------  TXRX利用区分
+           MOVE  IN-HEAD(CNS-TXRX-POS:CNS-1)
+             TO  TXRX-KBN               OF  PARM-SCZY1100-INOUT
+      *----------  RXファンドコード
+           MOVE  WK-SQL-FUND-CD
+             TO  FUND-CD                OF  PARM-SCZY1100-INOUT
+      *----------  RXポートフォリオコード
+           MOVE  WK-SQL-PTF-CD
+             TO  PTF-CD                 OF  PARM-SCZY1100-INOUT
+      *----------  電文ID
+           MOVE  SPACE
+             TO  DENBUN-ID              OF  PARM-SCZY1100-INOUT
+      *----------  入力電文
+           MOVE  SPACE
+             TO  IN-DENBUN              OF  PARM-SCZY1100-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":AIFA・共通ヘッダ項目              =["
+      D             PARM-SCZY1100-AIFA-HEADER                  "]"
+      D    DISPLAY  CNS-PGM-ID":システム処理ID                    =["
+      D             SYS-SYORI-ID        OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":起動ID                            =["
+      D             KIDOU-ID            OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":画面アクション区分                =["
+      D             GAMEN-ACT-KBN       OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":正常エラー区分                    =["
+      D             NML-ERR-KBN         OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":課金用検索区分                    =["
+      D             EE-SEARCH-KBN       OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":基準年月日1                       =["
+      D             KIJUN-YMD1          OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":基準年月日2                       =["
+      D             KIJUN-YMD2          OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":委託会社コード                    =["
+      D             ITK-CMP-CD          OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード                    =["
+      D             FND-CD              OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":銘柄コード                        =["
+      D             MEG-CD              OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":データ特定用ID                    =["
+      D             DATA-ID             OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":TXRX利用区分                      =["
+      D             TXRX-KBN            OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":RXファンドコード                  =["
+      D             FUND-CD             OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":RXポートフォリオコード            =["
+      D             PTF-CD              OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":電文ID                            =["
+      D             DENBUN-ID           OF PARM-SCZY1100-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":入力電文                          =["
+      D             IN-DENBUN           OF PARM-SCZY1100-INOUT  "]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1100"             USING  PARM-SCZY1100-AIFA-HEADER
+                                               PARM-SCZY1100-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF SCZY1100                  =["
+      D    RTN-CD  OF PARM-RTNPKG(COUNTER   OF PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF PARM-RTNPKG=["
+      D             COUNTER             OF  PARM-RTNPKG "]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD  OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+            =  CNS-RTN-000
+           THEN
+             INITIALIZE  PARM-RTNPKG
+             CONTINUE
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-021
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-901
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 監査ログ1ＩＮＳルーチン END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       KANSA-LOG1-INS-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.5.2.出力データ編集処理
+      ******************************************************************
+       DATA-HENSYU-CR1-RTN    SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 出力データ編集処理 START ***"
+      D    DISPLAY  CNS-PGM-ID":WK-前回データ存在フラグ =["
+      D             WK-ZENKAI-DATE-SONZAI-FLG"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-前回データ存在フラグ ＝ 0
+           IF  WK-ZENKAI-DATE-SONZAI-FLG    = CNS-0
+           THEN
+      *----------  WK-前回-基準日FROM ← WK-SQL-基準日FROM
+             MOVE  WK-SQL-KZYN-YMD-FROM TO  WK-ZENKAI-KZYN-YMD-FROM
+      *----------   WK-前回-基準日TO ← WK-SQL-基準日TO
+             MOVE  WK-SQL-KZYN-YMD-TO   TO  WK-ZENKAI-KZYN-YMD-TO
+      *----------   WK-前回-基準日TO翌日 ← WK-SQL-基準日TO翌日
+             MOVE  WK-SQL-KZYN-YMD-TO-NEXT
+               TO  WK-ZENKAI-KZYN-YMD-TO-NEXT
+      *----------  WK-前回-ファンド名（日）← WK-SQL-ファンド名（日）
+             MOVE  WK-SQL-FND-MEI-JPN   TO  WK-ZENKAI-FND-MEI-JPN
+      *----------  WK-前回-ポートフォリオ名（日） ← WK-SQL-ポートフォリオ名（日）
+             MOVE  WK-SQL-PTF-MEI-JPN   TO  WK-ZENKAI-PTF-MEI-JPN
+      *----------  WK-前回-ファンドコード ← WK-SQL-ファンドコード
+             MOVE  WK-SQL-FUND-CD       TO  WK-ZENKAI-FUND-CD
+      *----------  WK-前回-ポートフォリオコード ← WK-SQL-ポートフォリオコード
+             MOVE  WK-SQL-PTF-CD        TO  WK-ZENKAI-PTF-CD
+      *----------  WK-前回-評価系列コード ← WK-SQL-評価系列コード
+             MOVE  WK-SQL-HYK-KRTU-CD   TO  WK-ZENKAI-HYK-KRTU-CD
+      *----------  WK-前回データ存在フラグ←1
+             MOVE  CNS-1                TO  WK-ZENKAI-DATE-SONZAI-FLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日FROM=["
+      D                          WK-SQL-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日FRO=["
+      D                          WK-ZENKAI-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO=["
+      D                          WK-SQL-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO=["
+      D                          WK-ZENKAI-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO翌日=["
+      D                          WK-SQL-KZYN-YMD-TO-NEXT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO翌日=["
+      D                          WK-ZENKAI-KZYN-YMD-TO-NEXT "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンド名（日）=["
+      D                          WK-SQL-FND-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンド名（日）=["
+      D                          WK-ZENKAI-FND-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオ名（日）=["
+      D                          WK-SQL-PTF-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオ名（日）=["
+      D                          WK-ZENKAI-PTF-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンドコード=["
+      D                          WK-SQL-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンドコード=["
+      D                          WK-ZENKAI-FUND-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオコード=["
+      D                          WK-SQL-PTF-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオコード=["
+      D                          WK-ZENKAI-PTF-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-評価系列コード=["
+      D                          WK-SQL-HYK-KRTU-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-評価系列コード=["
+      D                          WK-ZENKAI-HYK-KRTU-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回データ存在フラグ=["
+      D                          WK-ZENKAI-DATE-SONZAI-FLG "]"
+      *-----------------------------------------------------------------
+           ELSE
+      *----------  ◇WK-前回-ファンドコード＝ WK-SQL-ファンドコード
+      *----------  AND WK-前回-ポートフォリオコード＝WK-SQL-ポートフォリオコード
+      *----------  AND WK-前回-評価系列コード＝WK-SQL-評価系列コード
+      *----------  AND WK-前回-基準日TO翌日＝WK-SQL-基準日FROMの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-ZENKAI-FUND-CD=["WK-ZENKAI-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-FUND-CD=["WK-SQL-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-ZENKAI-PTF-CD=["WK-ZENKAI-PTF-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-PTF-CD=["WK-SQL-PTF-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-ZENKAI-HYK-KRTU-CD=["
+      D             WK-ZENKAI-HYK-KRTU-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-HYK-KRTU-CD=["
+      D             WK-SQL-HYK-KRTU-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-ZENKAI-KZYN-YMD-TO-NEXT=["
+      D             WK-ZENKAI-KZYN-YMD-TO-NEXT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-KZYN-YMD-FROM=["
+      D             WK-SQL-KZYN-YMD-FROM"]"
+      *-----------------------------------------------------------------
+             IF  WK-ZENKAI-FUND-CD  =  WK-SQL-FUND-CD
+             AND  WK-ZENKAI-PTF-CD  =  WK-SQL-PTF-CD
+             AND  WK-ZENKAI-HYK-KRTU-CD  =  WK-SQL-HYK-KRTU-CD
+             AND  WK-ZENKAI-KZYN-YMD-TO-NEXT  =  WK-SQL-KZYN-YMD-FROM
+             THEN
+               MOVE  WK-SQL-KZYN-YMD-TO TO  WK-ZENKAI-KZYN-YMD-TO
+               MOVE  WK-SQL-KZYN-YMD-TO-NEXT
+                 TO  WK-ZENKAI-KZYN-YMD-TO-NEXT
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  WK-前回-ファンド名（日）← WK-SQL-ファンド名（日）
+               MOVE  WK-SQL-FND-MEI-JPN TO  WK-ZENKAI-FND-MEI-JPN
+      *----------  WK-前回-ポートフォリオ名（日） ← WK-SQL-ポートフォリオ名（日）
+               MOVE  WK-SQL-PTF-MEI-JPN TO  WK-ZENKAI-PTF-MEI-JPN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO=["
+      D                          WK-SQL-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO=["
+      D                          WK-ZENKAI-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO翌日=["
+      D                          WK-SQL-KZYN-YMD-TO-NEXT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO翌日=["
+      D                          WK-ZENKAI-KZYN-YMD-TO-NEXT "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンド名（日）=["
+      D                          WK-SQL-FND-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンド名（日）=["
+      D                          WK-ZENKAI-FND-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオ名（日）=["
+      D                          WK-SQL-PTF-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオ名（日）=["
+      D                          WK-ZENKAI-PTF-MEI-JPN "]"
+      *-----------------------------------------------------------------
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+             ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HIT-COUNT=["WK-HIT-COUNT"]"
+      *-----------------------------------------------------------------
+               COMPUTE  WK-HIT-COUNT =  WK-HIT-COUNT  +  CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-HIT-COUNT=["WK-HIT-COUNT"]"
+      *-----------------------------------------------------------------
+      *----------  ◇WK-ヒット件数 ＜ WK-IN-件数
+               IF  WK-HIT-COUNT  <  WK-IN-COUNT
+               THEN
+      *----------  ARG2.ファンドコード(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-FUND-CD
+                   TO  FUND-CD
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.ファンド名（日）(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-FND-MEI-JPN
+                   TO  FND-MEI-JPN
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.ポートフォリオコード(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-PTF-CD
+                   TO  PTF-CD
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.ポートフォリオ名（日）(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-PTF-MEI-JPN
+                   TO  PTF-MEI-JPN
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.デフォルト評価系列コード(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-HYK-KRTU-CD
+                   TO  DEFAUL-THYK-CD
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.基準日FROM(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-KZYN-YMD-FROM
+                   TO  KZYN-YMD-FROM
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *----------  ARG2.基準日TO(WK-ヒット件数)
+                 MOVE  WK-ZENKAI-KZYN-YMD-TO
+                   TO  KZYN-YMD-TO
+                   OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンドコード=["
+      D                          WK-ZENKAI-FUND-CD "]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード("WK-HIT-COUNT")=["
+      D              FUND-CD     OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンド名（日）=["
+      D                          WK-ZENKAI-FND-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":ファンド名（日）("WK-HIT-COUNT")=["
+      D             FND-MEI-JPN  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオコード=["
+      D                          WK-ZENKAI-PTF-CD "]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオコード("WK-HIT-COUNT")=["
+      D             PTF-CD       OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオ名（日）=["
+      D                          WK-ZENKAI-PTF-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ名(日)("WK-HIT-COUNT")=["
+      D             PTF-MEI-JPN  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-評価系列コード=["
+      D                          WK-ZENKAI-HYK-KRTU-CD "]"
+      D    DISPLAY  CNS-PGM-ID":デフォルト評価系列コード("WK-HIT-COUNT
+      D             ")=["DEFAUL-THYK-CD
+      D                          OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日FROM=["
+      D                          WK-ZENKAI-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":基準日FROM("WK-HIT-COUNT")     =["
+      D             KZYN-YMD-FROM
+      D                          OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO=["
+      D                          WK-ZENKAI-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":基準日TO("WK-HIT-COUNT")  =["
+      D             KZYN-YMD-TO  OF  PARM-SCZY4002-ARG2(WK-HIT-COUNT)"]"
+      *-----------------------------------------------------------------
+      *----------  WK-前回-基準日FROM ← WK-SQL-基準日FROM
+                 MOVE  WK-SQL-KZYN-YMD-FROM
+                   TO  WK-ZENKAI-KZYN-YMD-FROM
+      *----------   WK-前回-基準日TO ← WK-SQL-基準日TO
+                 MOVE  WK-SQL-KZYN-YMD-TO
+                   TO  WK-ZENKAI-KZYN-YMD-TO
+      *----------   WK-前回-基準日TO翌日 ← WK-SQL-基準日TO翌日
+                 MOVE  WK-SQL-KZYN-YMD-TO-NEXT
+                   TO  WK-ZENKAI-KZYN-YMD-TO-NEXT
+      *----------  WK-前回-ファンド名（日）← WK-SQL-ファンド名（日）
+                 MOVE  WK-SQL-FND-MEI-JPN
+                   TO  WK-ZENKAI-FND-MEI-JPN
+      *----------  WK-前回-ポートフォリオ名（日） ← WK-SQL-ポートフォリオ名（日）
+                 MOVE  WK-SQL-PTF-MEI-JPN
+                   TO  WK-ZENKAI-PTF-MEI-JPN
+      *----------  WK-前回-ファンドコード ← WK-SQL-ファンドコード
+                 MOVE  WK-SQL-FUND-CD   TO  WK-ZENKAI-FUND-CD
+      *----------  WK-前回-ポートフォリオコード ← WK-SQL-ポートフォリオコード
+                 MOVE  WK-SQL-PTF-CD    TO  WK-ZENKAI-PTF-CD
+      *----------  WK-前回-評価系列コード ← WK-SQL-評価系列コード
+                 MOVE  WK-SQL-HYK-KRTU-CD
+                   TO  WK-ZENKAI-HYK-KRTU-CD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日FROM=["
+      D                          WK-SQL-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日FROM=["
+      D                          WK-ZENKAI-KZYN-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO=["
+      D                          WK-SQL-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO=["
+      D                          WK-ZENKAI-KZYN-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-基準日TO翌日=["
+      D                          WK-SQL-KZYN-YMD-TO-NEXT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-基準日TO翌日=["
+      D                          WK-ZENKAI-KZYN-YMD-TO-NEXT "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンド名（日）=["
+      D                          WK-SQL-FND-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンド名（日）=["
+      D                          WK-ZENKAI-FND-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオ名（日）=["
+      D                          WK-SQL-PTF-MEI-JPN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオ名（日）=["
+      D                          WK-ZENKAI-PTF-MEI-JPN "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ファンドコード=["
+      D                          WK-SQL-FUND-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ファンドコード=["
+      D                          WK-ZENKAI-FUND-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-ポートフォリオコード=["
+      D                          WK-SQL-PTF-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-ポートフォリオコード=["
+      D                          WK-ZENKAI-PTF-CD "]"
+      D    DISPLAY  CNS-PGM-ID":WK-SQL-評価系列コード=["
+      D                          WK-SQL-HYK-KRTU-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-前回-評価系列コード=["
+      D                          WK-ZENKAI-HYK-KRTU-CD "]"
+      *-----------------------------------------------------------------
+               ELSE
+                 MOVE  CNS-X-1          TO  WK-KENSU-CHOUKA-KEIKOKU
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-抽出件数超過警告 =["
+      D                          WK-KENSU-CHOUKA-KEIKOKU"]"
+      *-----------------------------------------------------------------
+               END-IF
+             END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** 出力データ編集処理 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       DATA-HENSYU-CR1-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.3 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:後処理  START  ***"
+      D    DISPLAY  CNS-PGM-ID":WK-ヒット件数=["WK-HIT-COUNT"]"
+      *-----------------------------------------------------------------
+           MOVE  WK-HIT-COUNT
+             TO  HIT-KENSU              OF  PARM-SCZY4002-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":件数 =["
+      D          HIT-KENSU              OF  PARM-SCZY4002-ARG2"]"
+      *-----------------------------------------------------------------
+      *******    残タスク   No.0000153  20081209 修正  開始    *********
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-RETURN-CODE =["WK-RETURN-CODE"]"
+      *-----------------------------------------------------------------
+           MOVE  WK-RETURN-CODE
+             TO  RTN-CD                OF  PARM-SCZY1170-IN
+      *******    残タスク   No.0000153  20081209 修正  終了    *********
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ERR-PGM-ID  OF  PARM-SCZY1170-IN=["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-POS  OF  PARM-SCZY1170-IN=["
+      D             ERR-POS             OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-IN=["
+      D             RTN-CD              OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD  OF  PARM-SCZY1170-IN"
+      D             "=["DETAIL-RTN-CD   OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD-FLG  OF"
+      D             "PARM-SCZY1170-IN=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":FREE-MSG  OF  PARM-SCZY1170-IN=["
+      D             FREE-MSG            OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":****CALL  SCZY1170  STARY****"
+      *-----------------------------------------------------------------
+           CALL   "SCZY1170"            USING  PARM-SCZY1170-IN
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****CALL  SCZY1170  END****"
+      *-----------------------------------------------------------------
+           MOVE  PARM-RTNPKG            TO  PARM-SCZY4002-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4002-ARG2=["
+      D             PARM-SCZY4002-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4002-ARG3=["
+      D                          PARM-SCZY4002-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:後処理  END  ***"
+      D    DISPLAY  CNS-PGM-ID":*** SCZY4002 ポートフォリオと"
+      D                        "有効期間取得ルーチン END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.4 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:エラー処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  CURSOR1 CLOSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 OPEN FLAG =["FLG-CR1-OPEN"]"
+      *-----------------------------------------------------------------
+           IF  FLG-CR1-OPEN = CNS-ON
+           THEN
+             EXEC  SQL
+                 CLOSE CR1
+             END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CLOSE CR1"
+             MOVE  CNS-OFF              TO  FLG-CR1-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1 OPEN FLAG =["FLG-CR1-OPEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CR1クロスしない"
+      *-----------------------------------------------------------------
+             CONTINUE
+           END-IF
+      *******    連結障害対応No.0000487  20081113 修正  開始    ********
+      *----------  リターンコード='002'（抽出件数超過警告）の場合
+      *----------  ARG2．ヒット件数  ←  WK-IN-件数
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-IN=["
+      D             RTN-CD              OF  PARM-SCZY1170-IN"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD  OF  PARM-SCZY1170-IN  =  CNS-RTN-002
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-IN-COUNT =["WK-IN-COUNT"]"
+      *-----------------------------------------------------------------
+             MOVE  WK-IN-COUNT
+               TO  HIT-KENSU            OF  PARM-SCZY4002-ARG2
+           ELSE
+      *----------  ヒット件数<-ZERO、返却データ初期化
+             INITIALIZE  PARM-SCZY4002-ARG2
+             MOVE  CNS-0
+               TO  HIT-KENSU            OF  PARM-SCZY4002-ARG2
+           END-IF
+      *******    連結障害対応No.0000487  20081113 修正  終了    ********
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":HIT-KENSU =["
+      D             HIT-KENSU           OF  PARM-SCZY4002-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":OUT-DATA =["PARM-SCZY4002-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-PGM-ID  OF  PARM-SCZY1170-IN=["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-POS  OF  PARM-SCZY1170-IN=["
+      D             ERR-POS             OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-IN=["
+      D             RTN-CD              OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD  OF  PARM-SCZY1170-IN"
+      D             "=["DETAIL-RTN-CD   OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":DETAIL-RTN-CD-FLG  OF"
+      D             "PARM-SCZY1170-IN=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":FREE-MSG  OF  PARM-SCZY1170-IN=["
+      D             FREE-MSG            OF  PARM-SCZY1170-IN"]"
+      D    DISPLAY  CNS-PGM-ID":****CALL  SCZY1170  START****"
+      *-----------------------------------------------------------------
+           CALL   "SCZY1170"
+           USING  PARM-SCZY1170-IN
+                  PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":****CALL  SCZY1170  END****"
+      *-----------------------------------------------------------------
+           MOVE  PARM-RTNPKG            TO  PARM-SCZY4002-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY4002-ARG3=["
+      D                          PARM-SCZY4002-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4002:エラー処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      *******    連結障害対応No.0000119  20081022 修正  開始    ********
+      ******************************************************************
+      *    バッチ用監査ログＩＮＳルーチン
+      ******************************************************************
+       SCZY7110-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** バッチ用監査ログＩＮＳルーチン START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY7110-AIFA-HEADER
+                       PARM-SCZY7110-INOUT
+                       PARM-RTNPKG
+      *----------  AIFA・共通ヘッダ項目
+           MOVE  WK-AIFA-HEADER         TO  PARM-SCZY7110-AIFA-HEADER
+      *----------  システム処理ID
+           MOVE  MENU-ID                OF  PARM-SCZY4002-ARG1
+             TO  SYS-SYORI-ID           OF  PARM-SCZY7110-INOUT
+      *----------  起動ID
+           MOVE  SPACE
+             TO  KIDOU-ID               OF  PARM-SCZY7110-INOUT
+      *----------  画面アクション区分
+           MOVE  GAMEN-ACT-KBN          OF  PARM-SCZY4002-ARG1
+             TO  GAMEN-ACT-KBN          OF  PARM-SCZY7110-INOUT
+      *----------  正常エラー区分
+           MOVE  CNS-NML-ERR-KBN-07
+             TO  NML-ERR-KBN            OF  PARM-SCZY7110-INOUT
+      *----------  課金用検索区分
+           MOVE  CNS-EE-KBN-NORMAL
+             TO  EE-SEARCH-KBN          OF  PARM-SCZY7110-INOUT
+      *----------  基準年月日1
+           MOVE  KZYN-YMD-FROM          OF  PARM-SCZY4002-ARG1
+             TO  KIJUN-YMD1             OF  PARM-SCZY7110-INOUT
+      *----------  基準年月日2
+           MOVE  KZYN-YMD-TO            OF  PARM-SCZY4002-ARG1
+             TO  KIJUN-YMD2             OF  PARM-SCZY7110-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  委託会社コード
+           MOVE  SPACE
+             TO  ITK-CMP-CD             OF  PARM-SCZY1100-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *----------  ファンドコード
+           MOVE  SPACE
+             TO  FND-CD                 OF  PARM-SCZY7110-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  開始    ********
+      *----------  銘柄コード
+           MOVE  SPACE
+             TO  MEG-CD                 OF  PARM-SCZY7110-INOUT
+      *******    連結障害対応No.0000211  20081209 修正  終了    ********
+      *----------  データ特定用ID
+           MOVE  GYOMU-TASK-ID          OF  PARM-SCZY4002-ARG1
+             TO  DATA-ID                OF  PARM-SCZY7110-INOUT
+      *----------  TXRX利用区分
+           MOVE  IN-HEAD(CNS-TXRX-POS:CNS-1)
+             TO  TXRX-KBN               OF  PARM-SCZY7110-INOUT
+      *----------  RXファンドコード
+           MOVE  WK-SQL-FUND-CD
+             TO  FUND-CD                OF  PARM-SCZY7110-INOUT
+      *----------  RXポートフォリオコード
+           MOVE  WK-SQL-PTF-CD
+             TO  PTF-CD                 OF  PARM-SCZY7110-INOUT
+      *----------  電文ID
+           MOVE  SPACE
+             TO  DENBUN-ID              OF  PARM-SCZY7110-INOUT
+      *----------  入力電文
+           MOVE  SPACE
+             TO  IN-DENBUN              OF  PARM-SCZY7110-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":AIFA・共通ヘッダ項目              =["
+      D             PARM-SCZY7110-AIFA-HEADER                  "]"
+      D    DISPLAY  CNS-PGM-ID":システム処理ID                    =["
+      D             SYS-SYORI-ID        OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":起動ID                            =["
+      D             KIDOU-ID            OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":画面アクション区分                =["
+      D             GAMEN-ACT-KBN       OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":正常エラー区分                    =["
+      D             NML-ERR-KBN         OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":課金用検索区分                    =["
+      D             EE-SEARCH-KBN       OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":基準年月日1                       =["
+      D             KIJUN-YMD1          OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":基準年月日2                       =["
+      D             KIJUN-YMD2          OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":委託会社コード                    =["
+      D             ITK-CMP-CD          OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":ファンドコード                    =["
+      D             FND-CD              OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":銘柄コード                        =["
+      D             MEG-CD              OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":データ特定用ID                    =["
+      D             DATA-ID             OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":TXRX利用区分                      =["
+      D             TXRX-KBN            OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":RXファンドコード                  =["
+      D             FUND-CD             OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":RXポートフォリオコード            =["
+      D             PTF-CD              OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":電文ID                            =["
+      D             DENBUN-ID           OF PARM-SCZY7110-INOUT  "]"
+      D    DISPLAY  CNS-PGM-ID":入力電文                          =["
+      D             IN-DENBUN           OF PARM-SCZY7110-INOUT  "]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY7110"             USING  PARM-SCZY7110-AIFA-HEADER
+                                               PARM-SCZY7110-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF SCZY7110                  =["
+      D    RTN-CD  OF PARM-RTNPKG(COUNTER   OF PARM-RTNPKG)"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG                          =["
+      D             PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF PARM-RTNPKG=["
+      D             COUNTER             OF  PARM-RTNPKG "]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD  OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG)
+            =  CNS-RTN-000
+           THEN
+             INITIALIZE  PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*****  バッチ用監査ログＩＮＳ 正常  *****"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*****  バッチ用監査ログＩＮＳ エラー  *****"
+      *-----------------------------------------------------------------
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-022
+               TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-901
+               TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  CNS-0
+               TO  DETAIL-RTN-CD        OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG    OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG             OF  PARM-SCZY1170-ARG1
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":*** バッチ用監査ログＩＮＳルーチン END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY7110-EXT.
+           EXIT.
+      *******    連結障害対応No.0000119  20081022 修正  終了    ********

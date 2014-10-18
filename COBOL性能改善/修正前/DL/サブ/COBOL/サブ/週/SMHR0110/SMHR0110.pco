@@ -1,0 +1,1559 @@
+      ******************************************************************
+      * $Header$
+      ******************************************************************
+      *
+      * システムＩＤ   : T-STAR
+      * システム名称   : 次期TSTARシステム
+      * プログラムＩＤ : SMHR0110
+      * プログラム名称 : 評価計算起動単体チェックルーチン
+      * 処理概要       : 電文情報より、処理実行を決めて、
+      *                  電文をチェックする
+      * 参照ＤＢ       : なし
+      * 引数           : IN  電文情報
+      *                  OUT バッチエラー詳細
+      *                  OUT スキップ区分
+      *                  OUT RTNパッケージ
+      *
+      * 改訂履歴
+      * 年月日     区分  所属       担当者  内容
+      * ---------- ----  ---------  ------  ----------------------------
+      * 20080617   新規  SCS        高偉    新規作成
+      * 20080710   修正  SCS        高偉    修正
+      * 20081114   修正  SCS       潘文佳 連結障害対応352,残タスク一覧91
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SMHR0110.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-06-12.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *        作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *                 コンスタント  エリア
+      ******************************************************************
+      *----------  共通コンスタント定義の宣言
+       01  CONSTANT-AREA.
+         05  CNS-MHCNS.
+           COPY  "MHCNS.cpy".
+      *----------  プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SMHR0110".
+      *----------  その他
+         05  CNS-MAINASU           PIC  X(01)  VALUE  "-".
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  Ｏ３Ｗ定義自動チェックルーチン
+      *-----  サブルーチンＩＦ項目
+       01  AIFA-HDR.
+           COPY  "WOMCMAIFA.CPY".
+       01  USER-ATTR-HDR.
+           COPY  "CZCOMMONHEADER.cpy".
+      *----- 入出力パラメータ
+       01  SMHR0102-ARG-IN.
+           COPY  "INMMHR0110_COBOL.cpy".
+       01  SMHR0102-ARG-OUT.
+           COPY  "SMHR0102.cpy".
+      *----------  評価計算起動単項目チェックルーチン
+       01  PARM-SMHR0101-INOUT.
+           COPY  "SMHR0101.cpy".
+      *----------  RTNパッケージコピー句
+       01  PARM-RTNPKG.
+         05  PARM-RTNPKG-ARG.
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-IN.
+           COPY  "SCZY1170.cpy".
+      ******************************************************************
+      *                ワ－ク  エリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  ワークCOUNT
+         05  WK-COUNT              PIC  9(03).
+      *----------  ワークスキップ区分
+         05  WK-SKIP-KBN           PIC  X(01).
+      *----------  ワーク電文
+         05  WK-DENBUN             PIC  X(40960).
+      *----------  ワークメッセージエリア
+         05  WK-MSG-AREA.
+           10  WK-MESSAGE-AREA  OCCURS  999.
+      *---------- ワークファンドコード
+             15  WK-FUND-CD        PIC  X(12).
+      *---------- ワークポートフォリオコード
+             15  WK-PTF-CD         PIC  X(04).
+      *---------- ワーク評価系列コード
+             15  WK-HYK-KRTU-CD    PIC  X(04).
+      *---------- ワーク帳票ID
+             15  WK-REP-ID         PIC  X(08).
+      *---------- ワーク帳票任意コード
+             15  WK-REP-ANY-CD     PIC  X(50).
+      *---------- ワーク基準日From
+             15  WK-KJN-YMD-FROM   PIC  X(08).
+      *---------- ワーク基準日To
+             15  WK-KJN-YMD-TO     PIC  X(08).
+      *---------- ワークメッセージID
+             15  WK-MSG-ID         PIC  X(07).
+      *---------- ワーク置換文字
+             15  WK-TIKAN-MOJI.
+               20 TK-MOJI    OCCURS  5
+                                   PIC  X(30).
+      *---------- ワークフリーメッセージ
+             15  WK-FREE-MSG       PIC  X(200).
+      *---------- ワークAPL終了ステータス
+         05  WK-APL-STATUS         PIC  X(01).
+      *---------- ワークメッセージID
+         05  WK-ERR-MSG-ID         PIC  X(07).
+      *---------- 数目
+         05  WK-IDX                PIC  9(06).
+      *---------- ワーク置換文字
+         05  WK-TK-MOJI.
+           10 TIKAN-MOJI     OCCURS  5
+                                   PIC  X(30).
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SMHR0110-ARG1.
+      *----------  受信データ
+         05  AIFA-IN.
+             COPY  "WOMCMAIFA.CPY".
+      *----------  共通ヘッダ
+         05  HEADER-IN.
+             COPY  "CZCOMMONHEADER.cpy".
+      *----------  上り電文
+         05  DATA-IN.
+             COPY  "INMMHR0110_COBOL.cpy".
+       01  PARM-SMHR0110-OUT.
+           COPY  "SMHR0110.cpy".
+       01  PARM-SMHR0110-RTNPKG.
+         05  PARM-SMHR0110-ARG4.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SMHR0110-ARG1
+                  PARM-SMHR0110-OUT
+                  PARM-SMHR0110-RTNPKG.
+      ******************************************************************
+      *                 主処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  SMHR0110処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *----------  3.4 エラー処理
+           PERFORM  ERR-RTN
+           CONTINUE.
+       BASE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.1 前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           PERFORM  INITIALIZE-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *****  前処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.1 初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  初期化処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE     WORK-AREA
+                          SMHR0102-ARG-IN
+                          SMHR0102-ARG-OUT
+                          PARM-SMHR0101-INOUT
+                          PARM-RTNPKG
+                          PARM-SMHR0110-ARG4
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": WORK-AREA           =["WORK-AREA"]"
+      D    DISPLAY CNS-PGM-ID": SMHR0102-ARG-IN     =["
+      D            SMHR0102-ARG-IN"]"
+      D    DISPLAY CNS-PGM-ID": SMHR0102-ARG-OUT    =["
+      D            SMHR0102-ARG-OUT"]"
+      D    DISPLAY CNS-PGM-ID": PARM-SMHR0101-INOUT =["
+      D            PARM-SMHR0101-INOUT"]"
+      D    DISPLAY CNS-PGM-ID": PARM-RTNPKG         =["
+      D            PARM-RTNPKG"]"
+      D    DISPLAY CNS-PGM-ID": PARM-SMHR0110-ARG4  =["
+      D            PARM-SMHR0110-ARG4"]"
+      D    DISPLAY CNS-PGM-ID": ***  初期化処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.2 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *****  主処理  START  *****"
+      *-----------------------------------------------------------------
+      *---------- 3.2.1. Ｏ３Ｗ定義自動チェック
+           PERFORM  O3W-CHECK-RTN
+      *---------- 3.2.2. 単項目チェック
+           PERFORM  PROGRAM-CHECK-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  主処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *     3.2.1. Ｏ３Ｗ定義自動チェック
+      ******************************************************************
+       O3W-CHECK-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  Ｏ３Ｗ定義自動チェック  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  AIFA-HDR
+                       USER-ATTR-HDR
+                       SMHR0102-ARG-IN
+                       SMHR0102-ARG-OUT
+                       PARM-RTNPKG
+      *---------- 入力パラメータ
+           MOVE  AIFA-IN                OF    PARM-SMHR0110-ARG1
+             TO  AIFA-HDR
+           MOVE  HEADER-IN              OF    PARM-SMHR0110-ARG1
+             TO  USER-ATTR-HDR
+           MOVE  DATA-IN                OF    PARM-SMHR0110-ARG1
+             TO  SMHR0102-ARG-IN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":AIFA-HDR           =["
+      D             AIFA-HDR"]"
+      D    DISPLAY  CNS-PGM-ID":USER-ATTR-HDR      =["
+      D             USER-ATTR-HDR"]"
+      D    DISPLAY  CNS-PGM-ID":SMHR0102-ARG-IN    =["
+      D             SMHR0102-ARG-IN"]"
+      D    DISPLAY  CNS-PGM-ID":基準日FROM        =["
+      D             I-KJN-FR-YMD        OF  SMHR0102-ARG-IN"]"
+      D    DISPLAY  CNS-PGM-ID":基準日TO          =["
+      D             I-KJN-TO-YMD        OF  SMHR0102-ARG-IN"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオALL指定区分        =["
+      D             I-PTF-SYORI-KBN     OF  SMHR0102-ARG-IN"]"
+      D    DISPLAY  CNS-PGM-ID":評価系列区分        =["
+      D             I-HYK-SYORI-KBN     OF  SMHR0102-ARG-IN"]"
+      D    DISPLAY  CNS-PGM-ID":***  CALL SMHR0102 START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SMHR0102"             USING  AIFA-HDR
+                                               USER-ATTR-HDR
+                                               SMHR0102-ARG-IN
+                                               SMHR0102-ARG-OUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SMHR0102  END  ***"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SMHR0102)       =["
+      D              RTN-CD             OF  SMHR0102-ARG-OUT"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD             OF  SMHR0102-ARG-OUT
+      *----------  正常
+             WHEN  CNS-X-0
+      *----------  スキップ区分(続行)
+               MOVE  CNS-X-0
+                 TO  SKIP-KBN           OF  PARM-SMHR0110-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":スキップ区分(続行)         =["
+      D             SKIP-KBN            OF  PARM-SMHR0110-ARG3"]"
+      *-----------------------------------------------------------------
+      *----------  ワーニング
+             WHEN  CNS-X-1
+      *----------  エラー
+             WHEN  CNS-X-9
+      *----------  スキップ区分(Ｏ３Ｗチェックスキップ)
+               MOVE  CNS-X-1
+                 TO  SKIP-KBN           OF  PARM-SMHR0110-ARG3
+      *----------  ARG2.バッチエラー詳細 ←
+      *---------- 【SMHR0102】返されたARG3.BTメッセージエリア
+               MOVE  SMHR0102-BT-OUT    OF  SMHR0102-ARG-OUT
+                 TO  SMHR0110-BT-OUT    OF  PARM-SMHR0110-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":スキップ区分(Ｏ３Ｗチェックスキップ) =["
+      D             SKIP-KBN            OF  PARM-SMHR0110-ARG3"]"
+      D    DISPLAY  CNS-PGM-ID":ARG2.バッチエラー詳細      =["
+      D             SMHR0110-BT-OUT    OF  PARM-SMHR0110-ARG2"]"
+      *-----------------------------------------------------------------
+      *----------  後処理へ
+               PERFORM  END-RTN
+      *----------  上記以外
+             WHEN OTHER
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-001
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-901
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  ZERO
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  ワークAPL終了ステータス
+               MOVE  CNS-RTN-SPP6       TO  WK-APL-STATUS
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":Ｏ３Ｗ定義自動チェックエラー"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ワークAPL終了ステータス  =["
+      D             WK-APL-STATUS"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  Ｏ３Ｗ定義自動チェック  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       O3W-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *     3.2.2. 単項目チェック
+      ******************************************************************
+       PROGRAM-CHECK-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  単項目チェック  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SMHR0101-INOUT
+                       PARM-RTNPKG
+      *----------  基準日FROM
+           MOVE  I-KJN-FR-YMD           OF  PARM-SMHR0110-ARG1
+             TO  I-KJN-FR-YMD           OF  PARM-SMHR0101-ARG1
+      *----------  基準日TO
+           MOVE  I-KJN-TO-YMD           OF  PARM-SMHR0110-ARG1
+             TO  I-KJN-TO-YMD           OF  PARM-SMHR0101-ARG1
+      *----------  ポートフォリオALL指定区分
+           MOVE  I-PTF-SYORI-KBN        OF  PARM-SMHR0110-ARG1
+             TO  I-PTF-SYORI-KBN        OF  PARM-SMHR0101-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":基準日FROM        =["
+      D             I-KJN-FR-YMD        OF  PARM-SMHR0101-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":基準日TO          =["
+      D             I-KJN-TO-YMD        OF  PARM-SMHR0101-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオALL指定区分        =["
+      D             I-PTF-SYORI-KBN     OF  PARM-SMHR0101-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  ポートフォリオ
+           PERFORM  VARYING  WK-IDX  FROM  CNS-1  BY  CNS-1
+           UNTIL WK-IDX  >  CNS-10
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ区分        =["
+      D             I-FUND-PTF-KBN      OF PARM-SMHR0110-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *      IF  I-FUND-PTF-KBN         OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+      *          = CNS-1                                                20081114
+      *      THEN                                                       20081114
+      *        MOVE  I-FUND-CD          OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+      *          TO  I-FUND-PTF-CD      OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+      *      ELSE                                                       20081114
+      *        CONTINUE                                                 20081114
+      *      END-IF                                                     20081114
+      *      IF  I-FUND-PTF-KBN         OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+      *          = CNS-2                                                20081114
+      *      THEN                                                       20081114
+      *        STRING  I-FUND-CD        OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+      *                CNS-MAINASU                                      20081114
+      *                I-PTF-CD         OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+      *                DELIMITED BY SIZE                                20081114
+      *                INTO                                             20081114
+      *                I-FUND-PTF-CD    OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+      *      ELSE                                                       20081114
+      *        CONTINUE                                                 20081114
+      *      END-IF                                                     20081114
+             MOVE  I-FUND-PTF-KBN       OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+               TO  I-FUND-PTF-KBN       OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+             MOVE  I-FUND-CD            OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+               TO  I-FUND-CD            OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+             MOVE  I-PTF-CD             OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+               TO  I-PTF-CD             OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ区分    =["               20081114
+      D             I-FUND-PTF-KBN      OF PARM-SMHR0101-ARG1(WK-IDX)"]"20081114
+      D    DISPLAY  CNS-PGM-ID":ファンド/ポートフォリオグループ  =["    20081114
+      D             I-FUND-CD           OF PARM-SMHR0101-ARG1(WK-IDX)"]"20081114
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ        =["
+      D             I-PTF-CD            OF PARM-SMHR0101-ARG1(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *----------  評価系列区分
+           MOVE  I-HYK-SYORI-KBN        OF  PARM-SMHR0110-ARG1
+             TO  I-HYK-SYORI-KBN        OF  PARM-SMHR0101-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":評価系列区分        =["
+      D             I-HYK-SYORI-KBN     OF  PARM-SMHR0101-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  評価系列コード
+           PERFORM  VARYING  WK-IDX  FROM  CNS-1  BY  CNS-1
+           UNTIL WK-IDX  >  CNS-10
+           MOVE  I-HYK-KRTU-CD          OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-HYK-KRTU-CD          OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":評価系列コード        =["
+      D             I-HYK-KRTU-CD       OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+           PERFORM  VARYING  WK-IDX  FROM  CNS-1  BY  CNS-1
+           UNTIL WK-IDX  >  CNS-10
+      *----------  証券種別除外区分
+           MOVE  I-SEC-SBT-CD-FLG       OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-SEC-SBT-CD-FLG       OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":証券種別除外区分        =["
+      D             I-SEC-SBT-CD-FLG    OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  証券種別
+           MOVE  I-SEC-SBT-CD           OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-SEC-SBT-CD           OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":証券種別        =["
+      D             I-SEC-SBT-CD        OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  銘柄通貨区分除外区分
+           MOVE  I-MEG-TUKA-CD-FLG      OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-MEG-TUKA-CD-FLG      OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":銘柄通貨区分除外区分        =["
+      D             I-MEG-TUKA-CD-FLG   OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  銘柄通貨
+           MOVE  I-MEG-TUKA-CD          OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-MEG-TUKA-CD          OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":銘柄通貨        =["
+      D             I-MEG-TUKA-CD       OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  発行国区分除外区分
+           MOVE  I-HAKO-CD-FLG          OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-HAKO-CD-FLG          OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":発行国区分除外区分        =["
+      D             I-HAKO-CD-FLG       OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  発行国
+           MOVE  I-HAKO-CD              OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-HAKO-CD              OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":発行国        =["
+      D             I-HAKO-CD           OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  投資対象国区分除外区分
+           MOVE  I-TSTSK-CD-FLG         OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-TSTSK-CD-FLG         OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":投資対象国区分除外区分        =["
+      D             I-TSTSK-CD-FLG      OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  投資対象国
+           MOVE  I-TSTSK-CD             OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-TSTSK-CD             OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":投資対象国        =["
+      D             I-TSTSK-CD          OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  外部銘柄区分
+           MOVE  I-GAIBU-MEG-CD-FLG     OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-GAIBU-MEG-CD-FLG     OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":外部銘柄区分        =["
+      D             I-GAIBU-MEG-CD-FLG  OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  銘柄
+           MOVE  I-GAIBU-MEG-CD         OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-GAIBU-MEG-CD         OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":銘柄        =["
+      D             I-GAIBU-MEG-CD      OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  株式種別
+           MOVE  I-KABU-SBT             OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-KABU-SBT             OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":株式種別        =["
+      D             I-KABU-SBT          OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  回
+           MOVE  I-KAYI                 OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-KAYI                 OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":回        =["
+      D             I-KAYI              OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  号
+           MOVE  I-GOU                  OF  PARM-SMHR0110-ARG1(WK-IDX)
+             TO  I-GOU                  OF  PARM-SMHR0101-ARG1(WK-IDX)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":号        =["
+      D             I-GOU               OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  限月
+           IF  I-GENGETSU-X             OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+            =  SPACE                                                    20081114
+           THEN                                                         20081114
+             MOVE  ZERO                                                 20081114
+               TO  I-GENGETSU           OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+           ELSE                                                         20081114
+             MOVE  I-GENGETSU           OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+               TO  I-GENGETSU           OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+           END-IF                                                       20081114
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":限月        =["
+      D             I-GENGETSU          OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  ストライクプライス
+           IF  I-STRIKEPRICE-X          OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+            =  SPACE                                                    20081114
+           THEN                                                         20081114
+             MOVE  ZERO                                                 20081114
+               TO  I-STRIKEPRICE        OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+           ELSE                                                         20081114
+             MOVE  I-STRIKEPRICE        OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+               TO  I-STRIKEPRICE        OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+           END-IF                                                       20081114
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ストライクプライス        =["
+      D             I-STRIKEPRICE       OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+      *----------  満期日
+           IF  I-MNK-YMD                OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+            =  SPACE                                                    20081114
+           THEN                                                         20081114
+             MOVE  ZERO                                                 20081114
+               TO  I-MNK-YMD            OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+           ELSE                                                         20081114
+             MOVE  I-MNK-YMD            OF  PARM-SMHR0110-ARG1(WK-IDX)  20081114
+               TO  I-MNK-YMD            OF  PARM-SMHR0101-ARG1(WK-IDX)  20081114
+           END-IF                                                       20081114
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":満期日        =["
+      D             I-MNK-YMD           OF PARM-SMHR0101-ARG1(WK-IDX)"]"
+      *-----------------------------------------------------------------
+           END-PERFORM
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  CALL SMHR0101 START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SMHR0101"             USING  PARM-SMHR0101-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SMHR0101  END  ***"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SMHR0101)       =["
+      D             RTN-CD OF PARM-RTNPKG(COUNTER OF PARM-RTNPKG) "]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF  PARM-RTNPKG=["
+      D             COUNTER             OF PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD  OF  PARM-RTNPKG(COUNTER  OF  PARM-RTNPKG)
+      *----------  正常
+             WHEN  CNS-RTN-000
+      *----------  スキップ区分(続行)
+               MOVE  CNS-X-0
+                 TO  SKIP-KBN           OF  PARM-SMHR0110-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":スキップ区分(続行)        =["
+      D             SKIP-KBN            OF  PARM-SMHR0110-ARG3"]"
+      *-----------------------------------------------------------------
+      *----------  正常
+             WHEN  CNS-RTN-800
+      *----------  スキップ区分(単項目チェックスキップ)
+               MOVE  CNS-X-2
+                 TO  SKIP-KBN           OF  PARM-SMHR0110-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":スキップ区分(単項目チェックスキップ) =["
+      D             SKIP-KBN            OF  PARM-SMHR0110-ARG3"]"
+      *-----------------------------------------------------------------
+      *----------  単項目チェックスキップ
+               PERFORM  PROGRAM1-CHECK-RTN
+      *----------  上記以外
+             WHEN OTHER
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-002
+                 TO  ERR-POS            OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-901
+                 TO  RTN-CD             OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  ZERO
+                 TO  DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1
+      *---------- フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG           OF  PARM-SCZY1170-ARG1
+      *----------  ワークAPL終了ステータス
+               MOVE  CNS-RTN-SPP6       TO  WK-APL-STATUS
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":単項目チェックエラー"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID          OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG            OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ワークAPL終了ステータス  =["
+      D             WK-APL-STATUS"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  単項目チェック  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PROGRAM-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *     単項目チェックスキップ
+      ******************************************************************
+       PROGRAM1-CHECK-RTN     SECTION.
+      *---------- 1.「SMHR0101」のARG2.基準日TOERRFLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":「SMHR0101」のARG2.基準日TOERRFLG=["
+      D             OE-KJN-TO-YMD-ERRFLG  OF  PARM-SMHR0101-ARG2"]"
+      *-----------------------------------------------------------------
+           IF  OE-KJN-TO-YMD-ERRFLG     OF  PARM-SMHR0101-ARG2
+               =  CNS-1
+           THEN
+      *----------  ワークメッセージID ← 'E000257'
+             MOVE  CNS-MSG-E000257      TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字1 ← '基準日TO'
+             MOVE  CNS-KJN-TO-YMD
+               TO  TIKAN-MOJI           OF  WK-TK-MOJI(CNS-1)
+      *----------  ワーク置換文字2←'基準日FROM'
+             MOVE  CNS-KJN-FR-YMD
+               TO  TIKAN-MOJI           OF  WK-TK-MOJI(CNS-2)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             "「SMHR0101」のARG2.基準日TOERRFLG＝1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["
+      D             WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字1             =["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字2             =["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-2)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+             PERFORM  WK-BTERR-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *---------- 2-0. 「SMHR0101」のARG2.ポートフォリ個別指定フラグ    20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D    ":「SMHR0101」のARG2.ポートフォリ個別指定フラグ  =["         20081114
+      D            OE-ALL-PF-FLG-ERRFLG OF  PARM-SMHR0101-ARG2"]"       20081114
+      *-----------------------------------------------------------------20081114
+           IF  OE-ALL-PF-FLG-ERRFLG     OF  PARM-SMHR0101-ARG2          20081114
+             NOT  =  CNS-0                                              20081114
+           THEN                                                         20081114
+      *----------  ワークメッセージID ← 'E000130'                      20081114
+             MOVE  CNS-MSG-E000130      TO  WK-ERR-MSG-ID               20081114
+      *----------  ワーク置換文字 ← 'ポートフォリオ処理区分'           20081114
+             MOVE  CNS-PTF-SYORI-KBN                                    20081114
+               TO  TIKAN-MOJI           OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.ポートフォリ個別指定フラグ"    20081114
+      D             "<>0の場合"                                         20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+             PERFORM  WK-BTERR-RTN                                      20081114
+           ELSE                                                         20081114
+             CONTINUE                                                   20081114
+           END-IF                                                       20081114
+      *---------- 2. 「SMHR0101」のARG2ポートフォリオグループERRFLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D    ":「SMHR0101」のARG2.ポートフォリオグループERRFLG=["
+      D             OE-KB-PF-GRP-ERRFLG  OF  PARM-SMHR0101-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D    ":「SMHR0101」のARG1.ポートフォリ個別指定        =["         20081114
+      D             I-PTF-SYORI-KBN     OF PARM-SMHR0101-ARG1"]"        20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D    ":「SMHR0101」のARG1.ポートフォリオグループリスト=["         20081114
+      D             I-FUND-PTF-LST      OF PARM-SMHR0101-ARG1"]"        20081114
+      *-----------------------------------------------------------------
+           IF  OE-KB-PF-GRP-ERRFLG      OF  PARM-SMHR0101-ARG2
+               =  CNS-1
+           THEN
+             IF  I-PTF-SYORI-KBN        OF PARM-SMHR0101-ARG1 = CNS-X-1 20081114
+             THEN                                                       20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D            ":「SMHR0101」のARG2.ポートフォリオグループERRFLG＝1"20081114
+      D             " 且つ ARG1.ポートフォリ個別指定＝'1'"              20081114
+      D             "(個別指定（最大10個）)の場合"                      20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ARG1．ポートフォリオグループリスト　＝ SPACE の場合  20081114
+               IF  I-FUND-PTF-LST       OF  PARM-SMHR0101-ARG1 = SPACE  20081114
+               THEN                                                     20081114
+      *----------  ワークメッセージID ← 'E000133'
+                 MOVE  CNS-MSG-E000133  TO  WK-ERR-MSG-ID               20081114
+      *----------  ワーク置換文字 ← 'ポートフォリオ'
+                 MOVE  CNS-FUND-PTF                                     20081114
+                   TO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1．ポートフォリオグループリスト" 20081114
+      D             "　＝ SPACEの場合"                                  20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                 PERFORM  WK-BTERR-RTN                                  20081114
+               ELSE                                                     20081114
+                 PERFORM  VARYING  WK-IDX  FROM  CNS-1  BY  CNS-1       20081114
+                 UNTIL  WK-IDX  >  CNS-10                               20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1．ポートフォリオ区分    =["     20081114
+      D             I-FUND-PTF-KBN      OF PARM-SMHR0101-ARG1(WK-IDX)"]"20081114
+      D    DISPLAY  CNS-PGM-ID ":「SMHR0101」のARG1．"                  20081114
+      D             "ファンド/ポートフォリオグループ  =["               20081114
+      D             I-FUND-CD           OF PARM-SMHR0101-ARG1(WK-IDX)"]"20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1．ポートフォリオ        =["     20081114
+      D             I-PTF-CD            OF PARM-SMHR0101-ARG1(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+                   EVALUATE I-FUND-PTF-KBN OF PARM-SMHR0101-ARG1(WK-IDX)20081114
+      *----------  ARG1.ポートフォリオ区分（ワークINDEX）＝SPACE の場合 20081114
+                   WHEN  SPACE                                          20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ポートフォリオ区分"            20081114
+      D             "("WK-IDX")＝SPACEの場合"                           20081114
+      *-----------------------------------------------------------------20081114
+                     IF  I-FUND-CD  OF  PARM-SMHR0101-ARG1(WK-IDX)      20081114
+                         NOT = SPACE                                    20081114
+                       OR I-PTF-CD  OF  PARM-SMHR0101-ARG1(WK-IDX)      20081114
+                         NOT = SPACE                                    20081114
+                     THEN                                               20081114
+      *----------  ワークメッセージID ← 'E000130'                      20081114
+                       MOVE  CNS-MSG-E000130   TO  WK-ERR-MSG-ID        20081114
+      *----------  ワーク置換文字　←　'ポートフォリオ区分' +           20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                       STRING  CNS-FUND-PTF-KBN,"(",WK-IDX,")"          20081114
+                       DELIMITED BY SIZE                                20081114
+                         INTO  TIKAN-MOJI      OF  WK-TK-MOJI(CNS-1)    20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D            ":「SMHR0101」のARG1.ファンド/ポートフォリオグループ"20081114
+      D             "("WK-IDX")<>SPACE   又は　ARG1.ポートフォリオ"     20081114
+      D             "("WK-IDX")<>SPACEの場合"                           20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                       PERFORM  WK-BTERR-RTN                            20081114
+                     ELSE                                               20081114
+                       CONTINUE                                         20081114
+                     END-IF                                             20081114
+      *----------  ARG1.ポートフォリオ区分（ワークINDEX）＝'1' の場合   20081114
+                   WHEN  CNS-X-1                                        20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ポートフォリオ区分"            20081114
+      D             "("WK-IDX")＝'1'の場合"                             20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ARG1.ファンド/ポートフォリオグループ                 20081114
+      *----------  （ワークINDEX）(9:4)≠SPACE の場合                   20081114
+                     IF  I-FUND-CD   OF PARM-SMHR0101-ARG1(WK-IDX)(9:4) 20081114
+                       NOT = SPACE                                      20081114
+                     THEN                                               20081114
+      *----------  ワークメッセージID ← 'E000130'                      20081114
+                       MOVE  CNS-MSG-E000130   TO  WK-ERR-MSG-ID        20081114
+      *----------  ワーク置換文字　←　'ポートフォリオグループ' +       20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                       STRING  CNS-PTF-GRP,"(",WK-IDX,")"               20081114
+                       DELIMITED BY SIZE                                20081114
+                         INTO  TIKAN-MOJI      OF  WK-TK-MOJI(CNS-1)    20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ファンド/ポートフォリオ"       20081114
+      D             "グループ("WK-IDX")(9:4)≠SPACEの場合"              20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                       PERFORM  WK-BTERR-RTN                            20081114
+                     ELSE                                               20081114
+                       CONTINUE                                         20081114
+                     END-IF                                             20081114
+      *----------  ARG1.ファンド/ポートフォリオグループ                 20081114
+      *----------  （ワークINDEX）(1:8)＝SPACE の場合                   20081114
+                     IF  I-FUND-CD   OF PARM-SMHR0101-ARG1(WK-IDX)(1:8) 20081114
+                         = SPACE                                        20081114
+                     THEN                                               20081114
+      *----------  ワークメッセージID ← 'E000133'                      20081114
+                       MOVE  CNS-MSG-E000133     TO  WK-ERR-MSG-ID      20081114
+      *----------  ワーク置換文字　←　'ポートフォリオグループ' +       20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                       STRING  CNS-PTF-GRP,"(",WK-IDX,")"               20081114
+                       DELIMITED BY SIZE                                20081114
+                         INTO  TIKAN-MOJI         OF  WK-TK-MOJI(CNS-1) 20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ファンド/ポートフォリオ"       20081114
+      D             "グループ("WK-IDX")(1:8)＝SPACEの場合"              20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                       PERFORM  WK-BTERR-RTN                            20081114
+                     ELSE                                               20081114
+                       CONTINUE                                         20081114
+                     END-IF                                             20081114
+      *----------  ARG1.ポートフォリオ（ワークINDEX）≠SPACE の場合     20081114
+                     IF  I-PTF-CD     OF PARM-SMHR0101-ARG1(WK-IDX)     20081114
+                       NOT = SPACE                                      20081114
+                     THEN                                               20081114
+      *----------  ワークメッセージID ← 'E000130'                      20081114
+                       MOVE  CNS-MSG-E000130     TO  WK-ERR-MSG-ID      20081114
+      *----------  ワーク置換文字　←　'ポートフォリオ' +               20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                       STRING  CNS-PTF,"(",WK-IDX,")"                   20081114
+                       DELIMITED BY SIZE                                20081114
+                         INTO  TIKAN-MOJI         OF  WK-TK-MOJI(CNS-1) 20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ポートフォリオ"                20081114
+      D             "("WK-IDX")≠SPACEの場合"                           20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                       PERFORM  WK-BTERR-RTN                            20081114
+                     ELSE                                               20081114
+                       CONTINUE                                         20081114
+                     END-IF                                             20081114
+      *----------  ARG1.ポートフォリオ区分（ワークINDEX）＝'2' の場合   20081114
+                   WHEN  CNS-X-2                                        20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ポートフォリオ区分"            20081114
+      D             "("WK-IDX")＝'2'の場合"                             20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ARG1.ファンド/ポートフォリオグループ                 20081114
+      *----------  （ワークINDEX）＝SPACE の場合                        20081114
+                     IF  I-FUND-CD     OF PARM-SMHR0101-ARG1(WK-IDX)    20081114
+                         = SPACE                                        20081114
+                     THEN                                               20081114
+      *----------  ワークメッセージID ← 'E000133'                      20081114
+                       MOVE  CNS-MSG-E000133     TO  WK-ERR-MSG-ID      20081114
+      *----------  ワーク置換文字　←　'ファンド' +                     20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                       STRING  CNS-FND,"(",WK-IDX,")"                   20081114
+                       DELIMITED BY SIZE                                20081114
+                         INTO  TIKAN-MOJI         OF  WK-TK-MOJI(CNS-1) 20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ファンド/ポートフォリオ"       20081114
+      D             "グループ("WK-IDX")＝SPACEの場合"                   20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                       PERFORM  WK-BTERR-RTN                            20081114
+                     ELSE                                               20081114
+                       CONTINUE                                         20081114
+                     END-IF                                             20081114
+      *----------  ARG1.ポートフォリオ（ワークINDEX）＝SPACE の場合     20081114
+                     IF  I-PTF-CD     OF PARM-SMHR0101-ARG1(WK-IDX)     20081114
+                       = SPACE                                          20081114
+                     THEN                                               20081114
+      *----------  ワークメッセージID ← 'E000133'                      20081114
+                       MOVE  CNS-MSG-E000133     TO  WK-ERR-MSG-ID      20081114
+      *----------  ワーク置換文字　←　'ポートフォリオ' +               20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                       STRING  CNS-PTF,"(",WK-IDX,")"                   20081114
+                       DELIMITED BY SIZE                                20081114
+                         INTO  TIKAN-MOJI        OF  WK-TK-MOJI(CNS-1)  20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ポートフォリオ"                20081114
+      D             "("WK-IDX")＝SPACEの場合"                           20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                       PERFORM  WK-BTERR-RTN                            20081114
+                     ELSE                                               20081114
+                       CONTINUE                                         20081114
+                     END-IF                                             20081114
+                   WHEN  OTHER                                          20081114
+      *----------  ワークメッセージID ← 'E000130'                      20081114
+                     MOVE  CNS-MSG-E000130      TO  WK-ERR-MSG-ID       20081114
+      *----------  ワーク置換文字　←　'ポートフォリオ区分' +           20081114
+      *----------  '(' + ワークINDEX + ')'                              20081114
+                     STRING  CNS-FUND-PTF-KBN,"(",WK-IDX,")"            20081114
+                     DELIMITED BY SIZE                                  20081114
+                       INTO  TIKAN-MOJI         OF  WK-TK-MOJI(CNS-1)   20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG1.ポートフォリオ区分"            20081114
+      D             "("WK-IDX")＝1,2以外の場合"                         20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["         20081114
+      D             WK-ERR-MSG-ID"]"                                    20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["         20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+                     PERFORM  WK-BTERR-RTN                              20081114
+                   END-EVALUATE                                         20081114
+                 END-PERFORM                                            20081114
+               END-IF                                                   20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+           ELSE                                                         20081114
+             CONTINUE                                                   20081114
+           END-IF                                                       20081114
+      *---------- 3-0. 「SMHR0101」のARG2.評価系列個別指定フラグ        20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.評価系列個別指定フラグ=["      20081114
+      D          OE-ALL-HYK-FLG-ERRFLG  OF  PARM-SMHR0101-ARG2"]"       20081114
+      *-----------------------------------------------------------------20081114
+           IF  OE-ALL-HYK-FLG-ERRFLG    OF  PARM-SMHR0101-ARG2          20081114
+             NOT  =  CNS-0                                              20081114
+           THEN                                                         20081114
+      *----------  ワークメッセージID ← 'E000130'                      20081114
+             MOVE  CNS-MSG-E000130      TO  WK-ERR-MSG-ID               20081114
+      *----------  ワーク置換文字 ← '評価系列処理区分'                 20081114
+             MOVE  CNS-HYK-KRTU-SYORI-KBN                               20081114
+               TO  TIKAN-MOJI           OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D            ":「SMHR0101」のARG2.評価系列個別指定フラグ<>0の場合"20081114
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["
+      D             WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+             PERFORM  WK-BTERR-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *---------- 3. 「SMHR0101」のARG2.評価系列ERRFLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.評価系列ERRFLG=["
+      D             OE-KB-HYK-ERRFLG    OF  PARM-SMHR0101-ARG2"]"
+      *-----------------------------------------------------------------
+           IF  OE-KB-HYK-ERRFLG         OF  PARM-SMHR0101-ARG2
+               =  CNS-1
+           THEN
+      *----------  ワークメッセージID ← 'E000133'
+             MOVE  CNS-MSG-E000133      TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字 ← '評価系列'
+             MOVE  CNS-HYK-KRTU
+               TO  TIKAN-MOJI           OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             "「SMHR0101」のARG2.個別指定-評価系列ERRFLG=1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークエラーメッセージID    =["
+      D             WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字              =["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+             PERFORM  WK-BTERR-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *---------- 4. 銘柄指定に1から10まで銘柄指定をチェック
+           PERFORM  VARYING  WK-IDX  FROM  CNS-1  BY  CNS-1
+           UNTIL  WK-IDX  >  CNS-10
+      *----------「SMHR0101」のARG2.証券種別区分フラグ(ワークINDEX)     20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.証券種別区分フラグ("WK-IDX")=["20081114
+      D             OE-SEC-SBT-CD-FLG-ERRFLG                            20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+             IF  OE-SEC-SBT-CD-FLG-ERRFLG                               20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-1                                               20081114
+             THEN                                                       20081114
+      *---------- ワークメッセージID ← 'E000130'                       20081114
+               MOVE  CNS-MSG-E000130    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '証券種別除外'+ワークINDEX          20081114
+               STRING  CNS-SEC-SBT-EX-KBN,"(",WK-IDX,")"                20081114
+               DELIMITED BY SIZE                                        20081114
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D            ":「SMHR0101」のARG2.証券種別区分フラグ(ワークINDEX)"20081114
+      D             "＝1の場合"                                         20081114
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["                       20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+               PERFORM  WK-BTERR-RTN                                    20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+      *----------「SMHR0101」のARG2.証券種別ERRFLG(ワークINDEX)＝1の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.証券種別ERRFLG("WK-IDX")=["
+      D             OE-SEC-SBT-CD-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      *-----------------------------------------------------------------
+             IF  OE-SEC-SBT-CD-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+             THEN
+      *---------- ワークメッセージID ← 'E000133'
+               MOVE  CNS-MSG-E000133    TO  WK-ERR-MSG-ID
+      *---------- ワーク置換文字 ← '証券種別'+ワークINDEX
+               STRING  CNS-SEC-SBT,"(",WK-IDX,")"                       20081114
+               DELIMITED BY SIZE
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             "「SMHR0101」のARG2.証券種別ERRFLG(ワークINDEX)"
+      D             "＝1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+               PERFORM  WK-BTERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+      *----------「SMHR0101」のARG2.銘柄通貨区分フラグ(ワークINDEX)     20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.銘柄通貨区分フラグ("WK-IDX")=["20081114
+      D             OE-MEG-TUKA-CD-FLG-ERRFLG                           20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+             IF  OE-MEG-TUKA-CD-FLG-ERRFLG                              20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-1                                               20081114
+             THEN                                                       20081114
+      *---------- ワークメッセージID ← 'E000130'                       20081114
+               MOVE  CNS-MSG-E000130    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '銘柄通貨除外'+ワークINDEX          20081114
+               STRING  CNS-MEG-TUKA-EX-KBN,"(",WK-IDX,")"               20081114
+               DELIMITED BY SIZE                                        20081114
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.銘柄通貨区分フラグ("WK-IDX")"  20081114
+      D             "＝1の場合"                                         20081114
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["                       20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+               PERFORM  WK-BTERR-RTN                                    20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+      *----------「SMHR0101」のARG2.銘柄通貨ERRFLG(ワークINDEX)=1の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.銘柄通貨ERRFLG("WK-IDX")=["
+      D             OE-MEG-TUKA-CD-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      *-----------------------------------------------------------------
+             IF  OE-MEG-TUKA-CD-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+             THEN
+      *---------- ワークメッセージID ← 'E000133'
+               MOVE  CNS-MSG-E000133    TO  WK-ERR-MSG-ID
+      *---------- ワーク置換文字 ← '銘柄通貨'+ワークINDEX
+               STRING  CNS-MEG-TUKA,"(",WK-IDX,")"                      20081114
+               DELIMITED BY SIZE
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             "「SMHR0101」のARG2.銘柄通貨ERRFLG(ワークINDEX)"
+      D             "＝1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+               PERFORM  WK-BTERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+      *----------「SMHR0101」のARG2.発行国区分フラグ(ワークINDEX)＝1    20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.発行国区分フラグ("WK-IDX")=["  20081114
+      D             OE-HAKO-CD-FLG-ERRFLG                               20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+             IF  OE-HAKO-CD-FLG-ERRFLG                                  20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-1                                               20081114
+             THEN                                                       20081114
+      *---------- ワークメッセージID ← 'E000130'                       20081114
+               MOVE  CNS-MSG-E000130    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '発行国除外'+ワークINDEX            20081114
+               STRING  CNS-HAKKO-KUNI-EX-KBN,"(",WK-IDX,")"             20081114
+               DELIMITED BY SIZE                                        20081114
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.発行国区分フラグ("WK-IDX")"    20081114
+      D             "＝1の場合"                                         20081114
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["                       20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+               PERFORM  WK-BTERR-RTN                                    20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+      *----------「SMHR0101」のARG2.発行国ERRFLG(ワークINDEX)＝1の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.発行国ERRFLG("WK-IDX")=["
+      D             OE-HAKO-CD-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      *-----------------------------------------------------------------
+             IF  OE-HAKO-CD-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+             THEN
+      *---------- ワークメッセージID ← 'E000133'
+               MOVE  CNS-MSG-E000133    TO  WK-ERR-MSG-ID
+      *---------- ワーク置換文字 ← '発行国'+ワークINDEX
+               STRING  CNS-HAKO-CD,"(",WK-IDX,")"                       20081114
+               DELIMITED BY SIZE
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             "「SMHR0101」のARG2.発行国ERRFLG("WK-IDX")＝1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+               PERFORM  WK-BTERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+      *----------「SMHR0101」のARG2.投資対象国区分フラグ(ワークINDEX)   20081114
+      *---------- ＝1の場合                                             20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D           ":「SMHR0101」のARG2.投資対象国区分フラグ("WK-IDX")=["20081114
+      D             OE-TSTSK-CD-FLG-ERRFLG                              20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+             IF  OE-TSTSK-CD-FLG-ERRFLG                                 20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-1                                               20081114
+             THEN                                                       20081114
+      *---------- ワークメッセージID ← 'E000130'                       20081114
+               MOVE  CNS-MSG-E000130    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '投資対象国除外'+ワークINDEX        20081114
+               STRING  CNS-TOUSI-KUNI-EX-KBN,"(",WK-IDX,")"             20081114
+               DELIMITED BY SIZE                                        20081114
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D    ":「SMHR0101」のARG2.投資対象国区分フラグ("WK-IDX")＝1の場合"20081114
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["                       20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+               PERFORM  WK-BTERR-RTN                                    20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+      *----------「SMHR0101」のARG2.投資対象国ERRFLG(ワークINDEX)
+      *---------- ＝1の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.投資対象国ERRFLG("WK-IDX")=["
+      D             OE-TSTSK-CD-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      *-----------------------------------------------------------------
+             IF  OE-TSTSK-CD-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+             THEN
+      *---------- ワークメッセージID ← 'E000133'
+               MOVE  CNS-MSG-E000133    TO  WK-ERR-MSG-ID
+      *---------- ワーク置換文字 ← '投資対象国'+ワークINDEX
+               STRING  CNS-TSTSK-CD,"(",WK-IDX,")"                      20081114
+               DELIMITED BY SIZE
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D         "「SMHR0101」のARG2.投資対象国ERRFLG("WK-IDX")＝1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+               PERFORM  WK-BTERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+      *----------「SMHR0101」のARG2.銘柄区分フラグ(ワークINDEX)＝1の場合20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D           ":「SMHR0101」のARG2.銘柄区分フラグ("WK-IDX")=["      20081114
+      D             OE-GAIBU-MEG-CD-FLG-ERRFLG                          20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+             IF  OE-GAIBU-MEG-CD-FLG-ERRFLG                             20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-1                                               20081114
+             THEN                                                       20081114
+      *---------- ワークメッセージID ← 'E000130'                       20081114
+               MOVE  CNS-MSG-E000130    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '銘柄除外'+ワークINDEX              20081114
+               STRING  CNS-GAIBU-MEG-EX-KBN,"(",WK-IDX,")"              20081114
+               DELIMITED BY SIZE                                        20081114
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D    ":「SMHR0101」のARG2.銘柄区分フラグ("WK-IDX")＝1の場合"      20081114
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["                       20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+               PERFORM  WK-BTERR-RTN                                    20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.外部銘柄ERRFLG("WK-IDX")=["    20081114
+      D             OE-GAIBU-MEG-CD-ERRFLG                              20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D             ":「SMHR0101」のARG2.株式種別ERRFLG("WK-IDX")=["    20081114
+      D             OE-KABU-SBT-ERRFLG                                  20081114
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"20081114
+      *-----------------------------------------------------------------20081114
+      *----------「SMHR0101」のARG2.外部銘柄ERRFLG(ワークINDEX)＝1 且つ 20081114
+      *----------「SMHR0101」のARG2.株式種別ERRFLG(ワークINDEX)＝2の場合20081114
+             IF  OE-GAIBU-MEG-CD-ERRFLG                                 20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-1                                               20081114
+               AND  OE-KABU-SBT-ERRFLG                                  20081114
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)   20081114
+                 =  CNS-2                                               20081114
+             THEN                                                       20081114
+      *---------- ワークメッセージID ← 'E000133'                       20081114
+               MOVE  CNS-MSG-E000133    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '外部銘柄'+ワークINDEX              20081114
+               STRING  CNS-GAIBU-MEG,"(",WK-IDX,")"                     20081114
+               DELIMITED BY SIZE                                        20081114
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)           20081114
+      *-------------------<DEBUG>---------------------------------------20081114
+      D    DISPLAY  CNS-PGM-ID                                          20081114
+      D           "「SMHR0101」のARG2.外部銘柄ERRFLG("WK-IDX")＝1の場合"20081114
+      D       "且つ「SMHR0101」のARG2.株式種別ERRFLG("WK-IDX")＝2の場合"20081114
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20081114
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["                       20081114
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"        20081114
+      *-----------------------------------------------------------------20081114
+      *----------  ワークバッチエラー詳細の編集                         20081114
+               PERFORM  WK-BTERR-RTN                                    20081114
+             ELSE                                                       20081114
+               CONTINUE                                                 20081114
+             END-IF                                                     20081114
+      *----------「SMHR0101」のARG2.外部銘柄ERRFLG(ワークINDEX)＝1 且つ
+      *----------「SMHR0101」のARG2.株式種別ERRFLG(ワークINDEX)＝1の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.外部銘柄ERRFLG("WK-IDX")=["
+      D             OE-GAIBU-MEG-CD-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.株式種別ERRFLG("WK-IDX")=["
+      D             OE-KABU-SBT-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      *-----------------------------------------------------------------
+             IF  OE-GAIBU-MEG-CD-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+               AND  OE-KABU-SBT-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+             THEN
+      *---------- ワークメッセージID ← 'E000133'                       20081114
+               MOVE  CNS-MSG-E000133    TO  WK-ERR-MSG-ID               20081114
+      *---------- ワーク置換文字 ← '外部銘柄項目'+ワークINDEX
+               STRING  CNS-GAIBU-MEG-1,"(",WK-IDX,")"                   20081114
+               DELIMITED BY SIZE
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D           "「SMHR0101」のARG2.外部銘柄ERRFLG("WK-IDX")＝1の場合"
+      D       "且つ「SMHR0101」のARG2.株式種別ERRFLG("WK-IDX")＝1の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+               PERFORM  WK-BTERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+      *----------「SMHR0101」のARG2.外部銘柄ERRFLG(ワークINDEX)＝1 且つ
+      *----------「SMHR0101」のARG2.株式種別ERRFLG(ワークINDEX)＝0の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.外部銘柄ERRFLG("WK-IDX")=["
+      D             OE-GAIBU-MEG-CD-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":「SMHR0101」のARG2.株式種別ERRFLG("WK-IDX")=["
+      D             OE-KABU-SBT-ERRFLG
+      D                                 OF PARM-SMHR0101-ARG2(WK-IDX)"]"
+      *-----------------------------------------------------------------
+             IF  OE-GAIBU-MEG-CD-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-1
+               AND  OE-KABU-SBT-ERRFLG
+                                        OF PARM-SMHR0101-ARG2(WK-IDX)
+                 =  CNS-0
+             THEN
+      *---------- ワークメッセージID ← 'E000130'
+               MOVE  CNS-MSG-E000130    TO  WK-ERR-MSG-ID
+      *---------- ワーク置換文字 ← '外部銘柄'+ワークINDEX
+               STRING  CNS-GAIBU-MEG,"(",WK-IDX,")"                     20081114
+               DELIMITED BY SIZE
+                 INTO  TIKAN-MOJI       OF  WK-TK-MOJI(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D           "「SMHR0101」のARG2.外部銘柄ERRFLG("WK-IDX")＝1の場合"
+      D       "且つ「SMHR0101」のARG2.株式種別ERRFLG("WK-IDX")＝0の場合"
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字=["
+      D             TIKAN-MOJI          OF  WK-TK-MOJI(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  ワークバッチエラー詳細の編集
+               PERFORM  WK-BTERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+      *----------  ARG2.バッチエラー詳細 ← ワークバッチエラー詳細
+           MOVE  WK-MSG-AREA
+             TO  SMHR0110-BT-OUT        OF  PARM-SMHR0110-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ARG2.バッチエラー詳細=["
+      D             SMHR0110-BT-OUT     OF  PARM-SMHR0110-ARG2"]"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PROGRAM1-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *     ※ワークバッチエラー詳細の編集
+      ******************************************************************
+       WK-BTERR-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  ワークバッチエラー詳細の編集  START  ***"
+      *-----------------------------------------------------------------
+      *----------  ワークCOUNT ← ワークCOUNT＋1
+           COMPUTE  WK-COUNT = WK-COUNT + CNS-1
+      *----------  ワークメッセージエリア(ワークCOUNT)・
+      *----------  メッセージID ← ワークメッセージID
+           MOVE  WK-ERR-MSG-ID
+             TO  WK-MSG-ID              OF  WK-MSG-AREA(WK-COUNT)
+      *----------  ワークメッセージエリア(ワークIDX)・
+      *----------  置換文字 ← ワーク置換文字
+           MOVE  WK-TK-MOJI
+             TO  WK-TIKAN-MOJI          OF  WK-MSG-AREA(WK-COUNT)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークCOUNT =["
+      D             WK-COUNT"]"
+      D    DISPLAY  CNS-PGM-ID"メッセージID=["
+      D             WK-MSG-ID              OF  WK-MSG-AREA(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID"置換文字=["
+      D             WK-TIKAN-MOJI          OF  WK-MSG-AREA(WK-COUNT)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***  ワークバッチエラー詳細の編集  END  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-ERR-MSG-ID
+                       WK-TK-MOJI
+           CONTINUE.
+       WK-BTERR-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.3 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***   後処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.3.1 リターンパッケージセットルーチンをコールする
+           INITIALIZE  PARM-RTNPKG
+      *----------  リターンコード
+           MOVE  CNS-RTN-000
+             TO  RTN-CD                 OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":RTN-CD OF PARM-SCZY1170-ARG1 =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY1170  START  ***"
+      *-----------------------------------------------------------------
+           CALL   "SCZY1170"            USING  PARM-SCZY1170-IN
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY1170  END  ***"
+      D    DISPLAY  CNS-PGM-ID":RTN-CD(SCZY1170)       =["
+      D             RTN-CD              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-RTNPKG(SCZY1170)  =["PARM-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":COUNTER OF PARM-RTNPKG =["
+      D             COUNTER             OF PARM-RTNPKG"]"
+      *-----------------------------------------------------------------
+           MOVE  PARM-RTNPKG-ARG   TO  PARM-SMHR0110-ARG4
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ":PARM-SMHR0110-ARG4=["PARM-SMHR0110-ARG4"]"
+      D    DISPLAY  CNS-PGM-ID":***   後処理  END  ***"
+      D    DISPLAY  CNS-PGM-ID
+      D             ":***************  SMHR0110  END  ***************"
+      D    DISPLAY CNS-PGM-ID": ***  SMHR0110処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 3.4 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  エラー処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID
+      D           ": リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"             USING  PARM-SCZY1170-IN
+                                               PARM-RTNPKG
+           MOVE  PARM-RTNPKG            TO  PARM-SMHR0110-ARG4
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID":  PARM-RTNPKG = ["
+      D                       PARM-RTNPKG"]"
+      D    DISPLAY CNS-PGM-ID":  COUNT = ["
+      D                       COUNTER          OF PARM-SMHR0110-ARG4"]"
+      D    DISPLAY CNS-PGM-ID":  エラー検知プログラム名 = ["
+      D       ERR-PGM-ID
+      D          OF PARM-SMHR0110-ARG4(COUNTER OF PARM-SMHR0110-ARG4)"]"
+      D    DISPLAY CNS-PGM-ID":  ポジション = ["
+      D       ERR-POS
+      D          OF PARM-SMHR0110-ARG4(COUNTER OF PARM-SMHR0110-ARG4)"]"
+      D    DISPLAY CNS-PGM-ID":  リターンコード = ["
+      D       RTN-CD
+      D          OF PARM-SMHR0110-ARG4(COUNTER OF PARM-SMHR0110-ARG4)"]"
+      D    DISPLAY CNS-PGM-ID":  詳細リターンコード = ["
+      D       DETAIL-RTN-CD
+      D          OF PARM-SMHR0110-ARG4(COUNTER OF PARM-SMHR0110-ARG4)"]"
+      D    DISPLAY CNS-PGM-ID":  詳細リターンコードデコードフラグ = ["
+      D       DETAIL-RTN-CD-FLG
+      D          OF PARM-SMHR0110-ARG4(COUNTER OF PARM-SMHR0110-ARG4)"]"
+      D    DISPLAY CNS-PGM-ID":  フリーメッセージ = ["
+      D       FREE-MSG
+      D          OF PARM-SMHR0110-ARG4(COUNTER OF PARM-SMHR0110-ARG4)"]"
+      D    DISPLAY CNS-PGM-ID
+      D           ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY CNS-PGM-ID
+      D                 ":  PARM-SMHR0110-ARG4 = ["PARM-SMHR0110-ARG4"]"
+      D    DISPLAY CNS-PGM-ID": ***  エラー処理  END  ***"
+      D    DISPLAY CNS-PGM-ID": ***  SMHR0110処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.

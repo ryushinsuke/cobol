@@ -1,0 +1,3068 @@
+      ******************************************************************
+      * $Header: $
+      ******************************************************************
+      *
+      *  システムＩＤ   : T-STAR
+      *  システム名称   : 次期TSTARシステム
+      *  ＩＤ           : SCZY7210.pco
+      *  名称           : 実行状況管理明細ＵＰＤルーチン
+      *  処理概要       : 実行状況管理明細の実行ステータスを明細単位処理
+      *                   の先頭と最終で更新する
+      *  引数           :IN   ARG1.セッション区分
+      *                  IN   ARG2.利用会社コード
+      *                  IN   ARG2.処理実行日
+      *                  IN   ARG2.起動ID
+      *                  IN   ARG2.ファンドコード
+      *                  IN   ARG2.ポートフォリオコード
+      *                  IN   ARG2.評価系列コード
+      *                  IN   ARG2.帳票ID
+      *                  IN   ARG2.帳票任意コード
+      *                  IN   ARG2.基準日FROM
+      *                  IN   ARG2.実行ステータス
+      *                  OUT  ARG3.続行可能区分
+      *                  OUT  ARG4.RTNパッケージ
+      *                  OUT  ARG4.カウンター
+      *                  OUT  ARG4.RTNパッケージ詳細
+      *                  OUT  ARG4.エラー検知プログラム名
+      *                  OUT  ARG4.ポジション
+      *                  OUT  ARG4.リターンコード
+      *                  OUT  ARG4.詳細リターンコード
+      *                  OUT  ARG4.詳細リターンコードデコードフラグ
+      *                  OUT  ARG4.フリーメッセージ
+      *  改訂履歴
+      *  年月日     区分 所属       担当者  内容
+      *  ---------- ---- ---------- ------  ----------------------------
+      *  20070920   新規 SCS        王春媚  新規作成
+      *  20090608   変更 SCS        王瑞娟  PH2総合障害851対応
+      *  20100615   変更 SCS        呉聞傑  テーマ2821対応
+      *  20130226   変更 SCS        陳　佳  テーマ3495対応
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY7210.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  07-09-20.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *        環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+      *SOURCE-COMPUTER.       L1000  WITH DEBUGGING MODE.
+       SOURCE-COMPUTER.       L1000.
+       OBJECT-COMPUTER.       H9000V.
+      ******************************************************************
+      *
+      *        デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *        作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                 コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+      *----------  プログラムID  ---------------------------------------
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE  "SCZY7210".
+      *----------  テーブルID 実行状況管理明細
+         05  CNS-TBL-TKDYAA35      PIC  X(08)  VALUE  "TKDYAA35".
+      *----------  業務タスクマスタ
+         05  CNS-TBL-TOC0DA21      PIC  X(08)  VALUE  "TOC0DA21".
+      *----------  アップロードマスタ
+         05  CNS-TBL-TOC0DA23      PIC  X(08)  VALUE  "TOC0DA23".
+      *----------  ポートフォリオ状態
+         05  CNS-TBL-TKDYAA41      PIC  X(08)  VALUE  "TKDYAA41".
+      *----------  実行順序制御マスタ
+         05  CNS-TBL-TKDYAA20      PIC  X(08)  VALUE  "TKDYAA20".
+      *----------  実行状況管理
+         05  CNS-TBL-TKDYAA31      PIC  X(08)  VALUE  "TKDYAA31".
+      *----------  強制停止管理
+         05  CNS-TBL-TKDYAA66      PIC  X(08)  VALUE  "TKDYAA66".
+      *----------  セッション区分  -------------------------------------
+         05  CNS-SESSION-KBN-0     PIC  X(01)  VALUE  "0".
+         05  CNS-SESSION-KBN-1     PIC  X(01)  VALUE  "1".
+      *----------  続行可能区分  ---------------------------------------
+         05  CNS-CON-KBN-0         PIC  X(01)  VALUE  "0".
+         05  CNS-CON-KBN-1         PIC  X(01)  VALUE  "1".
+         05  CNS-CON-KBN-2         PIC  X(01)  VALUE  "2".
+         05  CNS-CON-KBN-3         PIC  X(01)  VALUE  "3".
+      *----------  リターンコードエリア  -------------------------------
+      *----------  詳細リターンコードデコードフラグ
+         05  CNS-RTN-ORA-FLG       PIC  X(01)  VALUE  "1".
+         05  CNS-RTN-CD-FLG        PIC  X(01)  VALUE  "0".
+      *----------  パラメータエラー
+         05  CNS-PARAMETER-ERR     PIC  X(03)  VALUE  "800".
+      *----------  正常終了
+         05  CNS-RTN-NORMAL        PIC  X(03)  VALUE  "000".
+      *----------  データなし
+         05  CNS-RTN-NASI          PIC  X(03)  VALUE  "110".
+      *----------  システムエラー（Oracle）
+         05  CNS-RTN-ORA           PIC  X(03)  VALUE  "900".
+      *----------  システムエラー（Oracle以外）
+         05  CNS-RTN-ORA-IGAI      PIC  X(03)  VALUE  "901".
+      *----------  一意制約
+         05  CNS-RET-CD-ITI-SEYAKU PIC  X(03)  VALUE  "300".
+      *----------  実行ステータス  -------------------------------------
+      *----------  実行ステータス＝'600'(実行中)
+         05  CNS-STS-RUN           PIC  X(03)  VALUE  "600".
+      *----------  実行ステータス＝'300'(強制終了)
+         05  CNS-STS-C300          PIC  X(03)  VALUE  "300".
+      *----------  一時停止区分＝'1'(一時停止)
+         05  CNS-ITIJI-TEISHI      PIC  X(01)  VALUE  "1".
+      *----------  SQLCODE正常
+         05  CNS-SQLCODE-NORMAL    PIC  S9(04)  COMP-3 VALUE +0000.
+         05  CNS-SQL-NOTFOUND      PIC  S9(04)  COMP-3 VALUE +1403.
+         05  CNS-NOWAIT            PIC  S9(04)  COMP-3 VALUE -0054.
+      *----------  ERRORポジション--------------------------------------
+         05  CNS-ERR-POS-1         PIC  X(04)  VALUE  "0001".
+         05  CNS-ERR-POS-2         PIC  X(04)  VALUE  "0002".
+         05  CNS-ERR-POS-3         PIC  X(04)  VALUE  "0003".
+         05  CNS-ERR-POS-4         PIC  X(04)  VALUE  "0004".
+         05  CNS-ERR-POS-5         PIC  X(04)  VALUE  "0005".
+         05  CNS-ERR-POS-6         PIC  X(04)  VALUE  "0006".
+         05  CNS-ERR-POS-7         PIC  X(04)  VALUE  "0007".
+         05  CNS-ERR-POS-8         PIC  X(04)  VALUE  "0008".
+         05  CNS-ERR-POS-9         PIC  X(04)  VALUE  "0009".
+         05  CNS-ERR-POS-10        PIC  X(04)  VALUE  "0010".
+         05  CNS-ERR-POS-11        PIC  X(04)  VALUE  "0011".
+         05  CNS-ERR-POS-12        PIC  X(04)  VALUE  "0012".
+         05  CNS-ERR-POS-13        PIC  X(04)  VALUE  "0013".
+         05  CNS-ERR-POS-14        PIC  X(04)  VALUE  "0014".
+         05  CNS-ERR-POS-16        PIC  X(04)  VALUE  "0016".
+         05  CNS-ERR-POS-17        PIC  X(04)  VALUE  "0017".
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  実行状況管理明細テーブル
+         05  WK-HENSYUGO-TBL-35    PIC  X(13).
+      *----------  業務タスクマスタ
+         05  WK-HENSYUGO-TBL-21    PIC  X(13).
+      *----------  アップロードマスタ
+         05  WK-HENSYUGO-TBL-23    PIC  X(13).
+      *----------  ポートフォリオ状態
+         05  WK-HENSYUGO-TBL-41    PIC  X(13).
+      *----------  実行状況管理
+         05  WK-HENSYUGO-TBL-31    PIC  X(13).
+      *----------  強制停止管理
+         05  WK-HENSYUGO-TBL-66    PIC  X(13).
+      *----------  実行順序制御マスタ
+         05  WK-HENSYUGO-TBL-20    PIC  X(13).
+         05  WK-CR-OPEN-FLG        PIC  X(01).
+         05  WK-CR6-OPEN-FLG       PIC  X(01).
+         05  WK-CR9-OPEN-FLG       PIC  X(01).
+         05  WK-CR10-OPEN-FLG      PIC  X(01).
+         05  WK-CR12-OPEN-FLG      PIC  X(01).
+         05  WK-FETCH-END-FLG      PIC  X(01).
+         05  WK-SS-UPD-JIKOBI      PIC  X(14).
+         05  WK-DATA-FLG           PIC  X(01).
+      *----------  明細単位実行ステータス
+         05  WK-JIKOU-STS          PIC  X(03).
+      *----------  ワークポートフォリオ状態データ有無区分
+         05  WK-PTF-JYOTAI-STS-KBN      PIC  X(01).
+      *----------  ワーク並行稼動チェック区分
+         05  WK-HEIKO-CHK-KBN      PIC  X(01).
+      *----------  ワークポートフォリオ状態更新区分
+         05  WK-PTF-STS-UPD-KBN    PIC  X(01).
+         05  WK-SQL-WHERE          PIC  X(150).
+         05  WK-SQL-WHERE1         PIC  X(25).
+         05  WK-SQL-WHERE2         PIC  X(60).
+         05  WK-SQL-WHERE3         PIC  X(60).
+         05  WK-SQL-WHERE4         PIC  X(60).
+         05  WK-FREE-MSG           PIC  X(2000).
+         05  WK-ERR-SQLSTMT11      PIC  X(600).
+         05  WK-ERR-SQLSTMT12      PIC  X(600).
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  共通RTNパッケージ
+       01  PARM-KYOUTUU-RTNPKG.
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZY1160 テーブルID取得ルーチン
+       01  PARM-SCZY1160-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+           COPY "SCZY1160.cpy".
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *---------- 「TSDYAA31」実行状況管理アクセスルーチン(SELECT)
+       01  PARM-TSDYAA31-INOUT.
+         05  PARM-TSDYAA31-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  入力データ
+           10  SEL-IN-DATA.
+      *----------  利用会社コード
+             15  RIYO-CMP-CD-I     PIC  X(04).
+      *----------  処理実行日
+             15  SYORI-YMD-I       PIC  S9(08).
+      *----------  起動ID
+             15  KIDOU-ID-I        PIC  X(04).
+      *----------  更新日時
+             15  UPD-DATE-I        PIC  X(14).
+      *----------  ロック区分
+             15  LOCK-KBN-I        PIC  X(01).
+         05  PARM-TSDYAA31-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+           COPY "TKDYAA31.cpy".
+      *---------- 「TIDYAA41」ポートフォリオ状態アクセスルーチン(INSERT)
+       01  PARM-TIDYAA41-INOUT.
+         05  PARM-TIDYAA41-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+         05  PARM-TIDYAA41-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+           COPY  "TKDYAA41.cpy".
+      *----------  【SCZY7080】バッチメッセージＩＮＳルーチン
+       01  PARM-SCZY7080-INOUT.
+           COPY  "SCZY7080.cpy".
+      ******************************************************************
+      *                 SQL通信, ORACLE通信,ホスト変数定義 エリア
+      ******************************************************************
+      *----------  ＳＱＬ通信領域
+           EXEC  SQL INCLUDE  SQLCA               END-EXEC.
+           EXEC  SQL  BEGIN   DECLARE  SECTION    END-EXEC.
+       01  ORA-WORKING-ITEMS.
+      *----------  SQL条件ワーク
+         05  SQLSTMT1              PIC  X(500)  VARYING.
+         05  SQLSTMT2              PIC  X(500)  VARYING.
+         05  SQLSTMT3              PIC  X(600)  VARYING.
+         05  SQLSTMT4              PIC  X(500)  VARYING.
+         05  SQLSTMT5              PIC  X(500)  VARYING.
+         05  SQLSTMT6              PIC  X(500)  VARYING.
+         05  SQLSTMT7              PIC  X(500)  VARYING.
+         05  SQLSTMT8              PIC  X(500)  VARYING.
+         05  SQLSTMT9              PIC  X(500)  VARYING.
+         05  SQLSTMT10             PIC  X(500)  VARYING.
+         05  SQLSTMT11             PIC  X(500)  VARYING.
+         05  SQLSTMT12             PIC  X(500)  VARYING.
+         05  SQLSTMT-TMP           PIC  X(350).
+      *----------  WHERE条件
+      *----------  利用会社コード
+         05  H-RIYO-CMP-CD         PIC  X(04).
+      *----------  処理実行日
+         05  H-SYORI-YMD           PIC  9(08).
+      *----------  起動ID
+         05  H-KIDOU-ID            PIC  X(04).
+      *----------  ファンドコード
+         05  H-FUND-CD             PIC  X(12).
+      *----------  ポートフォリオコード
+         05  H-PTF-CD              PIC  X(04).
+      *----------  評価系列コード
+         05  H-HYK-KRTU-CD         PIC  X(04).
+      *----------  帳票ID
+         05  H-REP-ID              PIC  X(08).
+      *----------  帳票任意コード
+         05  H-REP-ANY-CD          PIC  X(50).
+      *----------  基準日FROM
+         05  H-KJN-YMD-FROM        PIC  9(08).
+      *----------  実行ステータス
+         05  H-JIKOU-STS           PIC  X(03).
+      *----------  並行稼動チェック区分
+         05  H-HEIKO-CHK-KBN       PIC  X(01).
+      *----------  業務タスクID
+         05  H-GYOMU-TASK-ID       PIC  X(07).
+      *----------  アップロードID
+         05  H-UPLOAD-ID           PIC  X(07).
+         05  H-COUNT               PIC  9(05).
+         05  H-PTF-JYOTAI-STS      PIC  X(01).
+         05  H-WHERE-12.
+      *----------  利用会社コード
+           10  H-RIYO-CMP-CD-12     PIC  X(04).
+      *----------  処理実行日
+           10  H-SYORI-YMD-12       PIC  9(08).
+      *----------  起動ID
+           10  H-KIDOU-ID-12        PIC  X(04).
+      *----------  一時停止区分
+         05  H-ITIJI-TEISHI-KBN     PIC  X(01).
+      *----------  業務タスクID
+         05  H-GYOMU-TASK-ID-12     PIC  X(07).
+      *
+           EXEC  SQL  END     DECLARE  SECTION    END-EXEC.
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY7210-INOUT.
+      *----------   実行状況管理明細ＵＰＤルーチンコピー句
+           COPY "SCZY7210.cpy".
+       01  PARM-SCZY7210-RTNPKG.
+         05  PARM-SCZY7210-ARG4.
+      *----------  RTNパッケージ
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        手続き部
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY7210-INOUT
+                  PARM-SCZY7210-RTNPKG.
+      ******************************************************************
+      *                 実行状況管理明細UPDルーチン
+      ******************************************************************
+       SCZY7210-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  SCZY7210処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------   前処理
+           PERFORM  START-RTN
+      *----------   メイン処理
+           PERFORM  MAIN-RTN
+      *----------   後処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  SCZY7210処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY7210-EXT.
+           EXIT.
+      ******************************************************************
+      *                 前処理
+      ******************************************************************
+       START-RTN              SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  START-RTN  START  *****"
+      *-----------------------------------------------------------------
+      *----------   初期化処理
+           PERFORM  INIT-RTN
+      *----------   パラメータチェック処理
+           PERFORM  SESSION-RTN
+      *----------   テーブルID取得処理
+           PERFORM  CALL-SCZY1160-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  START-RTN  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       START-EXT.
+           EXIT.
+      ******************************************************************
+      *                 初期化処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  INIT-RTN  START  *****"
+      *-----------------------------------------------------------------
+      *----------      初期化
+           INITIALIZE  WORK-AREA
+                       PARM-KYOUTUU-RTNPKG
+                       PARM-SCZY1160-INOUT
+                       PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-RTNPKG
+                       PARM-TSDYAA31-INOUT
+                       PARM-TIDYAA41-INOUT
+                       ORA-WORKING-ITEMS
+                       PARM-SCZY7210-ARG3
+                       PARM-SCZY7210-RTNPKG
+                       PARM-SCZY7080-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WORK-AREA            = [" WORK-AREA            "]"
+      D    DISPLAY  "PARM-KYOUTUU-RTNPKG  = [" PARM-KYOUTUU-RTNPKG  "]"
+      D    DISPLAY  "PARM-SCZY1160-INOUT  = [" PARM-SCZY1160-INOUT  "]"
+      D    DISPLAY  "PARM-SCZY1170-INOUT  = [" PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "PARM-SCZY1170-RTNPKG = [" PARM-SCZY1170-RTNPKG "]"
+      D    DISPLAY  "PARM-TSDYAA31-INOUT  = [" PARM-TSDYAA31-INOUT  "]"
+      D    DISPLAY  "ORA-WORKING-ITEMS    = [" ORA-WORKING-ITEMS    "]"
+      D    DISPLAY  "PARM-SCZY7210-ARG3   = [" PARM-SCZY7210-ARG3   "]"
+      D    DISPLAY  "PARM-SCZY7210-RTNPKG = [" PARM-SCZY7210-RTNPKG "]"
+      D    DISPLAY  "PARM-SCZY7080-INOUT  = [" PARM-SCZY7080-INOUT "]"
+      D    DISPLAY  "PARM-TIDYAA41-INOUT  = [" PARM-TIDYAA41-INOUT "]"
+      *-----------------------------------------------------------------
+      *----------  ARG3.続行可能区分  ←  '0'
+           MOVE  CNS-CON-KBN-0          TO  CONTINUE-KBN
+                                        OF  PARM-SCZY7210-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "続行可能区分=["CONTINUE-KBN
+      D                                 OF  PARM-SCZY7210-ARG3 "]"
+      D    DISPLAY  "*****  INIT-RTN  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                 パラメータチェック処理
+      ******************************************************************
+       SESSION-RTN            SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  パラメータチェック処理  START *****"
+      D    DISPLAY  "ARG1.セッション区分 = [" SESSION-KBN
+      D             OF  PARM-SCZY7210-INOUT"]"
+      *-----------------------------------------------------------------
+      *----------  セッション区分
+           IF  SESSION-KBN  OF PARM-SCZY7210-INOUT <> CNS-SESSION-KBN-0
+               AND
+               SESSION-KBN  OF PARM-SCZY7210-INOUT <> CNS-SESSION-KBN-1
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  パラメータエラー *****"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+             MOVE  CNS-ERR-POS-1        TO  ERR-POS
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+             MOVE  CNS-PARAMETER-ERR    TO  RTN-CD
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+             MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  パラメータチェック処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SESSION-EXT.
+           EXIT.
+      ******************************************************************
+      *                テーブルIDを取得
+      ******************************************************************
+       CALL-SCZY1160-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  テーブルIDを取得処理(SCZY1160)  START *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-KYOUTUU-RTNPKG
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  RIYO-CMP-CD            OF  PARM-SCZY1160-INOUT
+      *----------  テーブルID
+           MOVE  CNS-TBL-TKDYAA35       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(1)
+           MOVE  CNS-TBL-TOC0DA21       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(2)
+           MOVE  CNS-TBL-TOC0DA23       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(3)
+           MOVE  CNS-TBL-TKDYAA41       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(4)
+           MOVE  CNS-TBL-TKDYAA20       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(5)
+           MOVE  CNS-TBL-TKDYAA31       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(6)
+           MOVE  CNS-TBL-TKDYAA66       TO  TBL-ID
+                                        OF  PARM-SCZY1160-ARG1(7)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "TBL-ID             OF PARM-SCZY1160-ARG1(6):["
+      D              TBL-ID             OF PARM-SCZY1160-ARG1(6)"]"
+      D    DISPLAY  "TBL-ID             OF PARM-SCZY1160-ARG1(7):["
+      D              TBL-ID             OF PARM-SCZY1160-ARG1(7)"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1160"             USING  PARM-SCZY1160-INOUT
+                                               PARM-KYOUTUU-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD OF SCZY1160 = ["  RTN-CD
+      D                                 OF  PARM-KYOUTUU-RTNPKG
+      D                       (COUNTER  OF  PARM-KYOUTUU-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           IF                   RTN-CD  OF  PARM-KYOUTUU-RTNPKG
+                              (COUNTER  OF  PARM-KYOUTUU-RTNPKG)
+             NOT =  CNS-RTN-NORMAL
+           THEN
+      *----------  ポジション
+             MOVE  CNS-ERR-POS-2        TO  ERR-POS
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+             MOVE  CNS-RTN-ORA-IGAI     TO  RTN-CD
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+             MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+             MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           ELSE
+      *----------  実行状況管理明細テーブル
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(1)
+                                        TO  WK-HENSYUGO-TBL-35
+      *----------  業務タスクマスタ
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(2)
+                                        TO  WK-HENSYUGO-TBL-21
+      *----------  アップロードマスタ
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(3)
+                                        TO  WK-HENSYUGO-TBL-23
+      *----------  ポートフォリオ状態
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(4)
+                                        TO  WK-HENSYUGO-TBL-41
+      *----------  実行順序制御マスタ
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(5)
+                                        TO  WK-HENSYUGO-TBL-20
+      *----------  実行状況管理
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(6)
+                                        TO  WK-HENSYUGO-TBL-31
+      *----------  強制停止管理
+             MOVE  HENSYUGO-TBL-ID      OF  PARM-SCZY1160-ARG2(7)
+                                        TO  WK-HENSYUGO-TBL-66
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-HENSYUGO-TBL-35 = ["WK-HENSYUGO-TBL-35"]"
+      D    DISPLAY  "WK-HENSYUGO-TBL-21 = ["WK-HENSYUGO-TBL-21"]"
+      D    DISPLAY  "WK-HENSYUGO-TBL-23 = ["WK-HENSYUGO-TBL-23"]"
+      D    DISPLAY  "WK-HENSYUGO-TBL-41 = ["WK-HENSYUGO-TBL-41"]"
+      D    DISPLAY  "WK-HENSYUGO-TBL-20 = ["WK-HENSYUGO-TBL-20"]"
+      D    DISPLAY  "WK-HENSYUGO-TBL-31 = ["WK-HENSYUGO-TBL-31"]"
+      D    DISPLAY  "WK-HENSYUGO-TBL-66 = ["WK-HENSYUGO-TBL-66"]"
+      D    DISPLAY  "*****  テーブルIDを取得処理(SCZY1160)  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CALL-SCZY1160-EXT.
+           EXIT.
+      ******************************************************************
+      *                 メイン処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD          OF  PARM-SCZY7210-INOUT
+             TO  H-RIYO-CMP-CD
+      *----------  処理実行日
+           MOVE  SYORI-YMD            OF  PARM-SCZY7210-INOUT
+             TO  H-SYORI-YMD
+      *----------  起動ID
+           MOVE  KIDOU-ID             OF  PARM-SCZY7210-INOUT
+             TO  H-KIDOU-ID
+      *----------  ファンドコード
+           MOVE  FUND-CD              OF  PARM-SCZY7210-INOUT
+             TO  H-FUND-CD
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD               OF  PARM-SCZY7210-INOUT
+             TO  H-PTF-CD
+      *----------  評価系列コード
+           MOVE  HYK-KRTU-CD          OF  PARM-SCZY7210-INOUT
+             TO  H-HYK-KRTU-CD
+      *----------  帳票ID
+           MOVE  REP-ID               OF  PARM-SCZY7210-INOUT
+             TO  H-REP-ID
+      *----------  帳票任意コード
+           MOVE  REP-ANY-CD           OF  PARM-SCZY7210-INOUT
+             TO  H-REP-ANY-CD
+      *----------  基準日FROM
+           MOVE  KJN-YMD-FROM         OF  PARM-SCZY7210-INOUT
+             TO  H-KJN-YMD-FROM
+      *----------  実行ステータス
+           MOVE  JIKOU-STS            OF  PARM-SCZY7210-INOUT
+             TO  H-JIKOU-STS
+      *----------  先頭セッション処理（ARG1.セッション区分が='0'の場合）
+           IF  SESSION-KBN   OF PARM-SCZY7210-INOUT = CNS-SESSION-KBN-0
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  先頭セッション処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------     対象業務タスクの一時停止区分と
+      *----------     実行ステータスを取得処理
+               PERFORM  TKDYAA31-SELECT-RTN
+      *----------     ポートフォリオ実行可能チェック処理
+               PERFORM  PTF-CHECK-RTN
+      *----------  ワークポートフォリオ状態更新区分≠'1'のみ
+      *----------     ポートフォリオ状態更新処理
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ワークポートフォリオ状態更新区分=["
+      D              WK-PTF-STS-UPD-KBN"]"
+      *-----------------------------------------------------------------
+               IF  WK-PTF-STS-UPD-KBN  NOT = "1"
+               THEN
+      *----------  ワークポートフォリオ状態データ有無区分＝'1'の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ワークポートフォリオ状態データ有無区分=["
+      D              WK-PTF-JYOTAI-STS-KBN"]"
+      *-----------------------------------------------------------------
+                   IF  WK-PTF-JYOTAI-STS-KBN = "1"
+                   THEN
+                       PERFORM  TIDYAA41-RTN
+                   ELSE
+      *----------     ポートフォリオ状態テーブル更新処理
+                       PERFORM  PTF-DATA-LOCK-RTN
+                   END-IF
+               END-IF
+      *----------     実行状況管理明細更新処理
+               PERFORM  TKDYAA35-UPD-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  先頭セッション処理  END  *****"
+      *-----------------------------------------------------------------
+           END-IF
+      *----------  最終セッション処理（ARG1.セッション区分が='1'の場合）
+           IF  SESSION-KBN   OF PARM-SCZY7210-INOUT = CNS-SESSION-KBN-1
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  最終セッション処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  実行状況管理明細更新処理
+               PERFORM  TKDYAA35-UPD-RTN
+      *----------  業務タスクID取得処理
+               PERFORM  TSDYAA31-RTN
+      *----------  並行稼動チェック区分取得処理
+               PERFORM  PTF-CHECK-RTN
+      *----------  ワークポートフォリオ状態更新区分≠'1'のみ
+      *----------     ポートフォリオ状態更新処理
+               IF  WK-PTF-STS-UPD-KBN  NOT = "1"
+               THEN
+                   PERFORM  PTF-UPD-RTN
+               END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  最終セッション処理  END  *****"
+      *-----------------------------------------------------------------
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                 実行状況管理チェック処理
+      ******************************************************************
+       TSDYAA31-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  業務タスクID取得処理  START *****"
+      *-----------------------------------------------------------------
+      *---------- 「TSDYAA31」実行状況管理アクセスルーチン(SELECT)
+           INITIALIZE  PARM-KYOUTUU-RTNPKG
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  RIYO-CMP-CD            OF  PARM-TSDYAA31-ARG1
+      *----------  利用会社コード=ARG2.利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  RIYO-CMP-CD-I          OF  PARM-TSDYAA31-ARG1
+      *----------  処理実行日=ARG2.処理実行日
+           MOVE  SYORI-YMD              OF  PARM-SCZY7210-INOUT
+             TO  SYORI-YMD-I            OF  PARM-TSDYAA31-ARG1
+      *----------  起動ID=ARG2.起動ID
+           MOVE  KIDOU-ID               OF  PARM-SCZY7210-INOUT
+             TO  KIDOU-ID-I             OF  PARM-TSDYAA31-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "利用会社コード = ["   RIYO-CMP-CD-I
+      D                                 OF  PARM-TSDYAA31-ARG1 "]"
+      D    DISPLAY  "処理実行日   = ["    SYORI-YMD-I
+      D                                 OF  PARM-TSDYAA31-ARG1 "]"
+      D    DISPLAY  "起動ID   = ["    KIDOU-ID-I
+      D                                 OF  PARM-TSDYAA31-ARG1 "]"
+      *-----------------------------------------------------------------
+           CALL  "TSDYAA31"             USING  PARM-TSDYAA31-INOUT
+                                               PARM-KYOUTUU-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD OF TSDYAA31 = [" RTN-CD
+      D                                 OF  PARM-KYOUTUU-RTNPKG
+      D                       (COUNTER  OF  PARM-KYOUTUU-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE             RTN-CD  OF  PARM-KYOUTUU-RTNPKG
+                              (COUNTER  OF  PARM-KYOUTUU-RTNPKG)
+      *----------    正常  ---------------------------------------------
+               WHEN  CNS-RTN-NORMAL
+                 CONTINUE
+      *----------    該当データなし  -----------------------------------
+               WHEN  CNS-RTN-NASI
+      *----------  ポジション
+                   MOVE  CNS-ERR-POS-4        TO  ERR-POS
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-NASI         TO  RTN-CD
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+      *----------    システムエラー(Oracle以外)  -----------------------
+               WHEN  CNS-RTN-ORA-IGAI
+      *----------  ポジション
+                   MOVE  CNS-ERR-POS-5        TO  ERR-POS
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA-IGAI     TO  RTN-CD
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+      *----------    上記以外  -----------------------------------------
+               WHEN  OTHER
+      *----------  ポジション
+                   MOVE  CNS-ERR-POS-6        TO  ERR-POS
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  業務タスクID取得処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TSDYAA31-EXT.
+           EXIT.
+      ******************************************************************
+      *            一時停止区分と実行ステータスを取得処理
+      ******************************************************************
+       TKDYAA31-SELECT-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  一時停止区分と実行ステータスを取得処理"
+      D             " START *****"
+      *-----------------------------------------------------------------
+      *----------   PREPARE処理
+           PERFORM  CR12-PREPARE-RTN
+      *----------   OPEN処理
+           PERFORM  CR12-OPEN-RTN
+      *----------   FETCH処理
+           PERFORM  CR12-FETCH-RTN
+      *----------   CLOSE処理
+           PERFORM  CR12-CLOSE-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  一時停止区分と実行ステータスを取得処理"
+      D             " END *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TKDYAA31-SELECT-EXT.
+           EXIT.
+      ******************************************************************
+      *    『一時停止区分と実行ステータスを取得』PREPARE処理
+      ******************************************************************
+       CR12-PREPARE-RTN        SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "PREPARE処理  START *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  SQLSTMT12
+                       WK-ERR-SQLSTMT12
+           MOVE  1                      TO SQLSTMT12-LEN
+           MOVE  RIYO-CMP-CD            OF PARM-SCZY7210-ARG2
+             TO  H-RIYO-CMP-CD-12
+           MOVE  SYORI-YMD              OF PARM-SCZY7210-ARG2
+             TO  H-SYORI-YMD-12
+           MOVE  KIDOU-ID               OF PARM-SCZY7210-ARG2
+             TO  H-KIDOU-ID-12
+           STRING
+             "SELECT A.GYOMU_TASK_ID, "
+             " DECODE(B.RIYO_CMP_CD,NULL,A.JIKOU_STS,'300') AS"
+             " JIKOU_STS,A.ITIJI_TEISHI_KBN FROM "
+              WK-HENSYUGO-TBL-31
+             " A, "
+              WK-HENSYUGO-TBL-66
+             " B "
+             " WHERE A.RIYO_CMP_CD=:V1"
+             " AND A.SYORI_YMD=:V2"
+             " AND A.KIDOU_ID=:V3"
+             " AND A.RIYO_CMP_CD=B.RIYO_CMP_CD(+)"
+             " AND A.SYORI_YMD=B.SYORI_YMD(+)"
+             " AND A.KIDOU_ID=B.KIDOU_ID(+)"
+           DELIMITED  BY  SIZE
+           INTO  SQLSTMT12-ARR
+           WITH  POINTER  SQLSTMT12-LEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "V1 = ["H-RIYO-CMP-CD-12 "]"
+      D    DISPLAY  "V2 = ["H-SYORI-YMD-12"]"
+      D    DISPLAY  "V3 = ["H-KIDOU-ID-12"]"
+      D    DISPLAY  "別紙12 SQL文:["SQLSTMT12-ARR"]"
+      D    DISPLAY  "別紙12 SQL長:["SQLSTMT12-LEN"]"
+      *-----------------------------------------------------------------
+           STRING  SQLSTMT12-ARR
+                   "[V1:"H-RIYO-CMP-CD-12  "]"
+                   "[V2:"H-SYORI-YMD-12"]"
+                   "[V3:"H-KIDOU-ID-12"]"
+           DELIMITED  BY  SIZE
+           INTO  WK-ERR-SQLSTMT12
+      *---------- ＳＱＬ文 PREPARE
+           EXEC  SQL
+             PREPARE  S12  FROM  :SQLSTMT12
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQLCODE-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  PREPARE  NORMAL"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  PREPARE  ABNORMAL"
+      *-----------------------------------------------------------------
+               MOVE  CNS-PROGRAM-ID     TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-ORA        TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE            TO DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  "1"                TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-ERR-POS-12     TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  WK-ERR-SQLSTMT12   TO FREE-MSG
+                                        OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG           OF PARM-SCZY1170-ARG1:["
+      D              FREE-MSG           OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *---------- カーソル 宣言
+           EXEC  SQL
+             DECLARE  CR12  CURSOR  FOR  S12
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(DECLARE) =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQLCODE-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  DECLARE  NORMAL"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12 DECLARE  ABNORMAL"
+      *-----------------------------------------------------------------
+               MOVE  CNS-PROGRAM-ID     TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-ORA        TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE            TO DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  "1"                TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-ERR-POS-13     TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  WK-ERR-SQLSTMT12   TO FREE-MSG
+                                        OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG           OF PARM-SCZY1170-ARG1:["
+      D              FREE-MSG           OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "PREPARE処理  END *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR12-PREPARE-EXT.
+           EXIT.
+      ******************************************************************
+      *    2)『一時停止区分と実行ステータスを取得』OPEN処理
+      ******************************************************************
+       CR12-OPEN-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "OPEN処理  START *****"
+      *-----------------------------------------------------------------
+      *---------- カーソル OPEN
+           EXEC  SQL
+             OPEN  CR12
+             USING  :H-RIYO-CMP-CD-12,
+                    :H-SYORI-YMD-12,
+                    :H-KIDOU-ID-12
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN) =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQLCODE-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  OPEN  NORMAL"
+      *-----------------------------------------------------------------
+               MOVE  "1"                TO WK-CR12-OPEN-FLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR12-OPEN-FLG = ["WK-CR12-OPEN-FLG"]"
+      *-----------------------------------------------------------------
+             WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  OPEN  ABNORMAL"
+      *-----------------------------------------------------------------
+               MOVE  CNS-PROGRAM-ID     TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-ORA        TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE            TO DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  "1"                TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-ERR-POS-14     TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  WK-ERR-SQLSTMT12   TO FREE-MSG
+                                        OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG           OF PARM-SCZY1170-ARG1:["
+      D              FREE-MSG           OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "OPEN処理  END *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR12-OPEN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3)『一時停止区分と実行ステータスを取得』FETCH処理
+      ******************************************************************
+       CR12-FETCH-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "FETCH処理  START *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  H-JIKOU-STS
+                       H-ITIJI-TEISHI-KBN
+           EXEC  SQL
+             FETCH  CR12
+             INTO
+               :H-GYOMU-TASK-ID-12,
+               :H-JIKOU-STS,
+               :H-ITIJI-TEISHI-KBN
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(FETCH) =["SQLCODE"]"
+      D    DISPLAY  "取得した業務タスクID   =["H-GYOMU-TASK-ID-12"]"
+      D    DISPLAY  "取得した実行ステータス =["H-JIKOU-STS"]"
+      D    DISPLAY  "取得した一時停止区分   =["H-ITIJI-TEISHI-KBN"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+              WHEN  CNS-SQLCODE-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  FETCH  NORMAL"
+      *-----------------------------------------------------------------
+                  MOVE  H-GYOMU-TASK-ID-12
+                    TO  GYOMU-TASK-ID     OF  PARM-TSDYAA31-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "GYOMU-TASK-ID   =["GYOMU-TASK-ID
+      D                                 OF  PARM-TSDYAA31-ARG2 "]"
+      *-----------------------------------------------------------------
+      *----------  取得した一時停止区分＝'1'(有効)の場合
+                  IF  H-ITIJI-TEISHI-KBN   = CNS-ITIJI-TEISHI
+                  THEN
+                      MOVE  CNS-CON-KBN-1    TO  CONTINUE-KBN
+                                             OF  PARM-SCZY7210-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "続行可能区分=["CONTINUE-KBN
+      D                                       OF  PARM-SCZY7210-ARG3 "]"
+      *-----------------------------------------------------------------
+                       PERFORM  END-RTN
+                   ELSE
+      *----------  取得した実行ステータス＝'300'(強制終了)の場合
+                       IF  H-JIKOU-STS    = CNS-STS-C300
+                       THEN
+                           MOVE  CNS-CON-KBN-2    TO  CONTINUE-KBN
+                                            OF  PARM-SCZY7210-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "続行可能区分=["CONTINUE-KBN
+      D                                       OF  PARM-SCZY7210-ARG3 "]"
+      *-----------------------------------------------------------------
+      *----------      実行状況管理明細実行ステータスを更新する
+                           PERFORM  TKDYAA35-UPD-2-RTN
+                           PERFORM  END-RTN
+                       ELSE
+                           CONTINUE
+                       END-IF
+                  END-IF
+             WHEN  OTHER
+               MOVE  CNS-PROGRAM-ID     TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-ORA        TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE            TO DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  "1"                TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-ERR-POS-16     TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  WK-ERR-SQLSTMT12   TO FREE-MSG
+                                        OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG           OF PARM-SCZY1170-ARG1:["
+      D              FREE-MSG           OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "FETCH処理  END *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR12-FETCH-EXT.
+           EXIT.
+      ******************************************************************
+      *    4)『一時停止区分と実行ステータスを取得』CLOSE処理
+      ******************************************************************
+       CR12-CLOSE-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "CLOSE処理  START *****"
+      *-----------------------------------------------------------------
+           EXEC SQL
+             CLOSE CR12
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE) =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQLCODE-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  CLOSE  NORMAL"
+      *-----------------------------------------------------------------
+               MOVE  "0"                TO WK-CR12-OPEN-FLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR12-OPEN-FLG =["WK-CR12-OPEN-FLG"]"
+      *-----------------------------------------------------------------
+             WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CR12  CLOSE  ABNORMAL"
+      *-----------------------------------------------------------------
+               MOVE  CNS-PROGRAM-ID     TO ERR-PGM-ID
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-ORA        TO RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE            TO DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  "1"                TO DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  CNS-ERR-POS-17     TO ERR-POS
+                                        OF PARM-SCZY1170-ARG1
+               MOVE  WK-ERR-SQLSTMT12   TO FREE-MSG
+                                        OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID         OF PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID         OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD             OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD             OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS            OF PARM-SCZY1170-ARG1:["
+      D              ERR-POS            OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG           OF PARM-SCZY1170-ARG1:["
+      D              FREE-MSG           OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  『一時停止区分と実行ステータスを取得』"
+      D             "CLOSE処理  END *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CR12-CLOSE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 実行状況管理明細更新処理-2
+      ******************************************************************
+       TKDYAA35-UPD-2-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行状況管理明細更新処理-2  START *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-FREE-MSG
+           MOVE  1  TO  SQLSTMT4-LEN
+           STRING  "UPDATE "
+      *----------  実行状況管理明細(TKDYAA35)
+                   WK-HENSYUGO-TBL-35
+      *----------  明細単位実行ステータス
+                   " SET JIKOU_STS = '300'"
+                   ", UPD_DATE = SYSDATE "
+      *----------  更新ログインユーザ会社コード
+                   ", UPD_LOGIN_CMP_CD = '"
+                   H-RIYO-CMP-CD
+      *----------  更新ユーザID
+                   "', UPD_SID = '"
+                   SPACE
+      *----------  更新プログラムID
+                   "', UPD_PGMID = '"
+                   CNS-PROGRAM-ID
+                   "' "
+      *----------  WHERE条件
+      *----------  利用会社コード＝ARG2.利用会社コード
+                   " WHERE RIYO_CMP_CD = :V1"
+      *----------  処理実行日＝ARG2.処理実行日
+                   " AND  SYORI_YMD =  :V2"
+      *----------  起動ID＝ARG2.起動ID
+                   " AND  KIDOU_ID = :V3"
+      *----------  明細単位実行ステータス＝'650'(実行待ち)
+                   " AND  JIKOU_STS = '650'"
+                   DELIMITED BY SIZE
+                   INTO  SQLSTMT4-ARR    WITH  POINTER
+                   SQLSTMT4-LEN
+                   STRING  SQLSTMT4-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[V2:"  H-SYORI-YMD   "]"
+                   "[V3:"  H-KIDOU-ID    "]"
+                   DELIMITED BY SIZE
+                   INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "強制終了の場合SQL      文  =["  SQLSTMT4-ARR  "]"
+      D    DISPLAY  "強制終了の場合SQLSTMT4-LEN =["  SQLSTMT4-LEN  "]"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                       PREPARE S03 FROM :SQLSTMT4
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(強制終了PREPARE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  CNS-ERR-POS-10       TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+               EXEC SQL EXECUTE S03 USING
+      *----------  基準年月日
+                  :H-RIYO-CMP-CD,
+                  :H-SYORI-YMD,
+                  :H-KIDOU-ID
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(強制終了EXECUTE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  CNS-ERR-POS-11       TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行状況管理明細更新処理-2  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TKDYAA35-UPD-2-EXT.
+           EXIT.
+      ******************************************************************
+      *                 実行状況管理明細更新処理
+      ******************************************************************
+       TKDYAA35-UPD-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行状況管理明細更新処理  START *****"
+      *-----------------------------------------------------------------
+      *----------  ＴＭＰ－ＳＱＬ文作成
+      *----------  更新日時
+           STRING  " UPD_DATE = SYSDATE "
+      *----------  更新ログインユーザ会社コード
+                   ", UPD_LOGIN_CMP_CD = '"
+                   H-RIYO-CMP-CD
+      *----------  更新ユーザID
+                   "', UPD_SID = '"
+                   SPACE
+      *----------  更新プログラムID
+                   "', UPD_PGMID = '"
+                   CNS-PROGRAM-ID
+                   "' "
+      *----------  WHERE条件
+      *----------  利用会社コード＝ARG2.利用会社コード
+                   " WHERE RIYO_CMP_CD = :V1"
+      *----------  処理実行日＝ARG2.処理実行日
+                   " AND  SYORI_YMD =  :V2"
+      *----------  起動ID＝ARG2.起動ID
+                   " AND  KIDOU_ID = :V3"
+      *----------  ファンドコード＝ARG2.ファンドコード
+                   " AND  FUND_CD = :V4"
+      *----------  ポートフォリオコード＝ARG2.ポートフォリオコード
+                   " AND  PTF_CD = :V5"
+      *----------  評価系列コード＝ARG2.評価系列コード
+                   " AND  HYK_KRTU_CD = :V6"
+      *----------  帳票ID＝ARG2.帳票ID
+                   " AND  REP_ID = :V7"
+      *----------  帳票任意コード＝ARG2.帳票任意コード
+                   " AND  REP_ANY_CD = :V8"
+      *----------  基準日FROM＝ARG2.基準日FROM
+                   " AND  KJN_YMD_FROM = :V9"
+           DELIMITED BY SIZE
+           INTO  SQLSTMT-TMP
+      *
+      *----------  ARG1.セッション区分が'0'の場合
+           IF  SESSION-KBN   OF PARM-SCZY7210-INOUT = CNS-SESSION-KBN-0
+           THEN
+      *----------  '600'(実行中)をセットする
+               MOVE  CNS-STS-RUN        TO  WK-JIKOU-STS
+      *----------  ＳＱＬ文作成
+               MOVE  1                  TO  SQLSTMT1-LEN
+               INITIALIZE  WK-FREE-MSG
+               STRING  "UPDATE "
+      *----------  実行状況管理明細(TKDYAA35)
+                   WK-HENSYUGO-TBL-35
+      *----------  明細単位実行ステータス
+                   " SET JIKOU_STS = '"
+                   WK-JIKOU-STS
+      *----------  実行開始日時
+                   "', JIKOU_START_TIME = "
+                   FUNCTION  CURRENT-DATE(1:14)
+                   ","
+      *----------  ＴＭＰ－ＳＱＬ文
+                   SQLSTMT-TMP
+               DELIMITED BY SIZE
+               INTO  SQLSTMT1-ARR    WITH  POINTER
+               SQLSTMT1-LEN
+               STRING  SQLSTMT1-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[V2:"  H-SYORI-YMD   "]"
+                   "[V3:"  H-KIDOU-ID    "]"
+                   "[V4:"  H-FUND-CD     "]"
+                   "[V5:"  H-PTF-CD      "]"
+                   "[V6:"  H-HYK-KRTU-CD "]"
+                   "[V7:"  H-REP-ID      "]"
+                   "[V8:"  H-REP-ANY-CD  "]"
+                   "[V9:"  H-KJN-YMD-FROM"]"
+               DELIMITED BY SIZE
+               INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "先頭セッションSQL      文  =["  SQLSTMT1-ARR  "]"
+      D    DISPLAY  "先頭セッションSQLSTMT1-LEN =["  SQLSTMT1-LEN  "]"
+      D    DISPLAY  "先頭セッションWK-FREE-MSGN =["  WK-FREE-MSG  "]"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                       PREPARE S01 FROM :SQLSTMT1
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(先頭PREPARE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  CNS-ERR-POS-3        TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+               EXEC SQL EXECUTE S01 USING
+      *----------  基準年月日
+                  :H-RIYO-CMP-CD,
+                  :H-SYORI-YMD,
+                  :H-KIDOU-ID,
+                  :H-FUND-CD,
+                  :H-PTF-CD,
+                  :H-HYK-KRTU-CD,
+                  :H-REP-ID,
+                  :H-REP-ANY-CD,
+                  :H-KJN-YMD-FROM
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(先頭EXECUTE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  CNS-ERR-POS-8        TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+           END-IF
+      *
+      *----------  ARG1.セッション区分が'1'の場合
+           IF  SESSION-KBN   OF PARM-SCZY7210-INOUT = CNS-SESSION-KBN-1
+           THEN
+      *----------  ARG2.実行ステータスをセットする
+               MOVE  JIKOU-STS          OF  PARM-SCZY7210-INOUT
+                                        TO  WK-JIKOU-STS
+      *----------  ＳＱＬ文作成
+               MOVE  1                  TO  SQLSTMT2-LEN
+               MOVE  1                  TO  SQLSTMT3-LEN
+               INITIALIZE  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT2-LEN        = [" SQLSTMT2-LEN "]"
+      *-----------------------------------------------------------------
+               STRING  "UPDATE "
+      *----------  実行状況管理明細(TKDYAA35)
+                   WK-HENSYUGO-TBL-35
+      *----------  明細単位実行ステータス
+                   " SET JIKOU_STS = '"
+                   WK-JIKOU-STS
+      *----------  実行終了日時
+                   "', JIKOU_END_TIME = "
+                   FUNCTION  CURRENT-DATE(1:14)
+                   ","
+      *----------  ＴＭＰ－ＳＱＬ文
+                   SQLSTMT-TMP
+               DELIMITED BY SIZE
+               INTO  SQLSTMT2-ARR    WITH  POINTER
+               SQLSTMT2-LEN
+      *----------  ARG2.実行ステータスが'100'(正常終了)の時
+               IF  JIKOU-STS  OF  PARM-SCZY7210-INOUT  =  "100"
+               THEN
+                   STRING  SQLSTMT2-ARR
+                           " AND JIKOU_STS <> '155'"
+                           " AND JIKOU_STS <> '156'"
+                           DELIMITED BY SIZE
+                           INTO  SQLSTMT3-ARR    WITH  POINTER
+                           SQLSTMT3-LEN
+               ELSE
+                   MOVE  SQLSTMT2-ARR  TO  SQLSTMT3-ARR
+                   MOVE  SQLSTMT2-LEN  TO  SQLSTMT3-LEN
+               END-IF
+      *
+               STRING  SQLSTMT3-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[V2:"  H-SYORI-YMD   "]"
+                   "[V3:"  H-KIDOU-ID    "]"
+                   "[V4:"  H-FUND-CD     "]"
+                   "[V5:"  H-PTF-CD      "]"
+                   "[V6:"  H-HYK-KRTU-CD "]"
+                   "[V7:"  H-REP-ID      "]"
+                   "[V8:"  H-REP-ANY-CD  "]"
+                   "[V9:"  H-KJN-YMD-FROM"]"
+               DELIMITED BY SIZE
+               INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "最終セッションSQL      文  =["  SQLSTMT3-ARR  "]"
+      D    DISPLAY  "最終セッションSQLSTMT3-LEN =["  SQLSTMT3-LEN  "]"
+      D    DISPLAY  "最終セッションWK-FREE-MSG  =["  WK-FREE-MSG  "]"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                       PREPARE S02 FROM :SQLSTMT3
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(最終PREPARE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  CNS-ERR-POS-7        TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+               EXEC SQL EXECUTE S02 USING
+      *----------  基準年月日
+                  :H-RIYO-CMP-CD,
+                  :H-SYORI-YMD,
+                  :H-KIDOU-ID,
+                  :H-FUND-CD,
+                  :H-PTF-CD,
+                  :H-HYK-KRTU-CD,
+                  :H-REP-ID,
+                  :H-REP-ANY-CD,
+                  :H-KJN-YMD-FROM
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(最終EXECUTE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+                   AND  SQLCODE  <>  CNS-SQL-NOTFOUND
+               THEN
+      *----------  ポジション
+                 MOVE  CNS-ERR-POS-9        TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行状況管理明細更新処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TKDYAA35-UPD-EXT.
+           EXIT.
+      ******************************************************************
+      *                 実行状況管理明細更新処理-3
+      ******************************************************************
+       TKDYAA35-UPD-3-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行状況管理明細更新処理-3  START *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-FREE-MSG
+           MOVE  1  TO  SQLSTMT8-LEN
+           STRING  "UPDATE "
+      *----------  実行状況管理明細(TKDYAA35)
+                   WK-HENSYUGO-TBL-35
+      *----------  明細単位実行ステータス
+                   " SET JIKOU_STS = '155'"
+                   ", UPD_DATE = SYSDATE "
+      *----------  更新ログインユーザ会社コード
+                   ", UPD_LOGIN_CMP_CD = '"
+                   H-RIYO-CMP-CD
+      *----------  更新ユーザID
+                   "', UPD_SID = '"
+                   SPACE
+      *----------  更新プログラムID
+                   "', UPD_PGMID = '"
+                   CNS-PROGRAM-ID
+                   "' "
+      *----------  WHERE条件
+      *----------  利用会社コード＝ARG2.利用会社コード
+                   " WHERE RIYO_CMP_CD = :V1"
+      *----------  処理実行日＝ARG2.処理実行日
+                   " AND  SYORI_YMD =  :V2"
+      *----------  起動ID＝ARG2.起動ID
+                   " AND  KIDOU_ID = :V3"
+      *----------  ファンドコード＝ARG2.ファンドコード
+                   " AND  FUND_CD = :V4"
+      *----------  ポートフォリオコード＝ARG2.ポートフォリオコード
+                   " AND  PTF_CD = :V5"
+      *----------  評価系列コード＝ARG2.評価系列コード
+                   " AND  HYK_KRTU_CD = :V6"
+      *----------  帳票ID＝ARG2.帳票ID
+                   " AND  REP_ID = :V7"
+      *----------  帳票任意コード＝ARG2.帳票任意コード
+                   " AND  REP_ANY_CD = :V8"
+      *----------  基準日FROM＝ARG2.基準日FROM
+                   " AND  KJN_YMD_FROM = :V9"
+      *----------  明細単位実行ステータス＝'650'(実行待ち)
+                   " AND  JIKOU_STS = '650'"
+                   DELIMITED BY SIZE
+                   INTO  SQLSTMT8-ARR    WITH  POINTER
+                   SQLSTMT8-LEN
+                   STRING  SQLSTMT8-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[V2:"  H-SYORI-YMD   "]"
+                   "[V3:"  H-KIDOU-ID    "]"
+                   "[V4:"  H-FUND-CD     "]"
+                   "[V5:"  H-PTF-CD      "]"
+                   "[V6:"  H-HYK-KRTU-CD "]"
+                   "[V7:"  H-REP-ID      "]"
+                   "[V8:"  H-REP-ANY-CD  "]"
+                   "[V9:"  H-KJN-YMD-FROM"]"
+                   "[JIKOU_STS = '650'    ]"
+                   DELIMITED BY SIZE
+                   INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "処理中の場合SQL      文  =["  SQLSTMT8-ARR  "]"
+      D    DISPLAY  "処理中の場合SQLSTMT8-LEN =["  SQLSTMT8-LEN  "]"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                       PREPARE S08 FROM :SQLSTMT8
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(処理中PREPARE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  "0025"               TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+               EXEC SQL EXECUTE S08 USING
+      *----------  基準年月日
+                  :H-RIYO-CMP-CD,
+                  :H-SYORI-YMD,
+                  :H-KIDOU-ID,
+                  :H-FUND-CD,
+                  :H-PTF-CD,
+                  :H-HYK-KRTU-CD,
+                  :H-REP-ID,
+                  :H-REP-ANY-CD,
+                  :H-KJN-YMD-FROM
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(処理中EXECUTE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  "0026"               TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行状況管理明細更新処理-3  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TKDYAA35-UPD-3-EXT.
+           EXIT.
+      ******************************************************************
+      *                 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  後処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチン処理
+           MOVE  CNS-RTN-NORMAL         TO  RTN-CD
+                                        OF  PARM-SCZY1170-INOUT
+           INITIALIZE  PARM-SCZY1170-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  SCZY1170処理  START  *****"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"             USING  PARM-SCZY1170-INOUT
+                                               PARM-SCZY1170-RTNPKG
+      *-----------------------------------------------------------------
+      D    DISPLAY  "RTN-CD  OF SCZY1170 = ["
+      D              RTN-CD  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "*****  SCZY1170処理  END  *****"
+      *-----------------------------------------------------------------
+           MOVE  PARM-SCZY1170-RTNPKG   TO  PARM-SCZY7210-ARG4
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZY7210-ARG4=[" PARM-SCZY7210-ARG4  "]"
+      D    DISPLAY  "*****  後処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  エラー処理  START  *****"
+      D    DISPLAY  "WK-CR12-OPEN-FLG =["WK-CR12-OPEN-FLG"]"
+      D    DISPLAY  "*****  SCZY1170処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  カーソル12 CLOSE
+           IF  WK-CR12-OPEN-FLG = "1"
+           THEN
+             EXEC SQL
+               CLOSE CR12
+             END-EXEC
+             MOVE  "0"                TO WK-CR12-OPEN-FLG
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR12-OPEN-FLG =["WK-CR12-OPEN-FLG"]"
+      *-----------------------------------------------------------------
+           MOVE  CNS-PROGRAM-ID         TO  ERR-PGM-ID
+                                        OF  PARM-SCZY1170-INOUT
+           CALL  "SCZY1170"             USING  PARM-SCZY1170-INOUT
+                                               PARM-SCZY1170-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "       ERR-PGM-ID  OF PARM-SCZY1170-INOUT  =["
+      D                     ERR-PGM-ID  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "          ERR-POS  OF PARM-SCZY1170-INOUT  =["
+      D                        ERR-POS  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "           RTN-CD  OF PARM-SCZY1170-INOUT  =["
+      D                         RTN-CD  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "    DETAIL-RTN-CD  OF PARM-SCZY1170-INOUT  =["
+      D                  DETAIL-RTN-CD  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-INOUT  =["
+      D              DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "         FREE-MSG  OF PARM-SCZY1170-INOUT  =["
+      D                       FREE-MSG  OF PARM-SCZY1170-INOUT  "]"
+      D    DISPLAY  "*****  SCZY1170処理  END  *****"
+      *-----------------------------------------------------------------
+           MOVE  PARM-SCZY1170-RTNPKG   TO  PARM-SCZY7210-ARG4
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZY7210-ARG4=[" PARM-SCZY7210-ARG4 "]"
+      D    DISPLAY  "*****  エラー処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************
+      *             並行稼動チェック区分取得処理
+      ******************************************************************
+       PTF-CHECK-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 並行稼動チェック区分取得処理  START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-FREE-MSG
+           MOVE  1                 TO  SQLSTMT5-LEN
+           MOVE  SPACE             TO  WK-FETCH-END-FLG
+           MOVE  GYOMU-TASK-ID     OF  PARM-TSDYAA31-ARG2
+             TO  H-GYOMU-TASK-ID
+           MOVE  GYOMU-TASK-ID     OF  PARM-TSDYAA31-ARG2
+             TO  H-UPLOAD-ID
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-GYOMU-TASK-ID  =["  H-GYOMU-TASK-ID  "]"
+      D    DISPLAY  "H-UPLOAD-ID =["  H-UPLOAD-ID  "]"
+      *-----------------------------------------------------------------
+           STRING " SELECT HEIKO_CHK_KBN FROM "
+                   WK-HENSYUGO-TBL-21
+                   " WHERE "
+                   " GYOMU_TASK_ID = :V1 "
+                   " UNION "
+                   " SELECT HEIKO_CHK_KBN FROM "
+                   WK-HENSYUGO-TBL-23
+                   " WHERE "
+                   " UPLOAD_ID  = :V2 "
+           DELIMITED BY SIZE
+           INTO  SQLSTMT5-ARR    WITH  POINTER
+           SQLSTMT5-LEN
+           STRING  SQLSTMT5-ARR
+           "[V1:"  H-GYOMU-TASK-ID "]"
+           "[V2:"  H-UPLOAD-ID   "]"
+           DELIMITED BY SIZE
+           INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL      文  =["  SQLSTMT5-ARR  "]"
+      D    DISPLAY  "SQLSTMT5-LEN =["  SQLSTMT5-LEN  "]"
+      *-----------------------------------------------------------------
+           EXEC SQL
+                   PREPARE S05 FROM :SQLSTMT5
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+           THEN
+      *----------  ポジション
+               MOVE  "0012"               TO  ERR-POS
+                                          OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                          OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                          OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+               MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                          OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                          OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+           END-IF
+      *----------  カーソル DECLARE
+           EXEC SQL
+               DECLARE CR05 CURSOR  FOR S05
+           END-EXEC
+      *----------  カーソル OPEN
+           EXEC SQL
+               OPEN  CR05  USING  :H-GYOMU-TASK-ID,
+                                  :H-UPLOAD-ID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN)      =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL OPEN ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0013"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  "1"                     TO  WK-CR-OPEN-FLG
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR-OPEN-FLG= [" WK-CR-OPEN-FLG  "]"
+      *-----------------------------------------------------------------
+           MOVE  SPACE                  TO  WK-DATA-FLG
+           PERFORM  UNTIL  WK-FETCH-END-FLG <> SPACE
+               MOVE  SPACE              TO  H-HEIKO-CHK-KBN
+               EXEC  SQL
+                   FETCH  CR05
+                   INTO  :H-HEIKO-CHK-KBN
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(FETCH H-HEIKO-CHK-KBN) =["  SQLCODE  "]"
+      D    DISPLAY  "H-HEIKO-CHK-KBN= [" H-HEIKO-CHK-KBN "]"
+      *-----------------------------------------------------------------
+               EVALUATE  SQLCODE
+                   WHEN  CNS-SQLCODE-NORMAL
+                       MOVE  "1"                TO  WK-DATA-FLG
+                       MOVE  H-HEIKO-CHK-KBN    TO  WK-HEIKO-CHK-KBN
+                       IF  SESSION-KBN  OF PARM-SCZY7210-INOUT
+                           = CNS-SESSION-KBN-0
+                       THEN
+      *----------  取得した並行稼動チェック区分＝'1' OR '3'
+                           IF  WK-HEIKO-CHK-KBN = "1" OR
+                               WK-HEIKO-CHK-KBN = "3"
+                           THEN
+                               MOVE  SPACE      TO  WK-PTF-STS-UPD-KBN
+                               PERFORM  PTF-JYOTAI-STS-RTN
+                           ELSE
+                               MOVE  "1"        TO  WK-PTF-STS-UPD-KBN
+                           END-IF
+                       END-IF
+                       IF  SESSION-KBN  OF PARM-SCZY7210-INOUT
+                           = CNS-SESSION-KBN-1
+                       THEN
+      *----------  取得した並行稼動チェック区分＝'1' OR '3'
+                           IF  WK-HEIKO-CHK-KBN = "1" OR
+                               WK-HEIKO-CHK-KBN = "3"
+                           THEN
+                               MOVE  SPACE      TO  WK-PTF-STS-UPD-KBN
+                           ELSE
+                               MOVE  "1"        TO  WK-PTF-STS-UPD-KBN
+                           END-IF
+                       END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ワークポートフォリオ状態更新区分= ["
+      D               WK-PTF-STS-UPD-KBN "]"
+      *-----------------------------------------------------------------
+                   WHEN  CNS-SQL-NOTFOUND
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-DATA-FLG= [" WK-DATA-FLG "]"
+      *-----------------------------------------------------------------
+                       MOVE  "1"                TO  WK-FETCH-END-FLG
+                       IF  WK-DATA-FLG = "1"
+                       THEN
+                           CONTINUE
+                       ELSE
+      *----------  ポジション
+                           MOVE  "0014"         TO  ERR-POS
+                                                OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                           MOVE  CNS-RTN-NASI   TO  RTN-CD
+                                                OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+                           MOVE  "0"            TO  DETAIL-RTN-CD-FLG
+                                                OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "該当データなし"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+                           PERFORM  ERR-RTN
+                       END-IF
+                   WHEN  OTHER
+                       MOVE  "1"                TO  WK-FETCH-END-FLG
+      *----------  ポジション
+                       MOVE  "0015"             TO  ERR-POS
+                                                OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                       MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                                OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                       MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                                OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+                       MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                                OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                       MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                                OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+                       PERFORM  ERR-RTN
+               END-EVALUATE
+           END-PERFORM
+           EXEC SQL
+               CLOSE CR05
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE)     =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CURSOR CLOSE ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0016"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  "0"                       TO  WK-CR-OPEN-FLG
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR-OPEN-FLG= [" WK-CR-OPEN-FLG  "]"
+      D    DISPLAY  "***  並行稼動チェック区分取得処理 END ***".
+      *-----------------------------------------------------------------
+       PTF-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *          ポートフォリオ状態ステータスが'1'(処理中)の件数を取得
+      ******************************************************************
+       PTF-JYOTAI-STS-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "ポートフォリオ状態ステータスが'1'の件数を取得 START"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-FREE-MSG
+           MOVE  1                  TO  SQLSTMT6-LEN
+           MOVE  GYOMU-TASK-ID      OF  PARM-TSDYAA31-ARG2
+                                    TO  H-GYOMU-TASK-ID
+           IF  WK-HEIKO-CHK-KBN = "1"
+           THEN
+               STRING  " AND (GYOMU_TASK_ID = :V5 "
+                       " OR GYOMU_TASK_ID "
+                       " IN (SELECT SK_GYOMU_TASK_ID FROM "
+                       WK-HENSYUGO-TBL-20
+                       " WHERE GYOMU_TASK_ID =:V6"
+                       " AND GYOMU_TASK_KBN = '3')) "
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE
+           ELSE
+               STRING  " AND (1 =1 OR GYOMU_TASK_ID = :V5 "
+                       " OR GYOMU_TASK_ID = :V6) "
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE
+           END-IF
+           IF  FUND-CD  OF  PARM-SCZY7210-INOUT = SPACE
+           THEN
+               STRING  " AND (1=1 OR FUND_CD = :V2  OR FUND_CD = ' ')"
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE2
+           ELSE
+               STRING  " AND (FUND_CD = :V2  OR FUND_CD = ' ')"
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE2
+           END-IF
+           IF  PTF-CD  OF  PARM-SCZY7210-INOUT = SPACE
+           THEN
+               STRING  " AND (1=1 OR PTF_CD = :V3 OR PTF_CD = ' ')"
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE3
+           ELSE
+               STRING  " AND (PTF_CD = :V3 OR PTF_CD = ' ')"
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE3
+           END-IF
+           IF  HYK-KRTU-CD  OF  PARM-SCZY7210-INOUT = SPACE
+           THEN
+               STRING  " AND (1=1 OR HYK_KRTU_CD = :V4 "
+                       " OR HYK_KRTU_CD = ' ')"
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE4
+           ELSE
+               STRING  " AND (HYK_KRTU_CD = :V4 OR HYK_KRTU_CD = ' ')"
+               DELIMITED BY SIZE
+               INTO  WK-SQL-WHERE4
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FUND-CD  OF  PARM-SCZY7210-INOUT =["
+      D              FUND-CD  OF  PARM-SCZY7210-INOUT"]"
+      D    DISPLAY  "PTF-CD  OF  PARM-SCZY7210-INOUT  =["
+      D              PTF-CD  OF  PARM-SCZY7210-INOUT "]"
+      D    DISPLAY  "HYK-KRTU-CD  OF  PARM-SCZY7210-INOUT  =["
+      D              HYK-KRTU-CD  OF  PARM-SCZY7210-INOUT"]"
+      *-----------------------------------------------------------------
+           STRING  "SELECT COUNT(1) FROM "
+                   WK-HENSYUGO-TBL-41
+      *----------   利用会社コード＝ARG2.利用会社コード
+                   " WHERE RIYO_CMP_CD = :V1 "
+      *----------   ファンドコード＝ARG2.ファンドコード
+      *----------   OR ファンドコード＝' '
+                   WK-SQL-WHERE2
+      *----------   ポートフォリオコード＝ARG2.ポートフォリオコード
+      *----------   OR ポートフォリオコード＝' '
+                   WK-SQL-WHERE3
+      *----------   評価系列コード＝ARG2.評価系列コード
+      *----------   OR 評価系列コード＝' '
+                   WK-SQL-WHERE4
+      *----------   業務タスクID
+                   WK-SQL-WHERE
+      *----------   ポートフォリオ状態ステータス＝'1'(処理中)
+                   " AND PTF_JYOTAI_STS = '1'"
+           DELIMITED BY SIZE
+           INTO  SQLSTMT6-ARR
+           WITH  POINTER  SQLSTMT6-LEN
+           STRING  SQLSTMT6-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[V2:"  H-FUND-CD     "]"
+                   "[V3:"  H-PTF-CD      "]"
+                   "[V4:"  H-HYK-KRTU-CD "]"
+                   "[V5:"  H-GYOMU-TASK-ID"]"
+                   "[V6:"  H-GYOMU-TASK-ID"]"
+           DELIMITED BY SIZE
+           INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT6-ARR =["SQLSTMT6-ARR"]"
+      D    DISPLAY  "SQLSTMT6-LEN =["SQLSTMT6-LEN"]"
+      D    DISPLAY  "WK-FREE-MSG  =["WK-FREE-MSG"]"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               PREPARE S06  FROM :SQLSTMT6
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE)   =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  NOT = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL PREPARE ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0017"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-RIYO-CMP-CD = [" H-RIYO-CMP-CD  "]"
+      D    DISPLAY  "H-FUND-CD     = [" H-FUND-CD  "]"
+      D    DISPLAY  "H-PTF-CD      = [" H-PTF-CD  "]"
+      D    DISPLAY  "H-HYK-KRTU-CD = [" H-HYK-KRTU-CD  "]"
+      D    DISPLAY  "H-GYOMU-TASK-ID = [" H-GYOMU-TASK-ID  "]"
+      D    DISPLAY  "WK-CR6-OPEN-FLG= [" WK-CR6-OPEN-FLG  "]"
+      *-----------------------------------------------------------------
+      *----------  カーソル DECLARE
+           EXEC SQL
+               DECLARE CR06 CURSOR  FOR S06
+           END-EXEC
+      *----------  カーソル OPEN
+           EXEC SQL
+               OPEN  CR06  USING  :H-RIYO-CMP-CD,
+                                  :H-FUND-CD,
+                                  :H-PTF-CD,
+                                  :H-HYK-KRTU-CD,
+                                  :H-GYOMU-TASK-ID,
+                                  :H-GYOMU-TASK-ID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN)      =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE              NOT = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL OPEN ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0018"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  "1"                     TO  WK-CR6-OPEN-FLG
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR6-OPEN-FLG= [" WK-CR6-OPEN-FLG  "]"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               FETCH  CR06
+               INTO  :H-COUNT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(FETCH)      =["  SQLCODE  "]"
+      D    DISPLAY  "H-COUNT      =["  H-COUNT  "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+               WHEN  CNS-SQLCODE-NORMAL
+                   IF  H-COUNT > 0
+                   THEN
+                       MOVE  CNS-CON-KBN-3  TO  CONTINUE-KBN
+                                            OF  PARM-SCZY7210-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "続行可能区分 = [" CONTINUE-KBN
+      D                                        OF  PARM-SCZY7210-ARG3"]"
+      *-----------------------------------------------------------------
+                       PERFORM  TKDYAA35-UPD-3-RTN
+                       PERFORM  CALL-SCZY7080-RTN
+                       PERFORM  END-RTN
+                   ELSE
+                       PERFORM  TKDYAA41-COUNT-RTN
+                   END-IF
+               WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL FETCH ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+                   MOVE  "0019"             TO  ERR-POS
+                                            OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                            OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                   MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                            OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                            OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                   MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                            OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+                   PERFORM  ERR-RTN
+           END-EVALUATE
+           EXEC SQL
+               CLOSE CR06
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE)     =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE              NOT = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CURSOR CLOSE ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0020"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  "0"                       TO  WK-CR6-OPEN-FLG
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR6-OPEN-FLG= [" WK-CR6-OPEN-FLG  "]"
+      D    DISPLAY  "***  ポートフォリオ状態ステータスを取得 END ***".
+      *-----------------------------------------------------------------
+       PTF-JYOTAI-STS-EXT.
+           EXIT.
+      ******************************************************************
+      *                 ポートフォリオ状態INSERT処理
+      ******************************************************************
+       TIDYAA41-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ポートフォリオ状態INSERT処理  START *****"
+      *-----------------------------------------------------------------
+      *---------- 「TIDYAA41」ポートフォリオ状態ルーチン(INSERT)
+           INITIALIZE  PARM-KYOUTUU-RTNPKG
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  RIYO-CMP-CD            OF  PARM-TIDYAA41-ARG1
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  RIYO-CMP-CD            OF  PARM-TIDYAA41-ARG2
+      *---------- 基準日
+           MOVE  99999999               TO  KJN-YMD
+                                        OF  PARM-TIDYAA41-ARG2
+      *---------- ファンドコード
+           MOVE  FUND-CD                OF  PARM-SCZY7210-INOUT
+             TO  FUND-CD                OF  PARM-TIDYAA41-ARG2
+      *---------- ポートフォリオコード
+           MOVE  PTF-CD                 OF  PARM-SCZY7210-INOUT
+             TO  PTF-CD                 OF  PARM-TIDYAA41-ARG2
+      *---------- 評価系列コード
+           MOVE  HYK-KRTU-CD            OF  PARM-SCZY7210-INOUT
+             TO  HYK-KRTU-CD            OF  PARM-TIDYAA41-ARG2
+      *---------- 業務タスクID
+           MOVE  GYOMU-TASK-ID          OF  PARM-TSDYAA31-ARG2
+             TO  GYOMU-TASK-ID          OF  PARM-TIDYAA41-ARG2
+      *---------- 最終更新処理実行日
+           MOVE  SYORI-YMD              OF  PARM-SCZY7210-INOUT
+             TO  SS-UPD-JIKOBI          OF  PARM-TIDYAA41-ARG2
+      *---------- 最終更新起動ID
+           MOVE  KIDOU-ID               OF  PARM-SCZY7210-INOUT
+             TO  SS-UPD-KIDOU-ID        OF  PARM-TIDYAA41-ARG2
+      *---------- ポートフォリオ状態ステータス
+           MOVE  "1"                    TO  PTF-JYOTAI-STS
+                                        OF  PARM-TIDYAA41-ARG2
+      *---------- 更新日時
+      *---------- 更新ログインユーザ会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  UPD-LOGIN-CMP-CD       OF  PARM-TIDYAA41-ARG2
+      *---------- 更新ユーザID
+      *---------- 更新プログラムID
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "利用会社コード =[" RIYO-CMP-CD
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "基準日 =["     KJN-YMD   OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "ファンドコード =[" FUND-CD
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "ポートフォリオコード =[" PTF-CD
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "評価系列コード =[" HYK-KRTU-CD
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "業務タスクID =[" GYOMU-TASK-ID
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "最終更新処理実行日 =[" SS-UPD-JIKOBI
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "最終更新起動ID =[" SS-UPD-KIDOU-ID
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "ポートフォリオ状態ステータス =[" PTF-JYOTAI-STS
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "更新日時 =[" UPD-DATE    OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "更新ログインユーザ会社コード =[" UPD-LOGIN-CMP-CD
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "更新ユーザID =[" UPD-SID
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      D    DISPLAY  "更新プログラムID =["UPD-PGMID
+      D                                       OF  PARM-TIDYAA41-ARG2 "]"
+      *-----------------------------------------------------------------
+           CALL  "TIDYAA41"             USING  PARM-TIDYAA41-INOUT
+                                               PARM-KYOUTUU-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD OF TIDYAA41 = [" RTN-CD
+      D                                 OF  PARM-KYOUTUU-RTNPKG
+      D                       (COUNTER  OF  PARM-KYOUTUU-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE             RTN-CD  OF  PARM-KYOUTUU-RTNPKG
+                              (COUNTER  OF  PARM-KYOUTUU-RTNPKG)
+      *----------    正常
+               WHEN   CNS-RTN-NORMAL
+                   CONTINUE
+      *----------    一意制約
+               WHEN   CNS-RET-CD-ITI-SEYAKU
+      *----------     ポートフォリオ状態テーブル更新処理
+                   PERFORM  PTF-DATA-LOCK-RTN
+      *----------    システムエラー(Oracle以外)
+               WHEN  CNS-RTN-ORA-IGAI
+      *----------  ポジション
+                   MOVE  "0021"               TO  ERR-POS
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA-IGAI     TO  RTN-CD
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+               WHEN  OTHER
+      *----------  ポジション
+                   MOVE  "0022"               TO  ERR-POS
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+           END-EVALUATE.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ポートフォリオ状態INSERT処理  END *****".
+      *-----------------------------------------------------------------
+       TIDYAA41-EXT.
+           EXIT.
+      ******************************************************************
+      *        更新対象のポートフォリオ状態のデータをロック処理
+      ******************************************************************
+       PTF-DATA-LOCK-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "**  更新対象のPTF状態データをロック処理  START **"
+      *-----------------------------------------------------------------
+      *----------  ＳＱＬ文作成
+           MOVE  1  TO  SQLSTMT11-LEN
+           MOVE  GYOMU-TASK-ID               OF PARM-TSDYAA31-ARG2
+             TO  H-GYOMU-TASK-ID
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ARG2.利用会社コード =["H-RIYO-CMP-CD"]"
+      D    DISPLAY  "ARG2.ファンドコード =["H-FUND-CD"]"
+      D    DISPLAY  "ARG2.ポートフォリオコード =["H-PTF-CD"]"
+      D    DISPLAY  "ARG2.評価系列コード =["H-HYK-KRTU-CD"]"
+      D    DISPLAY  "取得した業務タスクID =["H-GYOMU-TASK-ID"]"
+      *-----------------------------------------------------------------
+           STRING  "SELECT "
+      *----------  条件値
+                   "PTF_JYOTAI_STS "
+      *----------  FROM
+                   " FROM "
+                   WK-HENSYUGO-TBL-41
+      *----------  WHERE条件
+                   " WHERE"
+      *----------   利用会社コード＝ARG2.利用会社コード
+                    " RIYO_CMP_CD = :V1"
+      *----------   基準日＝'99999999'
+                    " AND KJN_YMD = '99999999'"
+      *----------   ファンドコード＝ARG2.ファンドコード
+                    " AND FUND_CD = :V2"
+      *----------   ポートフォリオコード＝ARG2.ポートフォリオコード
+                    " AND PTF_CD = :V3"
+      *----------   評価系列コード＝ARG2.評価系列コード
+                    " AND HYK_KRTU_CD = :V4"
+      *----------   業務タスクID
+                    " AND GYOMU_TASK_ID = :V5"
+      *----------   ポートフォリオ状態ステータス＝'0'(未処理)
+                    " AND PTF_JYOTAI_STS = '0'"
+                    " FOR UPDATE NOWAIT "
+               DELIMITED BY SIZE
+               INTO  SQLSTMT11-ARR
+               POINTER  SQLSTMT11-LEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT11-ARR=["SQLSTMT11-ARR"]"
+      D    DISPLAY  "SQLSTMT11-LEN=["SQLSTMT11-LEN"]"
+      *-----------------------------------------------------------------
+           STRING  SQLSTMT11-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[V2:"  H-FUND-CD     "]"
+                   "[V3:"  H-PTF-CD      "]"
+                   "[V4:"  H-HYK-KRTU-CD "]"
+                   "[V5:"  H-GYOMU-TASK-ID"]"
+               DELIMITED  BY  SIZE
+               INTO  WK-ERR-SQLSTMT11
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-ERR-SQLSTMT11=["WK-ERR-SQLSTMT11"]"
+      *-----------------------------------------------------------------
+      *----------  ＳＱＬ文 PREPARE11
+           EXEC SQL
+               PREPARE S11  FROM :SQLSTMT11
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE11)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  NOT = CNS-SQLCODE-NORMAL
+           THEN
+      *----------  ポジション
+               MOVE  "0037"
+                 TO  ERR-POS                 OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA
+                 TO  RTN-CD                  OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"
+                 TO  DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  WK-ERR-SQLSTMT11
+                 TO  FREE-MSG                OF PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF
+      *----------  カーソル11 DECLARE
+           EXEC SQL
+               DECLARE CR11 CURSOR  FOR S11
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(DECLARE11)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  NOT = CNS-SQLCODE-NORMAL
+           THEN
+      *----------  ポジション
+               MOVE  "0038"
+                 TO  ERR-POS                 OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA
+                 TO  RTN-CD                  OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"
+                 TO  DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  WK-ERR-SQLSTMT11
+                 TO  FREE-MSG                OF PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF
+      *----------  カーソル11 OPEN
+           EXEC SQL
+               OPEN  CR11
+               USING
+                   :H-RIYO-CMP-CD,
+                   :H-FUND-CD,
+                   :H-PTF-CD,
+                   :H-HYK-KRTU-CD,
+                   :H-GYOMU-TASK-ID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN11)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+               WHEN  CNS-SQLCODE-NORMAL
+                   CONTINUE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  処理を継続  *****"
+      *-----------------------------------------------------------------
+               WHEN  CNS-NOWAIT
+                   MOVE  CNS-CON-KBN-3
+                     TO  CONTINUE-KBN        OF  PARM-SCZY7210-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "続行可能区分 = ["
+      D             CONTINUE-KBN             OF  PARM-SCZY7210-ARG3"]"
+      *-----------------------------------------------------------------
+                   PERFORM  TKDYAA35-UPD-3-RTN
+                   PERFORM  CALL-SCZY7080-RTN
+                   PERFORM  END-RTN
+               WHEN  OTHER
+      *----------  ポジション
+                   MOVE  "0039"
+                     TO  ERR-POS             OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  SQLCODE
+                     TO  DETAIL-RTN-CD       OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  "1"
+                     TO  DETAIL-RTN-CD-FLG   OF PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  WK-ERR-SQLSTMT11
+                     TO  FREE-MSG            OF PARM-SCZY1170-ARG1
+                   PERFORM  ERR-RTN
+           END-EVALUATE
+      *----------  カーソル11 FETCH
+           EXEC SQL
+               FETCH  CR11
+                INTO :H-PTF-JYOTAI-STS
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(FETCH11)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+               WHEN  CNS-SQLCODE-NORMAL
+                   CONTINUE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  処理を継続  *****"
+      *-----------------------------------------------------------------
+                WHEN  CNS-SQL-NOTFOUND
+                   MOVE  CNS-CON-KBN-3
+                     TO  CONTINUE-KBN        OF  PARM-SCZY7210-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "続行可能区分 = ["
+      D             CONTINUE-KBN             OF  PARM-SCZY7210-ARG3"]"
+      *-----------------------------------------------------------------
+                   PERFORM  TKDYAA35-UPD-3-RTN
+                   PERFORM  CALL-SCZY7080-RTN
+                   PERFORM  END-RTN
+               WHEN  OTHER
+      *----------  ポジション
+                   MOVE  "0040"
+                     TO  ERR-POS             OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  SQLCODE
+                     TO  DETAIL-RTN-CD       OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  "1"
+                     TO  DETAIL-RTN-CD-FLG   OF PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  WK-ERR-SQLSTMT11
+                     TO  FREE-MSG            OF PARM-SCZY1170-ARG1
+                   PERFORM  ERR-RTN
+           END-EVALUATE
+           EXEC SQL
+               CLOSE CR11
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE11)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  = CNS-SQLCODE-NORMAL
+           THEN
+               CONTINUE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  処理を継続  *****"
+      *-----------------------------------------------------------------
+           ELSE
+      *----------  ポジション
+               MOVE  "0041"
+                 TO  ERR-POS                 OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA
+                 TO  RTN-CD                  OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"
+                 TO  DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  WK-ERR-SQLSTMT11
+                 TO  FREE-MSG                OF PARM-SCZY1170-ARG1
+               PERFORM  ERR-RTN
+           END-IF
+      *----------  ポートフォリオ状態更新処理
+           PERFORM  PTF-UPD-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  更新対象のPTF状態データをロック処理  END ***".
+      *-----------------------------------------------------------------
+       PTF-DATA-LOCK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 ポートフォリオ状態更新処理
+      ******************************************************************
+       PTF-UPD-RTN            SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ポートフォリオ状態更新処理 START ***"
+      D    DISPLAY  "ワークポートフォリオ状態データ有無区分 = ["
+      D                                        WK-PTF-JYOTAI-STS-KBN"]"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-FREE-MSG
+           MOVE  1                 TO  SQLSTMT7-LEN
+           MOVE  GYOMU-TASK-ID     OF  PARM-TSDYAA31-ARG2
+             TO  H-GYOMU-TASK-ID
+      *----------  ARG1.セッション区分が'0'の場合
+           IF  SESSION-KBN   OF PARM-SCZY7210-INOUT = CNS-SESSION-KBN-0
+           THEN
+                STRING  "', PTF_JYOTAI_STS = '1' "
+                DELIMITED BY SIZE
+                INTO  WK-SQL-WHERE1
+           END-IF
+      *----------  ARG1.セッション区分が'1'の場合
+           IF  SESSION-KBN   OF PARM-SCZY7210-INOUT = CNS-SESSION-KBN-1
+           THEN
+                STRING  "', PTF_JYOTAI_STS = '0' "
+                DELIMITED BY SIZE
+                INTO  WK-SQL-WHERE1
+           END-IF
+           STRING  "UPDATE "
+                   WK-HENSYUGO-TBL-41
+                   " SET "
+      *----------  最終更新処理実行日
+                   " SS_UPD_JIKOBI = '"
+                   H-SYORI-YMD
+      *----------  最終更新起動ID
+                   "', SS_UPD_KIDOU_ID = '"
+                   H-KIDOU-ID
+      *----------  ポートフォリオ状態ステータス
+                   WK-SQL-WHERE1
+      *----------  更新日時
+                   ", UPD_DATE = SYSDATE "
+      *----------  更新ログインユーザ会社コード
+                   ", UPD_LOGIN_CMP_CD = '"
+                   H-RIYO-CMP-CD
+      *----------  更新ユーザID
+                   "', UPD_SID = '"
+                   SPACE
+      *----------  更新プログラムID
+                   "', UPD_PGMID = '"
+                   CNS-PROGRAM-ID
+                   "' "
+      *----------  WHERE条件
+                   " WHERE"
+      *----------   利用会社コード＝ARG2.利用会社コード
+                    " RIYO_CMP_CD = :V1"
+      *----------   基準日＝'99999999'
+                    " AND KJN_YMD = '99999999'"
+      *----------   ファンドコード＝ARG2.ファンドコード
+                    " AND FUND_CD = :V2"
+      *----------   ポートフォリオコード＝ARG2.ポートフォリオコード
+                    " AND PTF_CD = :V3"
+      *----------   評価系列コード＝ARG2.評価系列コード
+                    " AND HYK_KRTU_CD = :V4"
+      *----------   業務タスクID
+                    " AND GYOMU_TASK_ID = :V5"
+             DELIMITED BY SIZE
+             INTO  SQLSTMT7-ARR    WITH  POINTER
+             SQLSTMT7-LEN
+             STRING  SQLSTMT7-ARR
+                     "[V1:"  H-RIYO-CMP-CD "]"
+                     "[ 99999999]"
+                     "[V2:"  H-FUND-CD     "]"
+                     "[V3:"  H-PTF-CD      "]"
+                     "[V4:"  H-HYK-KRTU-CD "]"
+                     "[V5:"  H-GYOMU-TASK-ID"]"
+             DELIMITED BY SIZE
+             INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT7-ARR =["SQLSTMT7-ARR"]"
+      D    DISPLAY  "SQLSTMT7-LEN =["SQLSTMT7-LEN"]"
+      D    DISPLAY  "WK-FREE-MSG  =["WK-FREE-MSG"]"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                       PREPARE S07 FROM :SQLSTMT7
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  "0023"               TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF
+               EXEC SQL EXECUTE S07 USING
+      *----------  基準年月日
+                   :H-RIYO-CMP-CD,
+                   :H-FUND-CD,
+                   :H-PTF-CD,
+                   :H-HYK-KRTU-CD,
+                   :H-GYOMU-TASK-ID
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(EXECUTE) = ["SQLCODE"]"
+      *-----------------------------------------------------------------
+               IF  SQLCODE  <>  CNS-SQLCODE-NORMAL
+               THEN
+      *----------  ポジション
+                 MOVE  "0024"       TO  ERR-POS
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                 MOVE  CNS-RTN-ORA          TO  RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                 MOVE  SQLCODE              TO  DETAIL-RTN-CD
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                 MOVE  CNS-RTN-ORA-FLG      TO  DETAIL-RTN-CD-FLG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                 MOVE  WK-FREE-MSG          TO  FREE-MSG
+                                            OF  PARM-SCZY1170-INOUT
+      *----------  エラー処理
+                 PERFORM  ERR-RTN
+               END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ポートフォリオ状態更新処理 END ***".
+      *-----------------------------------------------------------------
+       PTF-UPD-EXT.
+           EXIT.
+      ******************************************************************
+      *          ポートフォリオ状態に該当レコード件数を取得する
+      ******************************************************************
+       TKDYAA41-COUNT-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "*ポートフォリオ状態に該当レコード件数を取得 START *"
+      *-----------------------------------------------------------------
+           INITIALIZE  WK-FREE-MSG
+                       H-COUNT
+           MOVE  1                 TO  SQLSTMT9-LEN
+           MOVE  GYOMU-TASK-ID     OF  PARM-TSDYAA31-ARG2
+             TO  H-GYOMU-TASK-ID
+           STRING  "SELECT COUNT(1) FROM "
+                   WK-HENSYUGO-TBL-41
+      *----------   利用会社コード＝ARG2.利用会社コード
+                   " WHERE RIYO_CMP_CD = :V1 "
+      *----------   基準日＝'99999999'
+                   " AND KJN_YMD = 99999999 "
+      *----------   ファンドコード＝ARG2.ファンドコード
+                   " AND FUND_CD = :V2 "
+      *----------   ポートフォリオコード＝ARG2.ポートフォリオコード
+                   " AND PTF_CD = :V3 "
+      *----------   評価系列コード＝ARG2.評価系列コード
+                   " AND HYK_KRTU_CD = :V4 "
+      *----------  業務タスクID＝3.2.1.1.処理で取得した業務タスクID
+                   " AND GYOMU_TASK_ID = :V5"
+           DELIMITED BY SIZE
+           INTO  SQLSTMT9-ARR
+           WITH  POINTER  SQLSTMT9-LEN
+           STRING  SQLSTMT9-ARR
+                   "[V1:"  H-RIYO-CMP-CD "]"
+                   "[ 99999999]"
+                   "[V2:"  H-FUND-CD     "]"
+                   "[V3:"  H-PTF-CD      "]"
+                   "[V4:"  H-HYK-KRTU-CD "]"
+                   "[V5:"  H-GYOMU-TASK-ID"]"
+           DELIMITED BY SIZE
+           INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT9-ARR =["SQLSTMT9-ARR"]"
+      D    DISPLAY  "SQLSTMT9-LEN =["SQLSTMT9-LEN"]"
+      D    DISPLAY  "WK-FREE-MSG  =["WK-FREE-MSG"]"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               PREPARE S09  FROM :SQLSTMT9
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE)   =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  NOT = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL PREPARE ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0027"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-RIYO-CMP-CD = [" H-RIYO-CMP-CD  "]"
+      D    DISPLAY  "H-FUND-CD     = [" H-FUND-CD  "]"
+      D    DISPLAY  "H-PTF-CD      = [" H-PTF-CD  "]"
+      D    DISPLAY  "H-HYK-KRTU-CD = [" H-HYK-KRTU-CD  "]"
+      D    DISPLAY  "H-GYOMU-TASK-ID = [" H-GYOMU-TASK-ID  "]"
+      D    DISPLAY  "WK-CR9-OPEN-FLG= [" WK-CR9-OPEN-FLG  "]"
+      *-----------------------------------------------------------------
+      *----------  カーソル DECLARE
+           EXEC SQL
+               DECLARE CR09 CURSOR  FOR S09
+           END-EXEC
+      *----------  カーソル OPEN
+           EXEC SQL
+               OPEN  CR09  USING  :H-RIYO-CMP-CD,
+                                  :H-FUND-CD,
+                                  :H-PTF-CD,
+                                  :H-HYK-KRTU-CD,
+                                  :H-GYOMU-TASK-ID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN)      =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE              NOT = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL OPEN ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0028"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  "1"                     TO  WK-CR9-OPEN-FLG
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR9-OPEN-FLG= [" WK-CR9-OPEN-FLG  "]"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               FETCH  CR09
+               INTO  :H-COUNT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(FETCH)      =["  SQLCODE  "]"
+      D    DISPLAY  "H-COUNT= [" H-COUNT "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+               WHEN  CNS-SQLCODE-NORMAL
+                   IF  H-COUNT > 0
+                   THEN
+                       CONTINUE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "処理を続く"
+      *-----------------------------------------------------------------
+                   ELSE
+                       MOVE  "1"            TO WK-PTF-JYOTAI-STS-KBN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ワークポートフォリオ状態データ有無区分=["
+      D             WK-PTF-JYOTAI-STS-KBN"]"
+      *-----------------------------------------------------------------
+                   END-IF
+               WHEN  OTHER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL FETCH ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+                   MOVE  "0029"             TO  ERR-POS
+                                            OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                            OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+                   MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                            OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                            OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+                   MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                            OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+                   PERFORM  ERR-RTN
+           END-EVALUATE
+           EXEC SQL
+               CLOSE CR09
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE)     =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE              NOT = ZERO
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CURSOR CLOSE ERROR"
+      *-----------------------------------------------------------------
+      *----------  ポジション
+               MOVE  "0030"             TO  ERR-POS
+                                        OF PARM-SCZY1170-INOUT
+      *----------  リターンコード
+               MOVE  CNS-RTN-ORA        TO  RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+               MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                        OF PARM-SCZY1170-INOUT
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                        OF PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+               MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                        OF PARM-SCZY1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "PARM-SCZY1170-INOUT =["PARM-SCZY1170-INOUT"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  "0"                       TO  WK-CR9-OPEN-FLG
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-CR9-OPEN-FLG= [" WK-CR9-OPEN-FLG  "]"
+      D    DISPLAY "* ポートフォリオ状態に該当レコード件数を取得 END *".
+      *-----------------------------------------------------------------
+       TKDYAA41-COUNT-EXT.
+           EXIT.
+      ******************************************************************
+      *          バッチメッセージＩＮＳルーチンをコールする
+      ******************************************************************
+       CALL-SCZY7080-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "***バッチメッセージＩＮＳルーチン START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-KYOUTUU-RTNPKG
+      *---------- 利用会社コード
+           MOVE  RIYO-CMP-CD            OF  PARM-SCZY7210-INOUT
+             TO  RIYO-CMP-CD            OF  PARM-SCZY7080-INOUT
+      *---------- 処理実行日
+           MOVE  SYORI-YMD              OF  PARM-SCZY7210-INOUT
+             TO  SYORI-YMD              OF  PARM-SCZY7080-INOUT
+      *---------- 起動ID
+           MOVE  KIDOU-ID               OF  PARM-SCZY7210-INOUT
+             TO  KIDOU-ID               OF  PARM-SCZY7080-INOUT
+      *---------- 業務タスクID
+           MOVE  GYOMU-TASK-ID          OF  PARM-TSDYAA31-ARG2
+             TO  GYOMU-TASK-ID          OF  PARM-SCZY7080-INOUT
+      *---------- ファンドコード
+           MOVE  FUND-CD                OF  PARM-SCZY7210-INOUT
+             TO  FUND-CD                OF  PARM-SCZY7080-INOUT(1)
+      *---------- ポートフォリオコード
+           MOVE  PTF-CD                 OF  PARM-SCZY7210-INOUT
+             TO  PTF-CD                 OF  PARM-SCZY7080-INOUT(1)
+      *---------- 評価系列コード
+           MOVE  HYK-KRTU-CD            OF  PARM-SCZY7210-INOUT
+             TO  HYK-KRTU-CD            OF  PARM-SCZY7080-INOUT(1)
+      *---------- 帳票ID
+           MOVE  REP-ID                 OF  PARM-SCZY7210-INOUT
+             TO  REP-ID                 OF  PARM-SCZY7080-INOUT(1)
+      *---------- 帳票任意コード
+           MOVE  REP-ANY-CD             OF  PARM-SCZY7210-INOUT
+             TO  REP-ANY-CD             OF  PARM-SCZY7080-INOUT(1)
+      *---------- 基準日From
+           MOVE  KJN-YMD-FROM           OF  PARM-SCZY7210-INOUT
+             TO  KJN-YMD-FROM           OF  PARM-SCZY7080-INOUT(1)
+      *---------- メッセージID
+           MOVE  "W000522"
+             TO  MSG-ID                 OF  PARM-SCZY7080-INOUT(1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "利用会社コード OF PARM-SCZY7080-INOUT =["
+      D        RIYO-CMP-CD            OF  PARM-SCZY7080-INOUT "]"
+      D    DISPLAY  "処理実行日 OF PARM-SCZY7080-INOUT =["
+      D        SYORI-YMD              OF  PARM-SCZY7080-INOUT "]"
+      D    DISPLAY  "起動ID OF PARM-SCZY7080-INOUT =["
+      D        KIDOU-ID               OF  PARM-SCZY7080-INOUT "]"
+      D    DISPLAY  "業務タスクID OF PARM-SCZY7080-INOUT =["
+      D        GYOMU-TASK-ID          OF  PARM-SCZY7080-INOUT "]"
+      D    DISPLAY  "ファンドコード OF PARM-SCZY7080-INOUT =["
+      D        FUND-CD                OF  PARM-SCZY7080-INOUT(1) "]"
+      D    DISPLAY  "ポートフォリオコード OF PARM-SCZY7080-INOUT =["
+      D        PTF-CD                 OF  PARM-SCZY7080-INOUT(1) "]"
+      D    DISPLAY  "評価系列コード OF PARM-SCZY7080-INOUT =["
+      D        HYK-KRTU-CD            OF  PARM-SCZY7080-INOUT(1) "]"
+      D    DISPLAY  "帳票ID OF PARM-SCZY7080-INOUT =["
+      D        REP-ID                 OF  PARM-SCZY7080-INOUT(1) "]"
+      D    DISPLAY  "帳票任意コード OF PARM-SCZY7080-INOUT =["
+      D        REP-ANY-CD             OF  PARM-SCZY7080-INOUT(1) "]"
+      D    DISPLAY  "基準日From OF PARM-SCZY7080-INOUT =["
+      D        KJN-YMD-FROM           OF  PARM-SCZY7080-INOUT(1) "]"
+      D    DISPLAY  "メッセージID OF PARM-SCZY7080-INOUT =["
+      D        MSG-ID                 OF  PARM-SCZY7080-INOUT(1) "]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY7080"       USING  PARM-SCZY7080-INOUT
+                                         PARM-KYOUTUU-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD OF SCZY7080 = ["  RTN-CD
+      D                                 OF  PARM-KYOUTUU-RTNPKG
+      D                       (COUNTER  OF  PARM-KYOUTUU-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD  OF  PARM-KYOUTUU-RTNPKG
+                              (COUNTER  OF  PARM-KYOUTUU-RTNPKG)
+      *---------- リターンコード＝'000'(正常)の場合
+               WHEN  CNS-RTN-NORMAL
+                   CONTINUE
+      *---------- リターンコード＝'900'(システムエラー(Oracle))の場合
+               WHEN  CNS-RTN-ORA
+      *----------  ポジション
+                   MOVE  "0035"         TO  ERR-POS
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA    TO  RTN-CD
+                                        OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG  TO  DETAIL-RTN-CD-FLG
+                                         OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+      *---------- 上記以外の場合
+               WHEN  OTHER
+      *----------  ポジション
+                   MOVE  "0036"               TO  ERR-POS
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  リターンコード
+                   MOVE  CNS-RTN-ORA-IGAI     TO  RTN-CD
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  詳細リターンコード
+      *----------  詳細ﾘﾀｰﾝｺｰﾄﾞﾃﾞｺｰﾄﾞﾌﾗｸﾞ
+                   MOVE  CNS-RTN-CD-FLG       TO  DETAIL-RTN-CD-FLG
+                                              OF  PARM-SCZY1170-INOUT
+      *----------  フリーメッセージ
+      *----------  RTNパッケージ
+                   MOVE  PARM-KYOUTUU-RTNPKG  TO  PARM-SCZY1170-RTNPKG
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+           END-EVALUATE.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "***バッチメッセージＩＮＳルーチン END ***".
+      *-----------------------------------------------------------------
+       CALL-SCZY7080-EXT.
+           EXIT.

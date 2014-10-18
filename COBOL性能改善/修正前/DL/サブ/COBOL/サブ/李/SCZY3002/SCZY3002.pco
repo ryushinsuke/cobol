@@ -1,0 +1,1060 @@
+      ******************************************************************
+      *$Header: /TSTAR2/apl/debug/JC/MAKE/src/bt/sub/SCZY3002/SCZY3002.pco,v 1.38 2008/10/31 06:31:01 isc025 Exp $
+      ******************************************************************
+      *
+      *    システムＩＤ   : TSTAR
+      *    システム名称   : 次期TSTARシステム
+      *    プログラム名称 : 内部⇒外部銘柄コード変換ルーチン
+      *    処理概要       : 1.内部銘柄コードから外部銘柄コードへ変換する
+      *                     2.銘柄コードリファレンスNOTFOUNDの場合、
+      *                      警告、内部銘柄コードはそのまま外部銘柄
+      *                      コードにコピー
+      *    引数           : IN  利用会社コード
+      *                   : IN  内部銘柄コード
+      *                   : IN  銘柄リファレンス系列コード
+      *                   : IN  基準日
+      *                   : IN  商品分類コード
+      *                   : IN  証券種別コード
+      *                   : IN  元証券種別コード
+      *                   : IN  銘柄通貨コード
+      *                   : IN  業務タスクID
+      *                   : OUT 外部銘柄コード
+      *                   : OUT 適用開始日
+      *                   : OUT 適用終了日
+      *                   : OUT 商品分類コード
+      *                   : OUT 元証券種別コード
+      *                   : OUT 証券種別コード
+      *                   : OUT 銘柄通貨コード
+      *                   : OUT 投資対象国コード
+      *                   : OUT 発行体国コード
+      *                   : OUT 株式種別
+      *                   : OUT 回
+      *                   : OUT 号
+      *                   : OUT 満期日
+      *                   : OUT 限月
+      *                   : OUT ストライクプライス
+      *                   : OUT コードリファレンス系列コード
+      *                   : OUT 自社コードフラグ
+      *                   : OUT RTNパッケージ
+      *    改訂履歴
+      *    年月日     区分  所属       担当者  内容
+      *    ---------- ----  ---------  ------  ---------------------
+      *    20091124   新規  ITS        李勇   新規作成
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY3002.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  20091124.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: SCZY3002.pco,v 1.38 2008/10/31 06:31:01 isc025 Exp $".
+      ******************************************************************
+      *                 コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+      *----------  プログラム名
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE "SCZY3002".
+      *----------  業務コードが存在しない
+         05  CNS-GYOUMU-CD-NASI    PIC  X(22)  VALUE
+                                               "業務コードが存在しない".
+      *----------  デフォルト
+         05  CNS-DEFAULT-FLAG-0    PIC  X(01)  VALUE  "0".
+      *----------  入力パラメータを返却する
+         05  CNS-IN-RTN-FLAG-1     PIC  X(01)  VALUE  "1".
+      *-----------  共通エリア
+         05  CNS-AREA.
+           COPY "JCCNS.cpy".
+      *----------  TSTAR業務コードコンスタント
+         05  CNS-JCGYOMU.
+           COPY "JCGYOMU.cpy".
+      *----------  TSTAR業務MESSAGEコンスタント
+         05  CNS-JCMSG.
+           COPY "JCMSG.cpy".
+      ******************************************************************
+      *                フラグエリア
+      ******************************************************************
+       01  FLAG-AREA.
+      *----------  後処理へFLAG
+         05  FLG-JUMP-KBN          PIC  X(01).
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *---------- ワーク証券種別コード
+         05  WK-SEC-SBT-CD         PIC  X(04).
+      *---------- ワーク銘柄通貨コード
+         05  WK-MEG-TUKA-CD        PIC  X(04).
+      *---------- ワーク入力返却フラグ
+         05  WK-IN-RTN-FLG         PIC  X(01).
+      *---------- ワーク返却用コードリファレンス系列コード
+         05  WK-RTN-CD-REF-CD      PIC  X(04).
+      *----------  ワークRTNパッケージ
+       01  WK-RTNPKG.
+         05  WK-PARM-RTNPKG.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *
+      *----------  SCZY4119 リファレンスルール全項目取得ルーチン
+       01  PARM-SCZY4119-INOUT.
+      *----------  業務タスクIDよりリファレンス系列取得ルーチンコピー句
+           COPY "SCZY4119.cpy".
+      *
+      *----------  SJCC3002 内部⇒外部銘柄コード変換ルーチン(コア)
+       01  PARM-SJCC3002-INOUT.
+      *----------  内部⇒外部銘柄コード変換ルーチン(コア)コピー句
+           COPY "SJCC3002.cpy".
+      *
+      ******************************************************************
+      *                連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY3002-INOUT.
+             COPY  "SCZY3002.cpy".
+       01  PARM-SCZY3002-RTNPKG.
+         05  PARM-SCZY3002-ARG3.
+      *----------  RTNパッケージ
+             COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *                PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY3002-INOUT
+                  PARM-SCZY3002-RTNPKG.
+      ******************************************************************
+      *                内部⇒外部銘柄コード変換ルーチン
+      ******************************************************************
+       PRG-SCZY3002-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  前処理
+           PERFORM  PRG-START-RTN
+      *
+      *----------  主処理
+           PERFORM  PRG-MAIN-RTN
+      *
+      *----------  後処理
+           PERFORM  PRG-END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY3002処理  END  ***".
+      *-----------------------------------------------------------------
+       PRG-SCZY3002-EXT.
+           GOBACK.
+      ******************************************************************
+      *                前処理
+      ******************************************************************
+       PRG-START-RTN          SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化処理
+           PERFORM  PRG-INIT-RTN.
+      *
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  前処理  END  ***".
+      *-----------------------------------------------------------------
+       PRG-START-EXT.
+           EXIT.
+      ******************************************************************
+      *                初期化処理
+      ******************************************************************
+       PRG-INIT-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  初期化処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE    WORK-AREA
+                         FLAG-AREA
+                         WK-RTNPKG
+                         PARM-SCZY1170-INOUT
+                         PARM-SCZY1170-RTNPKG
+                         PARM-SCZY4119-INOUT
+                         PARM-SJCC3002-INOUT
+                         PARM-SCZY3002-ARG2
+                         PARM-SCZY3002-ARG3
+      *----------  ワーク入力返却フラグ  ←  '0'：デフォルト
+           MOVE  CNS-DEFAULT-FLAG-0   TO  WK-IN-RTN-FLG
+      *----------  ワーク返却用コードリファレンス系列コード  ←  ARG1.コードリファレンス系列コード
+           MOVE  CD-REF-KRTU-CD       OF  PARM-SCZY3002-ARG1
+                                      TO  WK-RTN-CD-REF-CD
+      D    DISPLAY  "ワーク入力返却フラグ=[" WK-IN-RTN-FLG           "]"
+      D    DISPLAY  "ワーク返却用コードリファレンス系列コード=["
+      D                                   WK-RTN-CD-REF-CD           "]"
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "入力パラメータチェック"
+      D    DISPLAY  "ARG1.利用会社コード =[" RIYO-CMP-CD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.内部銘柄コード =[" NAIBU-MEG-CD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.商品分類コード =[" SYOHIN-BUNRUI-CD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.証券種別コード =[" SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.元証券種別コード=[" MOTO-SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.銘柄通貨コード =[" MEG-TUKA-CD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.コードリファレンス系列コード =["
+      D              CD-REF-KRTU-CD   OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.業務タスクID   =[" GYOMU-TASK-ID
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.基準日         =[" KJN-YMD
+      D                               OF  PARM-SCZY3002-ARG1         "]"
+      *-----------------------------------------------------------------
+      *----------  ARG1.コードリファレンス系列コード
+           EVALUATE  CD-REF-KRTU-CD   OF  PARM-SCZY3002-ARG1
+      *----------  ARG1.コードリファレンス系列コード='$001'：リファレンスルール採用の場合
+             WHEN  CNS-CD-REF-KRTU-CD-001
+      *----------  ARG1.業務タスクID = 初期値の場合
+               IF  GYOMU-TASK-ID      OF  PARM-SCZY3002-ARG1
+                                      =   SPACE
+               THEN
+      *----------  検知プログラムID
+                   MOVE  CNS-PROGRAM-ID
+                                      TO  ERR-PGM-ID
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+                   MOVE  CNS-POS-035  TO  ERR-POS
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RTN-800  TO  RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  CNS-0        TO  DETAIL-RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  CNS-DETAIL-0 TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  MSG-PARM-ERR TO  FREE-MSG
+                                      OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":エラーパッケージ："
+      D    DISPLAY  CNS-PROGRAM-ID ":エラー検知プログラム名        =["
+      D             ERR-PGM-ID        OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":ポジション           =["
+      D             ERR-POS           OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":リターンコード            =["
+      D             RTN-CD            OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコード     =["
+      D             DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":フリーメッセージ          =["
+      D             FREE-MSG          OF  PARM-SCZY1170-ARG1         "]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+                   PERFORM  COM-ERR-RTN
+               ELSE
+      *----------  ARG1.コードリファレンス系列コード←初期値
+                   INITIALIZE  CD-REF-KRTU-CD
+                                      OF  PARM-SCZY3002-ARG1
+               END-IF
+             WHEN  OTHER
+               CONTINUE
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ARG1.コードリファレンス系列コード =["
+      D             CD-REF-KRTU-CD    OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.業務タスクID=["
+      D             GYOMU-TASK-ID     OF  PARM-SCZY3002-ARG1         "]"
+      *-----------------------------------------------------------------
+      *----------  入力パラメータチェック
+      *----------  利用会社コード
+           IF  ( RIYO-CMP-CD          OF  PARM-SCZY3002-ARG1
+                                      NOT =  SPACE
+      *----------  基準日
+               AND  KJN-YMD           OF  PARM-SCZY3002-ARG1
+                                      NOT =  ZERO )
+           THEN
+      *----------  入力パラメータチェックOK
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "入力パラメータチェックOK"
+      *-----------------------------------------------------------------
+               CONTINUE
+           ELSE
+      *----------  検知プログラムID
+               MOVE  CNS-PROGRAM-ID   TO  ERR-PGM-ID
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-001      TO  ERR-POS
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800      TO  RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  CNS-0            TO  DETAIL-RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0     TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  MSG-PARM-ERR     TO  FREE-MSG
+                                      OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":エラーパッケージ："
+      D    DISPLAY  CNS-PROGRAM-ID ":エラー検知プログラム名        =["
+      D             ERR-PGM-ID        OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":ポジション           =["
+      D             ERR-POS           OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":リターンコード            =["
+      D             RTN-CD            OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコード     =["
+      D             DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":フリーメッセージ          =["
+      D             FREE-MSG          OF  PARM-SCZY1170-ARG1         "]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  COM-ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ARG1.コードリファレンス系列コード =["
+      D              CD-REF-KRTU-CD   OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.業務タスクID   =["
+      D              GYOMU-TASK-ID    OF  PARM-SCZY3002-ARG1         "]"
+      *-----------------------------------------------------------------
+           IF  CD-REF-KRTU-CD         OF  PARM-SCZY3002-ARG1
+                                      =  SPACE
+               AND  GYOMU-TASK-ID     OF  PARM-SCZY3002-ARG1
+                                      NOT =  SPACE
+           THEN
+      *----------  内部⇒外部銘柄コード変換ルーチン(コア)
+               PERFORM  APL-MG-CHANGE-RTN
+           ELSE
+               CONTINUE
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  初期化処理  END  ***".
+      *-----------------------------------------------------------------
+       PRG-INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                主処理
+      ******************************************************************
+       PRG-MAIN-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  主処理  START  *****"
+      *-----------------------------------------------------------------
+           IF  FLG-JUMP-KBN           NOT =  CNS-ATO-SYORI
+           THEN
+      *----------  内部⇒外部銘柄コード変換ルーチン(コア)
+               PERFORM  APL-MG-CHANGE-CA-RTN
+           ELSE
+               CONTINUE
+           END-IF.
+      *
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  主処理  END  *****".
+      *-----------------------------------------------------------------
+       PRG-MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                後処理
+      ******************************************************************
+       PRG-END-RTN            SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  後処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチン
+           PERFORM  APL-SET-RTNPKG-RTN
+           MOVE  PARM-SCZY1170-ARG2   TO  PARM-SCZY3002-ARG3.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ARG2.外部銘柄コード  =["   GAIBU-MEG-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.適用開始日      =["   TEKIYO-FROM
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.適用終了日      =["   TEKIYO-TO
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.商品分類コード  =["   SYOHIN-BUNRUI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.証券種別コード  =["   SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.元証券種別コード=["   MOTO-SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.銘柄通貨コード  =["   MEG-TUKA-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.投資対象国コード=["   TOUSI-TARGET-KUNI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.発行体国コード  =["   HAKKO-TAI-KUNI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.株式種別        =["   KABU-SBT
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.回              =["   KAYI
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.号              =["   GOU
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.満期日          =["   MNK-YMD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.限月            =["   GENGETSU
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.ストライクプライス=["  STRIKEPRICE
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.コードリファレンス系列コード=["
+      D                                         CD-REF-KRTU-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.自社コードフラグ=["   JS-CD-FLG
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "***   後処理  END  ***".
+      *-----------------------------------------------------------------
+       PRG-END-EXT.
+           GOBACK.
+      ******************************************************************
+      *               内部⇒外部銘柄コード変換(コア)処理
+      ******************************************************************
+       APL-MG-CHANGE-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID
+      D             ":***  内部⇒外部銘柄コード変換(コア)処理開始  ***"
+      *-----------------------------------------------------------------
+      *
+      *----------  ワークRTNパッケージを初期化する
+           INITIALIZE  WK-RTNPKG
+                       PARM-SJCC3002-INOUT
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD          OF  PARM-SCZY3002-ARG1
+                                      TO  RIYO-CMP-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  内部銘柄コード
+           MOVE  NAIBU-MEG-CD         OF  PARM-SCZY3002-ARG1
+                                      TO  NAIBU-MEG-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  商品分類コード
+           MOVE  SYOHIN-BUNRUI-CD     OF  PARM-SCZY3002-ARG1
+                                      TO  SYOHIN-BUNRUI-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  証券種別コード
+           MOVE  SEC-SBT-CD           OF  PARM-SCZY3002-ARG1
+                                      TO  SEC-SBT-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  元証券種別コード
+           MOVE  MOTO-SEC-SBT-CD      OF  PARM-SCZY3002-ARG1
+                                      TO  MOTO-SEC-SBT-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  銘柄通貨コード
+           MOVE  MEG-TUKA-CD          OF  PARM-SCZY3002-ARG1
+                                      TO  MEG-TUKA-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  コードリファレンス系列コード
+           MOVE  SPACE                TO  CD-REF-KRTU-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  業務タスクID
+           MOVE  SPACE                TO  GYOMU-TASK-ID
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  基準日
+           MOVE  KJN-YMD              OF  PARM-SCZY3002-ARG1
+                                      TO  KJN-YMD
+                                      OF  PARM-SJCC3002-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002の入力:"
+      D    DISPLAY  CNS-PROGRAM-ID ":利用会社コード  =["
+      D              RIYO-CMP-CD      OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":内部銘柄コード  =["
+      D              NAIBU-MEG-CD     OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":商品分類コード  =["
+      D              SYOHIN-BUNRUI-CD OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":証券種別コード  =["
+      D              SEC-SBT-CD       OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":元証券種別コード=["
+      D              MOTO-SEC-SBT-CD  OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":銘柄通貨コード  =["
+      D              MEG-TUKA-CD      OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":コードリファレンス系列コード  =["
+      D              CD-REF-KRTU-CD   OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":業務タスクID    =["
+      D              GYOMU-TASK-ID    OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":基準日          =["
+      D              KJN-YMD          OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID
+      D             ":SJCC3002 内部⇒外部銘柄コード変換ルーチン"
+      *-----------------------------------------------------------------
+      *----------  SCZY3002 内部⇒外部銘柄コード変換ルーチン
+           CALL  "SJCC3002"           USING  PARM-SJCC3002-INOUT
+                                             WK-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":RTN-CD(" COUNTER OF  WK-RTNPKG
+      D             ") OF SJCC3002=[" RTN-CD
+      D                               OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      D    DISPLAY  "戻った証券種別コード：" SEC-SBT-CD
+      D                               OF  PARM-SJCC3002-ARG2
+      D    DISPLAY  "戻った銘柄通貨コード：" MEG-TUKA-CD
+      D                               OF  PARM-SJCC3002-ARG2
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD           OF  WK-RTNPKG
+                         ( COUNTER    OF  WK-RTNPKG )
+               WHEN  CNS-RTN-000
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002内部銘柄コード変換成功"
+      *-----------------------------------------------------------------
+      D    DISPLAY  "【SJCC3002】.ARG2.外部銘柄コード=["
+      D              GAIBU-MEG-CD     OF  PARM-SJCC3002-ARG2         "]"
+                 IF  ( GAIBU-MEG-CD   OF  PARM-SJCC3002-ARG2
+                                      =   SPACE )
+                 THEN
+      *----------  ワーク入力返却フラグ  ←  '1'：入力パラメータを返却する
+                     MOVE  CNS-IN-RTN-FLAG-1
+                                      TO  WK-IN-RTN-FLG
+      *----------  「出力引数設定処理」 へ
+                     PERFORM  APL-SETTEI-RTN
+                 ELSE
+      *----------  ワーク証券種別コード ←【SJCC3002】内部⇒外部銘柄コード変換ルーチン戻った証券種別コード
+                     MOVE  SEC-SBT-CD OF  PARM-SJCC3002-ARG2
+                                      TO  WK-SEC-SBT-CD
+      *----------  ワーク銘柄通貨コード ←【SJCC3002】内部⇒外部銘柄コード変換ルーチン戻った銘柄通貨コード
+                     MOVE  MEG-TUKA-CD
+                                      OF  PARM-SJCC3002-ARG2
+                                      TO  WK-MEG-TUKA-CD
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":ワーク証券種別コード =["
+      D                        WK-SEC-SBT-CD                         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":ワーク銘柄通貨コード =["
+      D                        WK-MEG-TUKA-CD                        "]"
+      *-----------------------------------------------------------------
+      *----------  ワークRTNパッケージを初期化する
+                     INITIALIZE         WK-RTNPKG
+      *----------  利用会社コード
+                     MOVE  RIYO-CMP-CD
+                                      OF  PARM-SCZY3002-ARG1
+                                      TO  RIYO-CMP-CD
+                                      OF  PARM-SCZY4119-ARG1
+      *----------  業務タスクID
+                     MOVE  GYOMU-TASK-ID
+                                      OF  PARM-SCZY3002-ARG1
+                                      TO  GYOMU-TASK-ID
+                                      OF  PARM-SCZY4119-ARG1
+      *----------  コード種類
+                     MOVE  CNS-MEG-CD TO  CD-SHRU
+                                      OF  PARM-SCZY4119-ARG1
+      *----------  証券種別コード
+                     MOVE  WK-SEC-SBT-CD
+                                      TO  SEC-SBT-CD
+                                      OF  PARM-SCZY4119-ARG1
+      *----------  銘柄通貨コード
+                     MOVE  WK-MEG-TUKA-CD
+                                      TO  MEG-TUKA-CD
+                                      OF  PARM-SCZY4119-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "利用会社コード   =[" RIYO-CMP-CD
+      D                               OF  PARM-SCZY4119-ARG1         "]"
+      D    DISPLAY  "業務タスクID     =[" GYOMU-TASK-ID
+      D                               OF  PARM-SCZY4119-ARG1         "]"
+      D    DISPLAY  "コード種類       =[" CD-SHRU
+      D                               OF  PARM-SCZY4119-ARG1         "]"
+      D    DISPLAY  "証券種別コード   =[" SEC-SBT-CD
+      D                               OF  PARM-SCZY4119-ARG1         "]"
+      D    DISPLAY  "銘柄通貨コード   =[" MEG-TUKA-CD
+      D                               OF  PARM-SCZY4119-ARG1         "]"
+      D    DISPLAY  "リファレンスルール全項目取得ルーチン"
+      *-----------------------------------------------------------------
+      *----------  SCZY4119 リファレンスルール全項目取得ルーチン
+                     CALL  "SCZY4119" USING  PARM-SCZY4119-INOUT
+                                             WK-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD(" COUNTER OF  WK-RTNPKG
+      D             ") OF SCZY4119=[" RTN-CD
+      D                               OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      *-----------------------------------------------------------------
+                     EVALUATE  RTN-CD OF  WK-RTNPKG
+                         ( COUNTER    OF  WK-RTNPKG )
+                         WHEN  CNS-RTN-000
+      *----------  正常の場合
+      *----------  ARG1.コードリファレンス系列コード ← 取得したコードリファレンス系列コード
+                           MOVE  CD-REF-KRTU-CD
+                                      OF  PARM-SCZY4119-ARG2
+                                      TO  CD-REF-KRTU-CD
+                                      OF  PARM-SCZY3002-ARG1
+      *----------  ARG1.業務タスクID ← 初期値
+                           MOVE  SPACE
+                                      TO  GYOMU-TASK-ID
+                                      OF  PARM-SCZY3002-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ARG1.コードリファレンス系列コード =["
+      D               CD-REF-KRTU-CD  OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "ARG1.業務タスクID =["
+      D               GYOMU-TASK-ID   OF  PARM-SCZY3002-ARG1         "]"
+      D    DISPLAY  "SCZY4119正常終了"
+      *-----------------------------------------------------------------
+      *----------  リターンコード＝'900'（システムエラー（Oracle）） OR
+      *----------  '901'（システムエラー（Oracle以外））の場合
+                         WHEN  CNS-RTN-900
+                         WHEN  CNS-RTN-901
+      *----------  エラー検知プログラム名
+                           MOVE  CNS-PROGRAM-ID
+                                      TO  ERR-PGM-ID
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+                           MOVE  CNS-POS-100
+                                      TO  ERR-POS
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                           MOVE  CNS-RTN-901
+                                      TO  RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                           MOVE  CNS-0
+                                      TO  DETAIL-RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                           MOVE  CNS-DETAIL-0
+                                      TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                           MOVE  SPACE
+                                      TO  FREE-MSG
+                                      OF  PARM-SCZY1170-ARG1
+                           MOVE  WK-RTNPKG
+                                      TO  PARM-SCZY1170-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":エラーパッケージ："
+      D    DISPLAY  CNS-PROGRAM-ID ":エラー検知プログラム名        =["
+      D             ERR-PGM-ID        OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":ポジション           =["
+      D             ERR-POS           OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":リターンコード            =["
+      D             RTN-CD            OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコード     =["
+      D             DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":フリーメッセージ          =["
+      D             FREE-MSG          OF  PARM-SCZY1170-ARG1         "]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+                           PERFORM  COM-ERR-RTN
+                         WHEN  OTHER
+      *----------  検知プログラムID
+                           MOVE  CNS-PROGRAM-ID
+                                      TO  ERR-PGM-ID
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+                           MOVE  CNS-POS-101
+                                      TO  ERR-POS
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+                           MOVE  CNS-RTN-110
+                                      TO  RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+                           MOVE  CNS-0
+                                      TO  DETAIL-RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                           MOVE  CNS-DETAIL-0
+                                      TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+                           MOVE  CNS-GYOUMU-CD-NASI
+                                      TO  FREE-MSG
+                                      OF  PARM-SCZY1170-ARG1
+                           MOVE  WK-RTNPKG
+                                      TO  PARM-SCZY1170-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":エラーパッケージ："
+      D    DISPLAY  CNS-PROGRAM-ID ":エラー検知プログラム名        =["
+      D             ERR-PGM-ID        OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":ポジション           =["
+      D             ERR-POS           OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":リターンコード            =["
+      D             RTN-CD            OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコード     =["
+      D             DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":フリーメッセージ          =["
+      D             FREE-MSG          OF  PARM-SCZY1170-ARG1         "]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+                           PERFORM  COM-ERR-RTN
+                     END-EVALUATE
+                 END-IF
+      *
+               WHEN  OTHER
+      *----------  「出力引数設定処理」へ
+                   PERFORM  APL-SETTEI-RTN
+           END-EVALUATE.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID
+      D             ":***  内部⇒外部銘柄コード変換(コア)処理終了  ***".
+      *-----------------------------------------------------------------
+       APL-MG-CHANGE-EXT.
+           EXIT.
+      ******************************************************************
+      *               内部⇒外部銘柄コード変換処理
+      ******************************************************************
+       APL-MG-CHANGE-CA-RTN   SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID
+      D             ":***  内部⇒外部銘柄コード変換処理開始  ***"
+      *-----------------------------------------------------------------
+      *
+      *----------  ワークRTNパッケージを初期化する
+           INITIALIZE  WK-RTNPKG
+                       PARM-SJCC3002-INOUT
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD          OF  PARM-SCZY3002-ARG1
+                                      TO  RIYO-CMP-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  内部銘柄コード
+           MOVE  NAIBU-MEG-CD         OF  PARM-SCZY3002-ARG1
+                                      TO  NAIBU-MEG-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  商品分類コード
+           MOVE  SYOHIN-BUNRUI-CD     OF  PARM-SCZY3002-ARG1
+                                      TO  SYOHIN-BUNRUI-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  証券種別コード
+           MOVE  SEC-SBT-CD           OF  PARM-SCZY3002-ARG1
+                                      TO  SEC-SBT-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  元証券種別コード
+           MOVE  MOTO-SEC-SBT-CD      OF  PARM-SCZY3002-ARG1
+                                      TO  MOTO-SEC-SBT-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  銘柄通貨コード
+           MOVE  MEG-TUKA-CD          OF  PARM-SCZY3002-ARG1
+                                      TO  MEG-TUKA-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  コードリファレンス系列コード
+           MOVE  CD-REF-KRTU-CD       OF  PARM-SCZY3002-ARG1
+                                      TO  CD-REF-KRTU-CD
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  業務タスクID
+           MOVE  GYOMU-TASK-ID        OF  PARM-SCZY3002-ARG1
+                                      TO  GYOMU-TASK-ID
+                                      OF  PARM-SJCC3002-ARG1
+      *----------  基準日
+           MOVE  KJN-YMD              OF  PARM-SCZY3002-ARG1
+                                      TO  KJN-YMD
+                                      OF  PARM-SJCC3002-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002の入力:"
+      D    DISPLAY  CNS-PROGRAM-ID ":利用会社コード  =["
+      D              RIYO-CMP-CD      OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":内部銘柄コード  =["
+      D              NAIBU-MEG-CD     OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":商品分類コード  =["
+      D              SYOHIN-BUNRUI-CD OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":証券種別コード  =["
+      D              SEC-SBT-CD       OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":元証券種別コード=["
+      D              MOTO-SEC-SBT-CD  OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":銘柄通貨コード  =["
+      D              MEG-TUKA-CD      OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":コードリファレンス系列コード  =["
+      D              CD-REF-KRTU-CD   OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":業務タスクID    =["
+      D              GYOMU-TASK-ID    OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":基準日          =["
+      D              KJN-YMD          OF  PARM-SJCC3002-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID
+      D             ":SJCC3002 内部⇒外部銘柄コード変換ルーチン"
+      *-----------------------------------------------------------------
+      *----------  SCZY3002 内部⇒外部銘柄コード変換ルーチン
+           CALL  "SJCC3002"           USING  PARM-SJCC3002-INOUT
+                                             WK-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":RTN-CD(" COUNTER OF  WK-RTNPKG
+      D             ") OF SJCC3002=[" RTN-CD
+      D                               OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      *-----------------------------------------------------------------
+      *----------  「出力引数設定処理」へ
+           PERFORM  APL-SETTEI-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID
+      D             ":***  内部⇒外部銘柄コード変換(コア)処理終了  ***".
+      *-----------------------------------------------------------------
+       APL-MG-CHANGE-CA-EXT.
+           EXIT.
+      ******************************************************************
+      *                 エラー処理
+      ******************************************************************
+       COM-ERR-RTN            SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  エラー処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチン
+           PERFORM  APL-SET-RTNPKG-RTN
+           MOVE  PARM-SCZY1170-ARG2   TO  PARM-SCZY3002-ARG3.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ARG2.外部銘柄コード  =["   GAIBU-MEG-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.適用開始日      =["   TEKIYO-FROM
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.適用終了日      =["   TEKIYO-TO
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.商品分類コード  =["   SYOHIN-BUNRUI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.証券種別コード  =["   SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.元証券種別コード=["   MOTO-SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.銘柄通貨コード  =["   MEG-TUKA-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.投資対象国コード=["   TOUSI-TARGET-KUNI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.発行体国コード  =["   HAKKO-TAI-KUNI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.株式種別        =["   KABU-SBT
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.回              =["   KAYI
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.号              =["   GOU
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.満期日          =["   MNK-YMD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.限月            =["   GENGETSU
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.ストライクプライス=["  STRIKEPRICE
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.コードリファレンス系列コード=["
+      D                                         CD-REF-KRTU-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.自社コードフラグ=["   JS-CD-FLG
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "***  エラー処理  END  ***".
+      *-----------------------------------------------------------------
+       COM-ERR-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 リターンパッケージセットルーチン処理
+      ******************************************************************
+       APL-SET-RTNPKG-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチン処理開始"
+      D    DISPLAY  "SCZY1170 リターンパッケージセットルーチン"
+      *-----------------------------------------------------------------
+      *----------  SCZY1170 リターンパッケージセットルーチン
+           CALL  "SCZY1170"           USING  PARM-SCZY1170-INOUT
+                                             PARM-SCZY1170-RTNPKG.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチン処理終了".
+      *-----------------------------------------------------------------
+       APL-SET-RTNPKG-EXT.
+           EXIT.
+      ******************************************************************
+      *                出力引数設定処理
+      ******************************************************************
+       APL-SETTEI-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "出力引数設定処理開始"
+      *-----------------------------------------------------------------
+      *----------  外部銘柄コード
+           MOVE  GAIBU-MEG-CD     OF  PARM-SJCC3002-ARG2
+                                  TO  GAIBU-MEG-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  適用開始日
+           MOVE  TEKIYO-FROM      OF  PARM-SJCC3002-ARG2
+                                  TO  TEKIYO-FROM
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  適用終了日
+           MOVE  TEKIYO-TO        OF  PARM-SJCC3002-ARG2
+                                  TO  TEKIYO-TO
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  商品分類コード
+           MOVE  SYOHIN-BUNRUI-CD OF  PARM-SJCC3002-ARG2
+                                  TO  SYOHIN-BUNRUI-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  証券種別コード
+           MOVE  SEC-SBT-CD       OF  PARM-SJCC3002-ARG2
+                                  TO  SEC-SBT-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  元証券種別コード
+           MOVE  MOTO-SEC-SBT-CD  OF  PARM-SJCC3002-ARG2
+                                  TO  MOTO-SEC-SBT-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  銘柄通貨コード
+           MOVE  MEG-TUKA-CD      OF  PARM-SJCC3002-ARG2
+                                  TO  MEG-TUKA-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  投資対象国コード
+           MOVE  TOUSI-TARGET-KUNI-CD
+                                  OF  PARM-SJCC3002-ARG2
+                                  TO  TOUSI-TARGET-KUNI-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  発行体国コード
+           MOVE  HAKKO-TAI-KUNI-CD
+                                  OF  PARM-SJCC3002-ARG2
+                                  TO  HAKKO-TAI-KUNI-CD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  株式種別
+           MOVE  KABU-SBT         OF  PARM-SJCC3002-ARG2
+                                  TO  KABU-SBT
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  回
+           MOVE  KAYI             OF  PARM-SJCC3002-ARG2
+                                  TO  KAYI
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  号
+           MOVE  GOU              OF  PARM-SJCC3002-ARG2
+                                  TO  GOU
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  満期日
+           MOVE  MNK-YMD          OF  PARM-SJCC3002-ARG2
+                                  TO  MNK-YMD
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  限月
+           MOVE  GENGETSU         OF  PARM-SJCC3002-ARG2
+                                  TO  GENGETSU
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  ストライクプライス
+           MOVE  STRIKEPRICE      OF  PARM-SJCC3002-ARG2
+                                  TO  STRIKEPRICE
+                                  OF  PARM-SCZY3002-ARG2
+      *----------  コードリファレンス系列コード
+      D    DISPLAY  "ワーク入力返却フラグ=["  WK-IN-RTN-FLG          "]"
+           IF  ( WK-IN-RTN-FLG    =   CNS-IN-RTN-FLAG-1 )
+           THEN
+               MOVE  WK-RTN-CD-REF-CD
+                                  TO  CD-REF-KRTU-CD
+                                  OF  PARM-SCZY3002-ARG2
+           ELSE
+               MOVE  CD-REF-KRTU-CD
+                                  OF  PARM-SJCC3002-ARG2
+                                  TO  CD-REF-KRTU-CD
+                                  OF  PARM-SCZY3002-ARG2
+           END-IF
+      *----------  自社コードフラグ
+           MOVE  JS-CD-FLG        OF  PARM-SJCC3002-ARG2
+                                  TO  JS-CD-FLG
+                                  OF  PARM-SCZY3002-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "出力引数編集処理開始***"
+      D    DISPLAY  "ARG2.外部銘柄コード  =["   GAIBU-MEG-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.適用開始日      =["   TEKIYO-FROM
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.適用終了日      =["   TEKIYO-TO
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.商品分類コード  =["   SYOHIN-BUNRUI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.証券種別コード  =["   SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.元証券種別コード=["   MOTO-SEC-SBT-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.銘柄通貨コード  =["   MEG-TUKA-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.投資対象国コード=["   TOUSI-TARGET-KUNI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.発行体国コード  =["   HAKKO-TAI-KUNI-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.株式種別        =["   KABU-SBT
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.回              =["   KAYI
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.号              =["   GOU
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.満期日          =["   MNK-YMD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.限月            =["   GENGETSU
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.ストライクプライス=[" STRIKEPRICE
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.コードリファレンス系列コード=["
+      D                                         CD-REF-KRTU-CD
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "ARG2.自社コードフラグ=["   JS-CD-FLG
+      D                               OF  PARM-SCZY3002-ARG2         "]"
+      D    DISPLAY  "出力引数編集処理終了***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージ引き継ぐ
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002のリターンコード=["
+      D                       RTN-CD  OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002の詳細リターンコード=["
+      D                DETAIL-RTN-CD  OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002の詳細リターンコードコー"
+      D    "ドフラグ=[" DETAIL-RTN-CD-FLG
+      D                               OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SJCC3002のフリーメッセージ=["
+      D                     FREE-MSG  OF  WK-RTNPKG
+      D              ( COUNTER        OF  WK-RTNPKG )                "]"
+      *-----------------------------------------------------------------
+           MOVE  RTN-CD               OF  WK-RTNPKG
+                     ( COUNTER        OF  WK-RTNPKG )
+                                      TO  RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+           MOVE  DETAIL-RTN-CD        OF  WK-RTNPKG
+                     ( COUNTER        OF  WK-RTNPKG )
+                                      TO  DETAIL-RTN-CD
+                                      OF  PARM-SCZY1170-ARG1
+           MOVE  DETAIL-RTN-CD-FLG    OF  WK-RTNPKG
+                     ( COUNTER        OF  WK-RTNPKG )
+                                      TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZY1170-ARG1
+           MOVE  FREE-MSG             OF  WK-RTNPKG
+                     ( COUNTER        OF  WK-RTNPKG )
+                                      TO  FREE-MSG
+                                      OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":SCZY1170のリターンコード=["
+      D                       RTN-CD  OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SCZY1170の詳細リターンコード=["
+      D                DETAIL-RTN-CD  OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SCZY1170の詳細リターンコードコード"
+      D    "フラグ=[" DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1      "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SCZY1170のフリーメッセージ      =["
+      D                     FREE-MSG  OF  PARM-SCZY1170-ARG1         "]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD                 OF  PARM-SCZY1170-ARG1
+                                      NOT =  ZERO
+           THEN
+      *----------  SCZY1170のARG1.リターンコード＜＞'000'の場合
+               MOVE  CNS-PROGRAM-ID   TO  ERR-PGM-ID
+                                      OF  PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-002      TO  ERR-POS
+                                      OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PROGRAM-ID ":SCZY1170のエラー検知プログラム名=["
+      D                   ERR-PGM-ID  OF  PARM-SCZY1170-ARG1         "]"
+      D    DISPLAY  CNS-PROGRAM-ID ":SCZY1170のポジション=["
+      D                   ERR-POS     OF  PARM-SCZY1170-ARG1         "]"
+      *-----------------------------------------------------------------
+           ELSE
+               CONTINUE
+           END-IF
+      *----------  後処理へFLAG設定
+           MOVE  CNS-ATO-SYORI        TO  FLG-JUMP-KBN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "出力引数設定処理終了".
+      *-----------------------------------------------------------------
+       APL-SETTEI-EXT.
+           EXIT.

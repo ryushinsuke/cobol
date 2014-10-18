@@ -1,0 +1,3886 @@
+      ******************************************************************
+      * $Header$
+      ******************************************************************
+      *
+      * システムＩＤ   : T-STAR
+      * システム名称   : 次期TSTARシステム
+      * プログラムＩＤ : SUSC0003
+      * プログラム名称 : 元本残高から運用成果残高データ保存
+      * 処理概要       : ポートフォリオ、評価系列コード,基準日など
+      *                 により元本残高テーブルからデータを保存する
+      * 参照ＤＢ       :元本残高DB
+      *                :評価履歴DB
+      *                :運用成果残高DB
+      * 引数           : IN  利用会社コード
+      *                : IN  ファンドコード
+      *                : IN  ポートフォリオコード
+      *                : IN  評価系列コード
+      *                : IN  決算日断面区分
+      *                : IN  基準日
+      *                : IN  更新画面ＩＤ
+      *                : IN  更新ログインユーザ会社コード
+      *                : IN  更新ユーザＩＤ
+      *                : OUT ステータス
+      *                : OUT RTNパッケージ
+      *                : OUT カウンター
+      *                : OUT RTNパッケージ詳細
+      *                : OUT エラー検知プログラム名
+      *                : OUT ポジション
+      *                : OUT リターンコード
+      *                : OUT 詳細リターンコード
+      *                : OUT 詳細リターンコードデコードフラグ
+      *                : OUT フリーメッセージ
+      *
+      * 改訂履歴
+      * 年月日     区分  所属       担当者  内容
+      * ---------- ----  ---------  ------  ------------------------
+      * 20080505   新規  SCS        許国戦   新規作成
+      * 20080823   修正  SCS        許国戦
+      * 20081013   修正  SCS        許国戦
+      * 20090224   修正  SCS        許国戦   残タスク177の対応
+      * 20090409   修正  SCS        許国戦   残タスク185の対応
+      * 20090610   修正  SCS        馬  輝   残タスク242の対応
+      * 20090610   修正  SCS        朱  榮   テーマ830の対応
+      * 20090902   修正  SCS        馬松涛   テーマ1418の対応
+      * 20100215   修正  SCS        常  峰   性能改善:マスタデータのBL側でのオンメモリ化（2箇所）
+      * 20100215   修正  SCS        常  峰   PH2対応（ＧＩＰＳモード起動処理追加）
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SUSC0003.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-05-05.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *        作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *                 コンスタント  エリア
+      ******************************************************************
+      *----------  共通コンスタント定義の宣言
+       01  CONSTANT-AREA.
+           COPY "USCNS.cpy".
+      *----------  プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SUSC0003".
+      *----------  運用成果残高テーブル名
+         05  CNS-TKUSZT01          PIC  X(08)  VALUE  "TKUSZT01".
+      *----------  元本残高テーブル名
+         05  CNS-TKMZGZ00          PIC  X(08)  VALUE  "TKMZGZ00".
+      *----------  評価履歴テーブル名
+         05  CNS-TKMHHR00          PIC  X(08)  VALUE  "TKMHHR00".
+         05  CNS-OTHR              PIC  X(04)  VALUE  "OTHR".
+         05  CNS-PRINCIPAL         PIC  X(09)  VALUE  "PRINCIPAL".
+         05  CNS-EOF               PIC  9(01)  VALUE  1.
+         05  CNS-X-0000000000      PIC  X(10)  VALUE  "0000000000".
+      ******************************************************************
+      *                フラグエリア
+      ******************************************************************
+       01  CNS-FLAG-AREA.
+      *----------  取得FETCHフラグ
+         05  FLG-GANPON-DATA-FETCH
+                                   PIC  9(01).
+      *----------  取得OPENフラグ
+         05  FLG-GANPON-DATA-OPEN  PIC  9(01).
+         05  FLG-HYOUKA-DATA-OPEN  PIC  9(01).
+         05  FLG-TKUSGP01-DATA-OPEN
+                                   PIC  9(01).
+      ******************************************************************
+      *                 ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  利用会社コード
+         05  WK-RIYO-CMP-CD1       PIC  X(04).
+      *----------  ファンドコード
+         05  WK-FUND-CD1           PIC  X(12).
+      *----------  ポートフォリオコード
+         05  WK-PTF-CD1            PIC  X(04).
+      *----------  評価系列コード
+         05  WK-HYK-KRTU-CD1       PIC  X(04).
+      *----------  決算日断面区分
+         05  WK-KSN-YMD-DMN-KBN1   PIC  X(01).
+         05  WK-KSN-YMD-DMN-KBN2   PIC  X(01).
+         05  WK-KSN-YMD-DMN-KBN3   PIC  X(01).
+      *----------  基準日
+         05  WK-KJN-YMD            PIC  S9(08).
+      *----------  処理実行日
+         05  WK-SHORI-YMD          PIC  X(08).
+      *----------  業務タスクID
+         05  WK-GYOMU-TASK-ID      PIC  X(07).
+      *----------  起動ID
+         05  WK-KIDOU-ID           PIC  X(04).
+      *----------  画面ＩＤ
+         05  WK-GAMEN              PIC  X(08).
+      *----------  更新ログインユーザ会社コード
+         05  WK-CMP-CD             PIC  X(04).
+      *----------  更新ユーザＩＤ
+         05  WK-JOB-USER-ID        PIC  X(20).
+      *----------  ワーク運用成果残高テーブルID
+         05  WK-TBL-ID-1           PIC  X(13).
+      *----------  ワーク元本残高テーブルID
+         05  WK-TBL-ID-2           PIC  X(13).
+      *----------  ワーク評価履歴テーブルID
+         05  WK-TBL-ID-3           PIC  X(13).
+      *----------  商品区分
+         05  WK-SYOHIN-KBN-SYUTOKU PIC  X(02).
+      *----------  帳票出力区分
+         05  WK-REP-KBN-SYUTOKU    PIC  X(01).
+      *----------  約定受渡区分
+         05  WK-YJ-UW-KBN          PIC  X(01).
+      *----------  運用通貨コード
+         05  WK-UYTK-TUKA-CD       PIC  X(04).
+      *----------  明細の取得抽出件数
+         05  WK-MEISAI-FETCH       PIC  9(06).
+         05  WK-TKMZGZ00-FREE-MSG  PIC  X(4000).
+         05  WK-TKMHHR00-FREE-MSG  PIC  X(4000).
+         05  WK-TKUSZT01-FREE-MSG  PIC  X(4000).
+         05  WK-TKUSGP01-FREE-MSG  PIC  X(4000).
+      *----<残タスク118（運用成果残高データ保存の修正）  START>---------
+      *----------  計数器
+         05  WK-J                  PIC  9(04).
+      *----<残タスク118（運用成果残高データ保存の修正）  END>-----------
+         05  WK-RTN.
+      *----------  エラー検知プログラム名
+           10  WK-ERR-PGM-ID       PIC  X(16).
+      *----------  ポジション
+           10  WK-ERR-POS          PIC  X(04).
+      *----------  リターンコード
+           10  WK-RTN-CD           PIC  X(03).
+      *----------  詳細リターンコード
+           10  WK-DETAIL-RTN-CD    PIC  S9(09).
+      *----------  詳細リターンコードデコードフラグ
+           10  WK-DETAIL-RTN-CD-FLG
+                                   PIC  X(01).
+      *----------  フリーメッセージ
+           10  WK-FREE-MSG         PIC  X(2000).
+      *----------  RTNパッケージ
+         05  WK-RTN-PKGS.
+           10  WK-RTNPKG.
+           COPY "CZRTNPACKAGE.cpy".
+         05  WK-RUN-SDATETIME      PIC  X(14).                          GUT2013
+         05  WK-RUN-EDATETIME      PIC  X(14).                          GUT2013
+      ******************************************************************
+      *                ＳＱＬ通信領域
+      ******************************************************************
+           EXEC  SQL  INCLUDE  SQLCA             END-EXEC.
+           EXEC  SQL  INCLUDE  ORACA             END-EXEC.
+           EXEC  SQL  BEGIN    DECLARE  SECTION  END-EXEC.
+       01  SQL-AREA.
+      *----------  SQL条件ワーク
+         05  SQLSTMT01             PIC  X(2000) VARYING.
+         05  SQLSTMT02             PIC  X(2000) VARYING.
+         05  SQLSTMT03             PIC  X(2000) VARYING.
+         05  SQLSTMT04             PIC  X(2000) VARYING.
+         05  HST-CNT               PIC  S9(09).
+      *----------  元本残高のデータ取得の抽出項目
+         05  HST-GANPON-DATA-REC.
+      *----------  利用会社コード
+           10  HST-RIYO-CMP-CD1    PIC  X(04).
+      *----------  ファンドコード
+           10  HST-FUND-CD1        PIC  X(12).
+      *----------  ポートフォリオコード
+           10  HST-PTF-CD1         PIC  X(04).
+      *----------  基準日
+           10  HST-KJN-YMD1        PIC  S9(08).
+      *----------  決算日断面区分
+           10  HST-KSN-YMD-DMN-KBN1
+                                   PIC  X(01).
+      *----------  元本簿価残高
+           10  HST-GNP-BOKAZN1     PIC  S9(15)V9(03).
+      *----------  評価履歴のデータ取得の抽出項目
+         05  HST-HYOUKA-DATA-REC.
+      *----------  評価系列コード
+           10  HST-HYK-KRTU-CD2    PIC  X(04).
+      *----------  証券種別コード
+           10  HST-SEC-SBT-CD2     PIC  X(04).
+      *----------  銘柄コード
+           10  HST-MEG-CD2         PIC  X(15).
+      *----------  資産負債・買建売建フラグ
+           10  HST-TATE-FLG2       PIC  X(01).
+      *----------  時価単価
+           10  HST-CP-TNK2         PIC  S9(08)V9(10).
+      *----------  時価系列コード
+           10  HST-JIKA-KRTU-CD2   PIC  X(04).
+      *----------  採用市場
+           10  HST-SAIYO-SIJO2     PIC  X(04).
+      *----------  ソース区分
+           10  HST-SOURCE-KBN2     PIC  X(02).
+      *----------  時価種類
+           10  HST-JIKA-SHRU2      PIC  X(04).
+      *----------  評価為替レート
+           10  HST-HYK-KWS2        PIC  S9(08)V9(10).
+      *----------  未収収益評価為替レート
+           10  HST-MS-SHEKI-HYK-KWS2
+                                   PIC  S9(08)V9(10).
+      *----------  源泉税評価為替レート
+           10  HST-GENS-TAX-HYK-KWS2
+                                   PIC  S9(08)V9(10).
+      *----------  為替系列コード
+           10  HST-KWS-KRTU-CD2    PIC  X(04).
+      *----------  レート採用日
+           10  HST-RATE-SAIYO-YMD2 PIC  S9(08).
+      *----------  時価日付
+           10  HST-CP-HIZUKE2      PIC  S9(08).
+      *----------  市場通貨評価金額
+           10  HST-SJTK-HYK-KN2    PIC  S9(15)V9(03).
+      *----------  市場通貨評価損益
+           10  HST-SJTK-HYK-SNEKI2 PIC  S9(15)V9(03).
+      *----------  運用通貨評価金額
+           10  HST-UYTK-HYK-KN2    PIC  S9(15)V9(03).
+      *----------  運用通貨評価損益
+           10  HST-UYTK-HYK-SNEKI2 PIC  S9(15)V9(03).
+      *----------  運用通貨簿価残高（為替換算額）
+           10  HST-UYTK-BOKAZN2    PIC  S9(15)V9(03).
+      *----------  INSERT
+         05  HST-INSERT-VALUE.
+      *----------  利用会社コード
+           10  HST-RIYO-CMP-CD     PIC  X(04).
+      *----------  ファンドコード
+           10  HST-FUND-CD         PIC  X(12).
+      *----------  ポートフォリオコード
+           10  HST-PTF-CD          PIC  X(04).
+      *----------  約定受渡区分
+           10  HST-YJ-UW-KBN       PIC  X(01).
+      *----------  残高日付
+           10  HST-ZANTK-YMD       PIC  S9(08).
+      *----------  決算日断面区分
+           10  HST-KSN-YMD-DMN-KBN PIC  X(01).
+      *----------  評価系列コード
+           10  HST-HYK-KRTU-CD     PIC  X(04).
+      *----------  証券種別コード
+           10  HST-SEC-SBT-CD      PIC  X(04).
+      *----------  取消フラグ
+           10  HST-DEL-KBN         PIC  X(01).
+      *----------  確定フラグ
+           10  HST-KT-KBN          PIC  X(01).
+      *----------  取引通貨
+           10  HST-TRHK-TUKA       PIC  X(04).
+      *----------  為替取引決済通貨
+           10  HST-KWS-TH-TUKA-CD  PIC  X(04).
+      *----------  発行国コード
+           10  HST-HAKO-CD         PIC  X(04).
+      *----------  銘柄コード
+           10  HST-MEG-CD          PIC  X(15).
+      *----------  資産負債・買建売建フラグ
+           10  HST-TATE-FLG        PIC  X(01).
+      *----------  個別建玉約定日
+           10  HST-TG-YKJ-YMD      PIC  S9(08).
+      *----------  個別玉管理番号
+           10  HST-KB-KANRI-ID     PIC  X(10).
+      *----------  カストディコード
+           10  HST-CAST-CD         PIC  X(04).
+      *----------  保有数量
+           10  HST-HOU-SURYO       PIC  S9(12)V9(06).
+      *----------  数量単位
+           10  HST-SURYO-TANI      PIC  S9(12)V9(06).
+      *----------  取得金額(取引通貨)
+           10  HST-THTK-ST-KNG     PIC  S9(15)V9(03).
+      *----------  取得単価(取引通貨)
+           10  HST-THTK-ST-TNK     PIC  S9(08)V9(10).
+      *----------  時価(取引通貨)
+           10  HST-CP-KRTU-CD      PIC  S9(08)V9(10).
+      *----------  時価採用日付
+           10  HST-CP-SAIYO-YMD    PIC  S9(08).
+      *----------  時価採用市場
+           10  HST-CP-SAIYO-SIJO   PIC  X(04).
+      *----------  評価金額(取引通貨)
+           10  HST-THTK-HYK-KN     PIC  S9(15)V9(03).
+      *----------  評価損益(取引通貨)
+           10  HST-THTK-HYK-SNEKI  PIC  S9(15)V9(03).
+      *----------  前払金残(取引通貨)
+           10  HST-THTK-PPAYZN     PIC  S9(15)V9(03).
+      *----------  経過利息金額(取引通貨)
+           10  HST-THTK-KKRS       PIC  S9(12)V9(06).
+      *----------  未収収益(取引通貨)
+           10  HST-THTK-MS-EKI     PIC  S9(15)V9(03).
+      *----------  評価為替レート
+           10  HST-HYK-KWS         PIC  S9(08)V9(10).
+      *----------  為替採用日付
+           10  HST-KWS-SAIYO-YMD   PIC  S9(08).
+      *----------  為替採用ソース
+           10  HST-KWS-SAIYO-SOURCE
+                                   PIC  X(04).
+      *----------  取得金額(運用通貨為替換算額)
+           10  HST-UYTK-KWS-BOKAZN PIC  S9(15)V9(03).
+      *----------  取得金額(運用通貨)
+           10  HST-SHTK-KN-LC      PIC  S9(15)V9(03).
+      *----------  取得単価(運用通貨)
+           10  HST-UYTK-ST-TNK     PIC  S9(08)V9(10).
+      *----------  評価金額(運用通貨)
+           10  HST-HYK-KN-LC       PIC  S9(15)V9(03).
+      *----------  評価損益(運用通貨)
+           10  HST-HYK-SNEKI-LC    PIC  S9(15)V9(03).
+      *----------  前払金残(運用通貨)
+           10  HST-UYTK-PPAY-ZN    PIC  S9(15)V9(03).
+      *----------  経過利息金額(運用通貨)
+           10  HST-KEKA-RSK-LC     PIC  S9(12)V9(06).
+      *----------  未収収益(運用通貨)
+           10  HST-UYTK-MS-EKI     PIC  S9(15)V9(03).
+      *----------  備考１
+           10  HST-BIKOU-1         PIC  X(20).
+      *----------  備考２
+           10  HST-BIKOU-2         PIC  X(20).
+      *----------  備考３
+           10  HST-BIKOU-3         PIC  X(12).
+      *----------  備考４
+           10  HST-BIKOU-4         PIC  X(12).
+      *----------  備考５
+           10  HST-BIKOU-5         PIC  S9(12)V9(06).
+      *----------  備考６
+           10  HST-BIKOU-6         PIC  S9(12)V9(06).
+      *----------  備考７
+           10  HST-BIKOU-7         PIC  S9(12)V9(06).
+      *----------  備考８
+           10  HST-BIKOU-8         PIC  S9(08)V9(10).
+      *----------  備考９
+           10  HST-BIKOU-9         PIC  S9(12)V9(06).
+      *----------  投資対象国
+           10  HST-TS-TARGET-KUNI  PIC  X(04).
+      *----------  未払費用残(取引通貨)
+           10  HST-SJTK-MBHY-ZN    PIC  S9(15)V9(03).
+      *----------  未払費用残(運用通貨)
+           10  HST-UYTK-MBHY-ZN    PIC  S9(15)V9(03).
+      *----------  建玉為替レート
+           10  HST-TGYOKU-KWS-RATE PIC  S9(08)V9(10).
+      *----------  建玉約定金額残(取引通貨)
+           10  HST-THTK-TG-YJKN-ZN PIC  S9(15)V9(03).
+      *----------  建玉約定金額残(運用通貨)
+           10  HST-UYTK-TG-YJKN-ZN PIC  S9(15)V9(03).
+      *----------  建玉手数料残(取引通貨)
+           10  HST-THTK-TG-TSR-ZN  PIC  S9(15)V9(03).
+      *----------  建玉手数料残(運用通貨)
+           10  HST-UYTK-TG-TSR-ZN  PIC  S9(15)V9(03).
+      *----------  建玉消費税残(取引通貨)
+           10  HST-THTK-TG-S-TAX-ZN
+                                   PIC  S9(15)V9(03).
+      *----------  建玉消費税残(運用通貨)
+           10  HST-UYTK-TG-S-TAX-ZN
+                                   PIC  S9(15)V9(03).
+      *----------  建玉その他費用残(取引通貨)
+           10  HST-THTK-TG-ELS-HIYO-ZN
+                                   PIC  S9(15)V9(03).
+      *----------  建玉その他費用残(運用通貨)
+           10  HST-UYTK-TG-ELS-HIYO-ZN
+                                   PIC  S9(15)V9(03).
+      *----------  建玉精算金額残(取引通貨)
+           10  HST-THTK-TG-SSKG-ZN PIC  S9(15)V9(03).
+      *----------  建玉精算金額残(運用通貨)
+           10  HST-UYTK-TG-SSKG-ZN PIC  S9(15)V9(03).
+      *----------  前受金残(取引通貨)
+           10  HST-THTK-AREC-ZN    PIC  S9(15)V9(03).
+      *----------  前受金残(運用通貨)
+           10  HST-UYTK-AREC-ZN    PIC  S9(15)V9(03).
+      *----------  仮払金残(取引通貨)
+           10  HST-THTK-SPAY-ZN    PIC  S9(15)V9(03).
+      *----------  仮払金残(運用通貨)
+           10  HST-UYTK-SPAY-ZN    PIC  S9(15)V9(03).
+      *----------  源泉税(取引通貨)
+           10  HST-THTK-GSZ        PIC  S9(15)V9(03).
+      *----------  源泉税(運用通貨)
+           10  HST-GENSEN-TAX-LC   PIC  S9(15)V9(03).
+      *----------  源泉税還付予定額残高(取引通貨)
+           10  HST-THTK-GSZKP-YT-ZN
+                                   PIC  S9(15)V9(03).
+      *----------  源泉税還付予定額残高(運用通貨)
+           10  HST-UYTK-GSZKP-YT-ZN
+                                   PIC  S9(15)V9(03).
+      *----------  簿価為替レート
+           10  HST-BOKA-KWS        PIC  S9(08)V9(10).
+      *----------  移管評価損益残(取引通貨)
+           10  HST-THTK-IKAN-HYK-SEZN
+                                   PIC  S9(15)V9(03).
+      *----------  移管評価損益残(運用通貨)
+           10  HST-UYTK-IKAN-HYK-SEZN
+                                   PIC  S9(15)V9(03).
+      *----------  移管未収収益(取引通貨)
+           10  HST-SJTK-IKAN-MSSHEKI
+                                   PIC  S9(15)V9(03).
+      *----------  移管未収収益(運用通貨)
+           10  HST-UYTK-IKAN-MSSHEKI
+                                   PIC  S9(15)V9(03).
+      *----------  移管前払金評価損益残(運用通貨)
+           10  HST-UYTK-IKAN-PPHKZN
+                                   PIC  S9(15)V9(03).
+      *----------  ＯＰ資産負債・買建売建フラグ
+           10  HST-OP-TATE-FLG     PIC  X(01).
+      *----------  時価系列コード
+           10  HST-JIKA-KRTU-CD    PIC  X(04).
+      *----------  取得時遡及有無
+           10  HST-SKYU-UMU-FLG    PIC  X(01).
+      *----------  時価種類
+           10  HST-JIKA-SHRU       PIC  X(04).
+      *----------  ソース区分
+           10  HST-SOURCE-KBN      PIC  X(02).
+      *----------  前払金評価額(運用通貨)
+           10  HST-UYTK-KPPAY-HYK-GK
+                                   PIC  S9(15)V9(03).
+      *----------  前払金評価損益(運用通貨)
+           10  HST-UYTK-PPAY-SNEKI PIC  S9(15)V9(03).
+      *----------  未収収益評価為替レート
+           10  HST-MS-SHEKI-HYK-KWS
+                                   PIC  S9(08)V9(10).
+      *----------  源泉税評価為替レート
+           10  HST-GENS-TAX-HYK-KWS
+                                   PIC  S9(08)V9(10).
+      *----------  データ区分
+           10  HST-DATA-KBN        PIC  X(01).
+      *----------  商品区分
+           10  HST-SYOHIN-KBN      PIC  X(02).
+      *----------  帳票出力区分
+           10  HST-REP-KBN         PIC  X(01).
+      *----------  項目コード１
+           10  HST-KODE-1          PIC  X(20).
+      *----------  数値１１
+           10  HST-SUJI-11         PIC  S9(15)V9(03).
+      *----------  数値１２
+           10  HST-SUJI-12         PIC  S9(15)V9(03).
+      *----------  数値１３
+           10  HST-SUJI-13         PIC  S9(15)V9(03).
+      *----------  項目コード２
+           10  HST-KODE-2          PIC  X(20).
+      *----------  数値２１
+           10  HST-SUJI-21         PIC  S9(15)V9(03).
+      *----------  数値２２
+           10  HST-SUJI-22         PIC  S9(15)V9(03).
+      *----------  数値２３
+           10  HST-SUJI-23         PIC  S9(15)V9(03).
+      *----------  項目コード３
+           10  HST-KODE-3          PIC  X(20).
+      *----------  数値３１
+           10  HST-SUJI-31         PIC  S9(15)V9(03).
+      *----------  数値３２
+           10  HST-SUJI-32         PIC  S9(15)V9(03).
+      *----------  数値３３
+           10  HST-SUJI-33         PIC  S9(15)V9(03).
+      *----------  予備１
+           10  HST-YOBI1           PIC  X(20).
+      *----------  予備２
+           10  HST-YOBI2           PIC  X(20).
+      *----------  作成フラグ
+           10  HST-SK-FLG          PIC  X(01).
+      *----------  作成画面ＩＤ
+           10  HST-SK-GAMEN        PIC  X(08).
+      *----------  作成ファイル名
+           10  HST-SK-FILE         PIC  X(20).
+      *----------  作成ログインユーザ会社コード
+           10  HST-SK-LOGIN-CMP-CD PIC  X(04).
+      *----------  作成ユーザＩＤ
+           10  HST-SK-SID          PIC  X(20).
+      *----------  作成プログラムＩＤ
+           10  HST-SK-PGMID        PIC  X(16).
+      *----------  更新フラグ
+           10  HST-UPD-FLG         PIC  X(01).
+      *----------  更新画面ＩＤ
+           10  HST-UPD-GAMEN       PIC  X(08).
+      *----------  更新ファイル名
+           10  HST-UPD-FILE        PIC  X(20).
+      *----------  更新ログインユーザ会社コード
+           10  HST-UPD-LOGIN-CMP-CD
+                                   PIC  X(04).
+      *----------  更新ユーザＩＤ
+           10  HST-UPD-SID         PIC  X(20).
+      *----------  更新プログラムＩＤ
+           10  HST-UPD-PGMID       PIC  X(16).
+      *----------  ワーク帳票テーブルの抽出条件
+         05  HST-WHERE.
+      *----------  利用会社コード
+           10  HST-RIYO-CMP-CD-SQL PIC  X(04).
+      *----------  ファンドコード
+           10  HST-FUND-CD-SQL     PIC  X(12).
+      *----------  ポートフォリオコード
+           10  HST-PTF-CD-SQL      PIC  X(04).
+      *----------  評価系列コード
+           10  HST-HYK-KRTU-CD-SQL PIC  X(04).
+      *----------  基準日
+           10  HST-KJN-YMD-SQL     PIC  S9(08).
+      *----------  決算日断面区分
+           10  HST-KSN-YMD-DMN-KBN-SQL
+                                   PIC  X(01).
+           10  HST-KSN-YMD-DMN-KBN-SQL1
+                                   PIC  X(01).
+           10  HST-KSN-YMD-DMN-KBN-SQL2
+                                   PIC  X(01).
+           10  HST-KSN-YMD-DMN-KBN-SQL3
+                                   PIC  X(01).
+      *----------  証券種別コード
+           10  HST-SEC-SBT-CD-SQL  PIC  X(04).
+      *----------  ORACLE接続ユーザ
+           EXEC  SQL  END      DECLARE  SECTION  END-EXEC.
+      ******************************************************************
+      *                ＳＱＬ文作成  エリア
+      ******************************************************************
+       01  SQL-TBL.
+         05  SQL-GANPON-FETCH.
+           10  WK-SQL-FETCH.
+             15  FILLER            PIC  X(07)  VALUE  "SELECT ".
+      *----------    利用会社コード
+             15  FILLER            PIC  X(12)  VALUE  "RIYO_CMP_CD,".
+      *----------    ファンドコード
+             15  FILLER            PIC  X(08)  VALUE  "FUND_CD,".
+      *----------    ポートフォリオコード
+             15  FILLER            PIC  X(07)  VALUE  "PTF_CD,".
+      *----------    基準日
+             15  FILLER            PIC  X(08)  VALUE  "KJN_YMD,".
+      *----------    決算日断面区分
+             15  FILLER            PIC  X(16)
+                                   VALUE  "KSN_YMD_DMN_KBN,".
+      *----------    元本簿価残高
+             15  FILLER            PIC  X(10)  VALUE  "GNP_BOKAZN".
+           10  WK-SQL-FROM.
+             15  FILLER            PIC  X(06)  VALUE  " FROM ".
+             15  SQL-TBL-ID        PIC  X(13).
+           10  WK-SQL-WHERE.
+             15  FILLER            PIC  X(07)  VALUE  " WHERE ".
+      *----------  利用会社コード
+             15  FILLER            PIC  X(28)
+                 VALUE  "RIYO_CMP_CD = :P_RIYO_CMP_CD".
+      *----------  ファンドコード
+             15  FILLER            PIC  X(25)
+                 VALUE  " AND FUND_CD = :P_FUND_CD".
+      *----------  ポートフォリオコード
+             15  FILLER            PIC  X(23)
+                 VALUE  " AND PTF_CD = :P_PTF_CD".
+      *----------  基準日
+             15  FILLER            PIC  X(25)
+                 VALUE  " AND KJN_YMD = :P_KJN_YMD".
+      *----------  決算日断面区分
+             15  FILLER            PIC  X(44)
+                 VALUE  " AND ((KSN_YMD_DMN_KBN = :P_KSN_YMD_DMN_KB1 ".
+             15  FILLER            PIC  X(34)
+                 VALUE  "AND  :P_KSN_YMD_DMN_KB1<> ' ') OR ".
+             15  FILLER            PIC  X(37)
+                 VALUE  "(KSN_YMD_DMN_KBN =:P_KSN_YMD_DMN_KB2 ".
+             15  FILLER            PIC  X(34)
+                 VALUE  "AND :P_KSN_YMD_DMN_KB2 <> ' ') OR ".
+             15  FILLER            PIC  X(37)
+                 VALUE  "(KSN_YMD_DMN_KBN =:P_KSN_YMD_DMN_KB3 ".
+             15  FILLER            PIC  X(31)
+                 VALUE  "AND :P_KSN_YMD_DMN_KB3 <> ' '))".
+         05  SQL-HYOUKA-FETCH.
+           10  WK-SQL-FETCH.
+             15  FILLER            PIC  X(07)  VALUE  "SELECT ".
+      *----------    評価系列コード
+             15  FILLER            PIC  X(12)  VALUE  "HYK_KRTU_CD,".
+      *----------    証券種別コード
+             15  FILLER            PIC  X(11)  VALUE  "SEC_SBT_CD,".
+      *----------    銘柄コード
+             15  FILLER            PIC  X(07)  VALUE  "MEG_CD,".
+      *----------    資産負債・買建売建フラグ
+             15  FILLER            PIC  X(09)  VALUE  "TATE_FLG,".
+      *----------    時価単価
+             15  FILLER            PIC  X(07)  VALUE  "CP_TNK,".
+      *----------    時価系列コード
+             15  FILLER            PIC  X(13)  VALUE  "JIKA_KRTU_CD,".
+      *----------    採用市場
+             15  FILLER            PIC  X(11)  VALUE  "SAIYO_SIJO,".
+      *----------    ソース区分
+             15  FILLER            PIC  X(11)  VALUE  "SOURCE_KBN,".
+      *----------    時価種類
+             15  FILLER            PIC  X(10)  VALUE  "JIKA_SHRU,".
+      *----------    評価為替レート
+             15  FILLER            PIC  X(08)  VALUE  "HYK_KWS,".
+      *----------    未収収益評価為替レート
+             15  FILLER            PIC  X(17)
+                                   VALUE  "MS_SHEKI_HYK_KWS,".
+      *----------    源泉税評価為替レート
+             15  FILLER            PIC  X(17)
+                                   VALUE  "GENS_TAX_HYK_KWS,".
+      *----------    為替系列コード
+             15  FILLER            PIC  X(12)  VALUE  "KWS_KRTU_CD,".
+      *----------    レート採用日
+             15  FILLER            PIC  X(15)  VALUE  "RATE_SAIYO_YMD,".
+      *----------    時価日付
+             15  FILLER            PIC  X(10)  VALUE  "CP_HIZUKE,".
+      *----------    市場通貨評価金額
+             15  FILLER            PIC  X(12)  VALUE  "SJTK_HYK_KN,".
+      *----------    市場通貨評価損益
+             15  FILLER            PIC  X(15)  VALUE  "SJTK_HYK_SNEKI,".
+      *----------    運用通貨評価金額
+             15  FILLER            PIC  X(12)  VALUE  "UYTK_HYK_KN,".
+      *----------    運用通貨評価損益
+             15  FILLER            PIC  X(15)  VALUE  "UYTK_HYK_SNEKI,".
+      *----------    運用通貨簿価残高（為替換算額）
+             15  FILLER            PIC  X(11)  VALUE  "UYTK_BOKAZN".
+           10  WK-SQL-FROM.
+             15  FILLER            PIC  X(06)  VALUE  " FROM ".
+             15  SQL-TBL-ID        PIC  X(13).
+           10  WK-SQL-WHERE.
+             15  FILLER            PIC  X(07)  VALUE  " WHERE ".
+      *----------  利用会社コード
+             15  FILLER            PIC  X(28)
+                 VALUE  "RIYO_CMP_CD = :P_RIYO_CMP_CD".
+      *----------  ファンドコード
+             15  FILLER            PIC  X(25)
+                 VALUE  " AND FUND_CD = :P_FUND_CD".
+      *----------  ポートフォリオコード
+             15  FILLER            PIC  X(23)
+                 VALUE  " AND PTF_CD = :P_PTF_CD".
+      *----------  評価系列コード
+             15  FILLER            PIC  X(33)
+                 VALUE  " AND HYK_KRTU_CD = :P_HYK_KRTU_CD".
+      *----------  証券種別コード
+             15  FILLER            PIC  X(31)
+                 VALUE  " AND SEC_SBT_CD = :P_SEC_SBT_CD".
+      *----------  基準日
+             15  FILLER            PIC  X(25)
+                 VALUE  " AND KJN_YMD = :P_KJN_YMD".
+      *----------  決算日断面区分
+             15  FILLER            PIC  X(41)
+                 VALUE  " AND KSN_YMD_DMN_KBN = :P_KSN_YMD_DMN_KBN".
+         05  SQL-INSERT.
+      *----------  INSERT
+           10  FILLER              PIC  X(12)
+             VALUE  "INSERT INTO ".
+      *----------  テーブルID
+           10  SQL-TBL-ID          PIC  X(13).
+           10  FILLER              PIC  X(01)
+             VALUE  "(".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(12)
+             VALUE  "RIYO_CMP_CD,".
+      *----------  ファンドコード
+           10  FILLER              PIC  X(08)
+             VALUE  "FUND_CD,".
+      *----------  ポートフォリオコード
+           10  FILLER              PIC  X(07)
+             VALUE  "PTF_CD,".
+      *----------  約定受渡区分
+           10  FILLER              PIC  X(10)
+             VALUE  "YJ_UW_KBN,".
+      *----------  残高日付
+           10  FILLER              PIC  X(10)
+             VALUE  "ZANTK_YMD,".
+      *----------  決算日断面区分
+           10  FILLER              PIC  X(16)
+             VALUE  "KSN_YMD_DMN_KBN,".
+      *----------  評価系列コード
+           10  FILLER              PIC  X(12)
+             VALUE  "HYK_KRTU_CD,".
+      *----------  証券種別コード
+           10  FILLER              PIC  X(11)
+             VALUE  "SEC_SBT_CD,".
+      *----------  取消フラグ
+           10  FILLER              PIC  X(08)
+             VALUE  "DEL_KBN,".
+      *----------  確定フラグ
+           10  FILLER              PIC  X(07)
+             VALUE  "KT_KBN,".
+      *----------  取引通貨
+           10  FILLER              PIC  X(10)
+             VALUE  "TRHK_TUKA,".
+      *----------  為替取引決済通貨
+           10  FILLER              PIC  X(15)
+             VALUE  "KWS_TH_TUKA_CD,".
+      *----------  発行国コード
+           10  FILLER              PIC  X(08)
+             VALUE  "HAKO_CD,".
+      *----------  銘柄コード
+           10  FILLER              PIC  X(07)
+             VALUE  "MEG_CD,".
+      *----------  資産負債・買建売建フラグ
+           10  FILLER              PIC  X(09)
+             VALUE  "TATE_FLG,".
+      *----------  個別建玉約定日
+           10  FILLER              PIC  X(11)
+             VALUE  "TG_YKJ_YMD,".
+      *----------  個別玉管理番号
+           10  FILLER              PIC  X(12)
+             VALUE  "KB_KANRI_ID,".
+      *----------  カストディコード
+           10  FILLER              PIC  X(08)
+             VALUE  "CAST_CD,".
+      *----------  保有数量
+           10  FILLER              PIC  X(10)
+             VALUE  "HOU_SURYO,".
+      *----------  数量単位
+           10  FILLER              PIC  X(11)
+             VALUE  "SURYO_TANI,".
+      *----------  取得金額(取引通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "THTK_ST_KNG,".
+      *----------  取得単価(取引通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "THTK_ST_TNK,".
+      *----------  時価(取引通貨)
+           10  FILLER              PIC  X(11)
+             VALUE  "CP_KRTU_CD,".
+      *----------  時価採用日付
+           10  FILLER              PIC  X(13)
+             VALUE  "CP_SAIYO_YMD,".
+      *----------  時価採用市場
+           10  FILLER              PIC  X(14)
+             VALUE  "CP_SAIYO_SIJO,".
+      *----------  評価金額(取引通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "THTK_HYK_KN,".
+      *----------  評価損益(取引通貨)
+           10  FILLER              PIC  X(15)
+             VALUE  "THTK_HYK_SNEKI,".
+      *----------  前払金残(取引通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "THTK_PPAYZN,".
+      *----------  経過利息金額(取引通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "THTK_KEKA_RS,".
+      *----------  未収収益(取引通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "THTK_MS_EKI,".
+      *----------  評価為替レート
+           10  FILLER              PIC  X(08)
+             VALUE  "HYK_KWS,".
+      *----------  為替採用日付
+           10  FILLER              PIC  X(14)
+             VALUE  "KWS_SAIYO_YMD,".
+      *----------  為替採用ソース
+           10  FILLER              PIC  X(17)
+             VALUE  "KWS_SAIYO_SOURCE,".
+      *----------  取得金額(運用通貨為替換算額)
+           10  FILLER              PIC  X(16)
+             VALUE  "UYTK_KWS_BOKAZN,".
+      *----------  取得金額(運用通貨)
+           10  FILLER              PIC  X(11)
+             VALUE  "SHTK_KN_LC,".
+      *----------  取得単価(運用通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "UYTK_ST_TNK,".
+      *----------  評価金額(運用通貨)
+           10  FILLER              PIC  X(10)
+             VALUE  "HYK_KN_LC,".
+      *----------  評価損益(運用通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "HYK_SNEKI_LC,".
+      *----------  前払金残(運用通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "UYTK_PPAY_ZN,".
+      *----------  経過利息金額(運用通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "UYTK_KEKA_RS,".
+      *----------  未収収益(運用通貨)
+           10  FILLER              PIC  X(12)
+             VALUE  "UYTK_MS_EKI,".
+      *----------  備考１
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU1,".
+      *----------  備考２
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU2,".
+      *----------  備考３
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU3,".
+      *----------  備考４
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU4,".
+      *----------  備考５
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU5,".
+      *----------  備考６
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU6,".
+      *----------  備考７
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU7,".
+      *----------  備考８
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU8,".
+      *----------  備考９
+           10  FILLER              PIC  X(07)
+             VALUE  "BIKOU9,".
+      *----------  投資対象国
+           10  FILLER              PIC  X(15)
+             VALUE  "TS_TARGET_KUNI,".
+      *----------  未払費用残(取引通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "SJTK_MBHY_ZN,".
+      *----------  未払費用残(運用通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "UYTK_MBHY_ZN,".
+      *----------  建玉為替レート
+           10  FILLER              PIC  X(16)
+             VALUE  "TGYOKU_KWS_RATE,".
+      *----------  建玉約定金額残(取引通貨)
+           10  FILLER              PIC  X(16)
+             VALUE  "THTK_TG_YJKN_ZN,".
+      *----------  建玉約定金額残(運用通貨)
+           10  FILLER              PIC  X(16)
+             VALUE  "UYTK_TG_YJKN_ZN,".
+      *----------  建玉手数料残(取引通貨)
+           10  FILLER              PIC  X(15)
+             VALUE  "THTK_TG_TSR_ZN,".
+      *----------  建玉手数料残(運用通貨)
+           10  FILLER              PIC  X(15)
+             VALUE  "UYTK_TG_TSR_ZN,".
+      *----------  建玉消費税残(取引通貨)
+           10  FILLER              PIC  X(17)
+             VALUE  "THTK_TG_S_TAX_ZN,".
+      *----------  建玉消費税残(運用通貨)
+           10  FILLER              PIC  X(17)
+             VALUE  "UYTK_TG_S_TAX_ZN,".
+      *----------  建玉その他費用残(取引通貨)
+           10  FILLER              PIC  X(20)
+             VALUE  "THTK_TG_ELS_HIYO_ZN,".
+      *----------  建玉その他費用残(運用通貨)
+           10  FILLER              PIC  X(20)
+             VALUE  "UYTK_TG_ELS_HIYO_ZN,".
+      *----------  建玉精算金額残(取引通貨)
+           10  FILLER              PIC  X(16)
+             VALUE  "THTK_TG_SSKG_ZN,".
+      *----------  建玉精算金額残(運用通貨)
+           10  FILLER              PIC  X(16)
+             VALUE  "UYTK_TG_SSKG_ZN,".
+      *----------  前受金残(取引通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "THTK_AREC_ZN,".
+      *----------  前受金残(運用通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "UYTK_AREC_ZN,".
+      *----------  仮払金残(取引通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "THTK_SPAY_ZN,".
+      *----------  仮払金残(運用通貨)
+           10  FILLER              PIC  X(13)
+             VALUE  "UYTK_SPAY_ZN,".
+      *----------  源泉税(取引通貨)
+           10  FILLER              PIC  X(09)
+             VALUE  "THTK_GSZ,".
+      *----------  源泉税(運用通貨)
+           10  FILLER              PIC  X(14)
+             VALUE  "GENSEN_TAX_LC,".
+      *----------  源泉税還付予定額残高(取引通貨)
+           10  FILLER              PIC  X(17)
+             VALUE  "THTK_GSZKP_YT_ZN,".
+      *----------  源泉税還付予定額残高(運用通貨)
+           10  FILLER              PIC  X(17)
+             VALUE  "UYTK_GSZKP_YT_ZN,".
+      *----------  簿価為替レート
+           10  FILLER              PIC  X(09)
+             VALUE  "BOKA_KWS,".
+      *----------  移管評価損益残(取引通貨)
+           10  FILLER              PIC  X(19)
+             VALUE  "THTK_IKAN_HYK_SEZN,".
+      *----------  移管評価損益残(運用通貨)
+           10  FILLER              PIC  X(19)
+             VALUE  "UYTK_IKAN_HYK_SEZN,".
+      *----------  移管未収収益(取引通貨)
+           10  FILLER              PIC  X(18)
+             VALUE  "SJTK_IKAN_MSSHEKI,".
+      *----------  移管未収収益(運用通貨)
+           10  FILLER              PIC  X(18)
+             VALUE  "UYTK_IKAN_MSSHEKI,".
+      *----------  移管前払金評価損益残(運用通貨)
+           10  FILLER              PIC  X(17)
+             VALUE  "UYTK_IKAN_PPHKZN,".
+      *----------  ＯＰ資産負債・買建売建フラグ
+           10  FILLER              PIC  X(12)
+             VALUE  "OP_TATE_FLG,".
+      *----------  時価系列コード
+           10  FILLER              PIC  X(13)
+             VALUE  "JIKA_KRTU_CD,".
+      *----------  取得時遡及有無
+           10  FILLER              PIC  X(13)
+             VALUE  "SKYU_UMU_FLG,".
+      *----------  時価種類
+           10  FILLER              PIC  X(10)
+             VALUE  "JIKA_SHRU,".
+      *----------  ソース区分
+           10  FILLER              PIC  X(11)
+             VALUE  "SOURCE_KBN,".
+      *----------  前払金評価額(運用通貨)
+           10  FILLER              PIC  X(18)
+             VALUE  "UYTK_KPPAY_HYK_GK,".
+      *----------  前払金評価損益(運用通貨)
+           10  FILLER              PIC  X(16)
+             VALUE  "UYTK_PPAY_SNEKI,".
+      *----------  未収収益評価為替レート
+           10  FILLER              PIC  X(17)
+             VALUE  "MS_SHEKI_HYK_KWS,".
+      *----------  源泉税評価為替レート
+           10  FILLER              PIC  X(17)
+             VALUE  "GENS_TAX_HYK_KWS,".
+      *----------  データ区分
+           10  FILLER              PIC  X(09)
+             VALUE  "DATA_KBN,".
+      *----------  商品区分
+           10  FILLER              PIC  X(11)
+             VALUE  "SYOHIN_KBN,".
+      *----------  帳票出力区分
+           10  FILLER              PIC  X(08)
+             VALUE  "REP_KBN,".
+      *----------  項目コード１
+           10  FILLER              PIC  X(07)
+             VALUE  "KODE_1,".
+      *----------  数値１１
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_11,".
+      *----------  数値１２
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_12,".
+      *----------  数値１３
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_13,".
+      *----------  項目コード２
+           10  FILLER              PIC  X(07)
+             VALUE  "KODE_2,".
+      *----------  数値２１
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_21,".
+      *----------  数値２２
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_22,".
+      *----------  数値２３
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_23,".
+      *----------  項目コード３
+           10  FILLER              PIC  X(07)
+             VALUE  "KODE_3,".
+      *----------  数値３１
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_31,".
+      *----------  数値３２
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_32,".
+      *----------  数値３３
+           10  FILLER              PIC  X(08)
+             VALUE  "SUJI_33,".
+      *----------  予備１
+           10  FILLER              PIC  X(06)
+             VALUE  "YOBI1,".
+      *----------  予備２
+           10  FILLER              PIC  X(06)
+             VALUE  "YOBI2,".
+      *----------  作成フラグ
+           10  FILLER              PIC  X(07)
+             VALUE  "SK_FLG,".
+      *----------  作成画面ＩＤ
+           10  FILLER              PIC  X(09)
+             VALUE  "SK_GAMEN,".
+      *----------  作成ファイル名
+           10  FILLER              PIC  X(08)
+             VALUE  "SK_FILE,".
+      *----------  作成日時
+           10  FILLER              PIC  X(08)
+             VALUE  "SK_DATE,".
+      *----------  作成ログインユーザ会社コード
+           10  FILLER              PIC  X(16)
+             VALUE  "SK_LOGIN_CMP_CD,".
+      *----------  作成ユーザＩＤ
+           10  FILLER              PIC  X(07)
+             VALUE  "SK_SID,".
+      *----------  作成プログラムＩＤ
+           10  FILLER              PIC  X(09)
+             VALUE  "SK_PGMID,".
+      *----------  更新フラグ
+           10  FILLER              PIC  X(08)
+             VALUE  "UPD_FLG,".
+      *----------  更新画面ＩＤ
+           10  FILLER              PIC  X(10)
+             VALUE  "UPD_GAMEN,".
+      *----------  更新ファイル名
+           10  FILLER              PIC  X(09)
+             VALUE  "UPD_FILE,".
+      *----------  更新日時
+           10  FILLER              PIC  X(09)
+             VALUE  "UPD_DATE,".
+      *----------  更新ログインユーザ会社コード
+           10  FILLER              PIC  X(17)
+             VALUE  "UPD_LOGIN_CMP_CD,".
+      *----------  更新ユーザＩＤ
+           10  FILLER              PIC  X(08)
+             VALUE  "UPD_SID,".
+      *----------  更新プログラムＩＤ
+           10  FILLER              PIC  X(09)
+             VALUE  "UPD_PGMID".
+           10  FILLER              PIC  X(01)
+             VALUE  ")".
+      *----------  VALUE
+           10  FILLER              PIC  X(10)
+             VALUE  " VALUES ( ".
+      *----------  利用会社コード
+           10  FILLER              PIC  X(04)
+             VALUE  ":V1,".
+      *----------  ファンドコード
+           10  FILLER              PIC  X(04)
+             VALUE  ":V2,".
+      *----------  ポートフォリオコード
+           10  FILLER              PIC  X(04)
+             VALUE  ":V3,".
+      *----------  約定受渡区分
+           10  FILLER              PIC  X(04)
+             VALUE  ":V4,".
+      *----------  残高日付
+           10  FILLER              PIC  X(04)
+             VALUE  ":V5,".
+      *----------  決算日断面区分
+           10  FILLER              PIC  X(04)
+             VALUE  ":V6,".
+      *----------  評価系列コード
+           10  FILLER              PIC  X(04)
+             VALUE  ":V7,".
+      *----------  証券種別コード
+           10  FILLER              PIC  X(04)
+             VALUE  ":V8,".
+      *----------  取消フラグ
+           10  FILLER              PIC  X(04)
+             VALUE  ":V9,".
+      *----------  確定フラグ
+           10  FILLER              PIC  X(05)
+             VALUE  ":V10,".
+      *----------  取引通貨
+           10  FILLER              PIC  X(05)
+             VALUE  ":V11,".
+      *----------  為替取引決済通貨
+           10  FILLER              PIC  X(05)
+             VALUE  ":V12,".
+      *----------  発行国コード
+           10  FILLER              PIC  X(05)
+             VALUE  ":V13,".
+      *----------  銘柄コード
+           10  FILLER              PIC  X(05)
+             VALUE  ":V14,".
+      *----------  資産負債・買建売建フラグ
+           10  FILLER              PIC  X(05)
+             VALUE  ":V15,".
+      *----------  個別建玉約定日
+           10  FILLER              PIC  X(05)
+             VALUE  ":V16,".
+      *----------  個別玉管理番号
+           10  FILLER              PIC  X(05)
+             VALUE  ":V17,".
+      *----------  カストディコード
+           10  FILLER              PIC  X(05)
+             VALUE  ":V18,".
+      *----------  保有数量
+           10  FILLER              PIC  X(05)
+             VALUE  ":V19,".
+      *----------  数量単位
+           10  FILLER              PIC  X(05)
+             VALUE  ":V20,".
+      *----------  取得金額(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V21,".
+      *----------  取得単価(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V22,".
+      *----------  時価(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V23,".
+      *----------  時価採用日付
+           10  FILLER              PIC  X(05)
+             VALUE  ":V24,".
+      *----------  時価採用市場
+           10  FILLER              PIC  X(05)
+             VALUE  ":V25,".
+      *----------  評価金額(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V26,".
+      *----------  評価損益(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V27,".
+      *----------  前払金残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V28,".
+      *----------  経過利息金額(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V29,".
+      *----------  未収収益(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V30,".
+      *----------  評価為替レート
+           10  FILLER              PIC  X(05)
+             VALUE  ":V31,".
+      *----------  為替採用日付
+           10  FILLER              PIC  X(05)
+             VALUE  ":V32,".
+      *----------  為替採用ソース
+           10  FILLER              PIC  X(05)
+             VALUE  ":V33,".
+      *----------  取得金額(運用通貨為替換算額)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V34,".
+      *----------  取得金額(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V35,".
+      *----------  取得単価(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V36,".
+      *----------  評価金額(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V37,".
+      *----------  評価損益(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V38,".
+      *----------  前払金残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V39,".
+      *----------  経過利息金額(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V40,".
+      *----------  未収収益(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V41,".
+      *----------  備考１
+           10  FILLER              PIC  X(05)
+             VALUE  ":V42,".
+      *----------  備考２
+           10  FILLER              PIC  X(05)
+             VALUE  ":V43,".
+      *----------  備考３
+           10  FILLER              PIC  X(05)
+             VALUE  ":V44,".
+      *----------  備考４
+           10  FILLER              PIC  X(05)
+             VALUE  ":V45,".
+      *----------  備考５
+           10  FILLER              PIC  X(05)
+             VALUE  ":V46,".
+      *----------  備考６
+           10  FILLER              PIC  X(05)
+             VALUE  ":V47,".
+      *----------  備考７
+           10  FILLER              PIC  X(05)
+             VALUE  ":V48,".
+      *----------  備考８
+           10  FILLER              PIC  X(05)
+             VALUE  ":V49,".
+      *----------  備考９
+           10  FILLER              PIC  X(05)
+             VALUE  ":V50,".
+      *----------  投資対象国
+           10  FILLER              PIC  X(05)
+             VALUE  ":V51,".
+      *----------  未払費用残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V52,".
+      *----------  未払費用残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V53,".
+      *----------  建玉為替レート
+           10  FILLER              PIC  X(05)
+             VALUE  ":V54,".
+      *----------  建玉約定金額残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V55,".
+      *----------  建玉約定金額残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V56,".
+      *----------  建玉手数料残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V57,".
+      *----------  建玉手数料残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V58,".
+      *----------  建玉消費税残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V59,".
+      *----------  建玉消費税残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V60,".
+      *----------  建玉その他費用残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V61,".
+      *----------  建玉その他費用残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V62,".
+      *----------  建玉精算金額残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V63,".
+      *----------  建玉精算金額残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V64,".
+      *----------  前受金残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V65,".
+      *----------  前受金残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V66,".
+      *----------  仮払金残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V67,".
+      *----------  仮払金残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V68,".
+      *----------  源泉税(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V69,".
+      *----------  源泉税(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V70,".
+      *----------  源泉税還付予定額残高(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V71,".
+      *----------  源泉税還付予定額残高(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V72,".
+      *----------  簿価為替レート
+           10  FILLER              PIC  X(05)
+             VALUE  ":V73,".
+      *----------  移管評価損益残(取引通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V74,".
+      *----------  移管評価損益残(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V75,".
+      *----------  移管未収収益(取引通貨)
+           10  FILLER              PIC  X(06)
+             VALUE  ":V115,".
+      *----------  移管未収収益(運用通貨)
+           10  FILLER              PIC  X(06)
+             VALUE  ":V116,".
+      *----------  移管前払金評価損益残(運用通貨)
+           10  FILLER              PIC  X(06)
+             VALUE  ":V117,".
+      *----------  ＯＰ資産負債・買建売建フラグ
+           10  FILLER              PIC  X(05)
+             VALUE  ":V76,".
+      *----------  時価系列コード
+           10  FILLER              PIC  X(05)
+             VALUE  ":V77,".
+      *----------  取得時遡及有無
+           10  FILLER              PIC  X(05)
+             VALUE  ":V78,".
+      *----------  時価種類
+           10  FILLER              PIC  X(05)
+             VALUE  ":V79,".
+      *----------  ソース区分
+           10  FILLER              PIC  X(05)
+             VALUE  ":V80,".
+      *----------  前払金評価額(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V82,".
+      *----------  前払金評価損益(運用通貨)
+           10  FILLER              PIC  X(05)
+             VALUE  ":V83,".
+      *----------  未収収益評価為替レート
+           10  FILLER              PIC  X(05)
+             VALUE  ":V84,".
+      *----------  源泉税評価為替レート
+           10  FILLER              PIC  X(05)
+             VALUE  ":V85,".
+      *----------  データ区分
+           10  FILLER              PIC  X(05)
+             VALUE  ":V86,".
+      *----------  商品区分
+           10  FILLER              PIC  X(05)
+             VALUE  ":V87,".
+      *----------  帳票出力区分
+           10  FILLER              PIC  X(05)
+             VALUE  ":V88,".
+      *----------  項目コード１
+           10  FILLER              PIC  X(05)
+             VALUE  ":V89,".
+      *----------  数値１１
+           10  FILLER              PIC  X(05)
+             VALUE  ":V90,".
+      *----------  数値１２
+           10  FILLER              PIC  X(05)
+             VALUE  ":V91,".
+      *----------  数値１３
+           10  FILLER              PIC  X(05)
+             VALUE  ":V92,".
+      *----------  項目コード２
+           10  FILLER              PIC  X(05)
+             VALUE  ":V93,".
+      *----------  数値２１
+           10  FILLER              PIC  X(05)
+             VALUE  ":V94,".
+      *----------  数値２２
+           10  FILLER              PIC  X(05)
+             VALUE  ":V95,".
+      *----------  数値２３
+           10  FILLER              PIC  X(05)
+             VALUE  ":V96,".
+      *----------  項目コード３
+           10  FILLER              PIC  X(05)
+             VALUE  ":V97,".
+      *----------  数値３１
+           10  FILLER              PIC  X(05)
+             VALUE  ":V98,".
+      *----------  数値３２
+           10  FILLER              PIC  X(05)
+             VALUE  ":V99,".
+      *----------  数値３３
+           10  FILLER              PIC  X(06)
+             VALUE  ":V100,".
+      *----------  予備１
+           10  FILLER              PIC  X(06)
+             VALUE  ":V101,".
+      *----------  予備２
+           10  FILLER              PIC  X(06)
+             VALUE  ":V102,".
+      *----------  作成フラグ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V103,".
+      *----------  作成画面ＩＤ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V104,".
+      *----------  作成ファイル名
+           10  FILLER              PIC  X(06)
+             VALUE  ":V105,".
+      *----------  作成日時
+           10  FILLER              PIC  X(08)
+             VALUE  "SYSDATE,".
+      *----------  作成ログインユーザ会社コード
+           10  FILLER              PIC  X(06)
+             VALUE  ":V106,".
+      *----------  作成ユーザＩＤ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V107,".
+      *----------  作成プログラムＩＤ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V108,".
+      *----------  更新フラグ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V109,".
+      *----------  更新画面ＩＤ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V110,".
+      *----------  更新ファイル名
+           10  FILLER              PIC  X(06)
+             VALUE  ":V111,".
+      *----------  更新日時
+           10  FILLER              PIC  X(08)
+             VALUE  "SYSDATE,".
+      *----------  更新ログインユーザ会社コード
+           10  FILLER              PIC  X(06)
+             VALUE  ":V112,".
+      *----------  更新ユーザＩＤ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V113,".
+      *----------  更新プログラムＩＤ
+           10  FILLER              PIC  X(06)
+             VALUE  ":V114)".
+         05  SQL-TKUSGP01-FETCH.
+           10  WK-SQL-FETCH.
+             15  FILLER            PIC  X(07)  VALUE  "SELECT ".
+      *----------    COUNT(証券種別)
+             15  FILLER            PIC  X(17)
+                                   VALUE  "COUNT(SEC_SBT_CD)".
+           10  WK-SQL-FROM.
+             15  FILLER            PIC  X(06)  VALUE  " FROM ".
+             15  SQL-TBL-ID        PIC  X(13).
+           10  WK-SQL-WHERE.
+             15  FILLER            PIC  X(07)  VALUE  " WHERE ".
+      *----------  ワーク再処理要銘柄一覧テーブル.証券種別コード = 'PRI'
+             15  FILLER            PIC  X(26)
+                 VALUE  "SEC_SBT_CD = :P_SEC_SBT_CD".
+      *----------  ワーク再処理要銘柄一覧テーブル.計算期間FROM　≦　 ARG1.基準日
+             15  FILLER            PIC  X(33)
+                 VALUE  " AND CALC_KKN_FROM <= :P_KJN_YMD1".
+      *----------  ワーク再処理要銘柄一覧テーブル.計算期間TO　　≧　 ARG1.基準日
+             15  FILLER            PIC  X(31)
+                 VALUE  " AND CALC_KKN_TO >= :P_KJN_YMD2".
+      ******************************************************************
+      *                 サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  テーブルID取得ルーチンパラメータ
+       01  PARM-SCZY1160-INOUT.
+           COPY  "SCZY1160.cpy".
+      *----------  ポートフォリオ属性取得ルーチン
+       01  PARM-SCZY4302-INOUT.
+           COPY  "SCZY4302.cpy".
+      *----------  商品属性全項目取得ルーチン
+       01  PARM-SCZY4404-INOUT.
+           COPY  "SCZY4404.cpy".
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  RTNパッケージコピー句
+       01  PARM-RTNPKG.
+         05  PARM-RTNPKG-ARG.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SUSC0003-INOUT.
+           COPY  "SUSC0003.cpy".
+       01  PARM-SUSC0003-RTNPKG.
+         05  PARM-SUSC0003-ARG3.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SUSC0003-INOUT
+                  PARM-SUSC0003-RTNPKG.
+      ******************************************************************
+      *                 SUSC0003処理
+      ******************************************************************
+       SUSC0003-RTN           SECTION.
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-SDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [SUSC0003-RTN]"                GUT2013
+           DISPLAY "セクションの開始時間:["WK-RUN-SDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  SUSC0003処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  SUSC0003処理  END  ***"
+      *-----------------------------------------------------------------
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-EDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [SUSC0003-RTN]"                GUT2013
+           DISPLAY "セクションの終了時間:["WK-RUN-EDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SUSC0003-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.1 前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           PERFORM  INITIALIZE-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  前処理  END    ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.1 初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  初期化処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE     CNS-FLAG-AREA
+                          WORK-AREA
+                          SQL-AREA
+                          SQL-TBL
+                          PARM-SCZY1160-INOUT
+                          PARM-SCZY4302-INOUT
+                          PARM-SCZY4404-INOUT
+                          PARM-SCZY1170-INOUT
+                          PARM-SCZY1170-RTNPKG
+                          PARM-SUSC0003-ARG2
+                          PARM-SUSC0003-RTNPKG
+                          PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": CNS-FLAG-AREA=["CNS-FLAG-AREA"]"
+      D    DISPLAY CNS-PGM-ID": WORK-AREA=["WORK-AREA"]"
+      D    DISPLAY CNS-PGM-ID": SQL-AREA =["SQL-AREA"]"
+      D    DISPLAY CNS-PGM-ID": SQL-TBL  =["SQL-TBL"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SCZY1160-INOUT  =["
+      D                                  PARM-SCZY1160-INOUT"]"
+      D    DISPLAY CNS-PGM-ID": PARM-SCZY4302-INOUT    =["
+      D                                  PARM-SCZY4302-INOUT "]"
+      D    DISPLAY CNS-PGM-ID": PARM-SCZY4404-INOUT    =["
+      D                                  PARM-SCZY4404-INOUT "]"
+      D    DISPLAY CNS-PGM-ID": PARM-SCZY1170-INOUT    =["
+      D                                  PARM-SCZY1170-INOUT "]"
+      D    DISPLAY CNS-PGM-ID": PARM-SCZY1170-RTNPKG=["
+      D                                  PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY CNS-PGM-ID": PARM-SUSC0003-ARG2  =["
+      D                                  PARM-SUSC0003-ARG2"]"
+      D    DISPLAY CNS-PGM-ID": PARM-SUSC0003-ARG3  =["
+      D                                  PARM-SUSC0003-RTNPKG"]"
+      D    DISPLAY CNS-PGM-ID": PARM-RTNPKG         =["
+      D                                  PARM-RTNPKG "]"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RTN-000
+             TO  WK-RTN-CD                   OF  WK-RTN
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF  PARM-SUSC0003-ARG1
+             TO  WK-RIYO-CMP-CD1
+      *----------  ファンドコード
+           MOVE  FUND-CD                     OF  PARM-SUSC0003-ARG1
+             TO  WK-FUND-CD1
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                      OF  PARM-SUSC0003-ARG1
+             TO  WK-PTF-CD1
+      *----------  評価系列コード
+           MOVE  HYK-KRTU-CD                 OF  PARM-SUSC0003-ARG1
+             TO  WK-HYK-KRTU-CD1
+      *----------  決算日断面区分
+           MOVE  KSN-YMD-DMN-KBN             OF  PARM-SUSC0003-ARG1(1)
+             TO  WK-KSN-YMD-DMN-KBN1
+           MOVE  KSN-YMD-DMN-KBN             OF  PARM-SUSC0003-ARG1(2)
+             TO  WK-KSN-YMD-DMN-KBN2
+           MOVE  KSN-YMD-DMN-KBN             OF  PARM-SUSC0003-ARG1(3)
+             TO  WK-KSN-YMD-DMN-KBN3
+      *----------  基準日
+           MOVE  KJN-YMD                     OF  PARM-SUSC0003-ARG1
+             TO  WK-KJN-YMD
+      *----------  画面ＩＤ
+           MOVE  GAMEN                       OF  PARM-SUSC0003-ARG1
+             TO  WK-GAMEN
+      *----------  更新ログインユーザ会社コード
+           MOVE  CMP-CD                      OF  PARM-SUSC0003-ARG1
+             TO  WK-CMP-CD
+      *----------  更新ユーザＩＤ
+           MOVE  JOB-USER-ID                 OF  PARM-SUSC0003-ARG1
+             TO  WK-JOB-USER-ID
+      *----------  処理実行日
+           MOVE  SHORI-YMD                   OF  PARM-SUSC0003-ARG1
+             TO  WK-SHORI-YMD
+      *----------  業務タスクID
+           MOVE  GYOMU-TASK-ID               OF  PARM-SUSC0003-ARG1
+             TO  WK-GYOMU-TASK-ID
+      *----------  起動ID
+           MOVE  KIDOU-ID                    OF  PARM-SUSC0003-ARG1
+             TO  WK-KIDOU-ID
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-RIYO-CMP-CD1   =["WK-RIYO-CMP-CD1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-FUND-CD1       =["WK-FUND-CD1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-PTF-CD1        =["WK-PTF-CD1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-HYK-KRTU-CD1   =["WK-HYK-KRTU-CD1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KSN-YMD-DMN-KBN1=["
+      D             WK-KSN-YMD-DMN-KBN1"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KSN-YMD-DMN-KBN2=["
+      D             WK-KSN-YMD-DMN-KBN2"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KSN-YMD-DMN-KBN3=["
+      D             WK-KSN-YMD-DMN-KBN3"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KJN-YMD       =["WK-KJN-YMD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-GAMEN         =["WK-GAMEN"]"
+      D    DISPLAY  CNS-PGM-ID":WK-CMP-CD        =["WK-CMP-CD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-JOB-USER-ID   =["WK-JOB-USER-ID"]"
+      D    DISPLAY  CNS-PGM-ID":WK-SHORI-YMD=["WK-SHORI-YMD"]"
+      D    DISPLAY  CNS-PGM-ID":WK-GYOMU-TASK-ID=["WK-GYOMU-TASK-ID"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KIDOU-ID=["WK-KIDOU-ID"]"
+      D    DISPLAY  CNS-PGM-ID": *****  初期化処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.2 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *****  主処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  3.2.1.テーブルID取得
+           PERFORM  GET-TBLID-RTN
+      *----------  SCZY4302属性取得処理
+           PERFORM  SCZY4302-RTN
+      *----------  SCZY4404属性取得処理
+           PERFORM  SCZY4404-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "GIPS-MODE=[" GIPS-MODE OF PARM-SUSC0003-ARG1 "]"
+      *-----------------------------------------------------------------
+           IF  GIPS-MODE OF PARM-SUSC0003-ARG1 = CNS-X-1
+           THEN
+      *----------  ワーク再処理要銘柄一覧データ存在チェック
+             PERFORM  TKUSGP01-CHECK-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *----------  3.2.2.元本残高から運用成果残高データ保存
+           PERFORM  DATA-SAKUSEI-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *****  主処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.2.1.テーブルID取得
+      ******************************************************************
+       GET-TBLID-RTN          SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****テーブルID取得  START   *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-RTNPKG
+      *----------  利用会社コード
+           MOVE  WK-RIYO-CMP-CD1             TO  RIYO-CMP-CD
+                                             OF  PARM-SCZY1160-INOUT
+      *----------  運用成果残高テーブルID
+           MOVE  CNS-TKUSZT01                TO  TBL-ID
+                                             OF  PARM-SCZY1160-INOUT(1)
+      *----------  元本残高テーブルID
+           MOVE  CNS-TKMZGZ00                TO  TBL-ID
+                                             OF  PARM-SCZY1160-INOUT(2)
+      *----------  評価履歴テーブルID
+           MOVE  CNS-TKMHHR00                TO  TBL-ID
+                                             OF  PARM-SCZY1160-INOUT(3)
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "PARM-SCZY1160-ARG1:"
+      D    DISPLAY  "利用会社コード=["
+      D              RIYO-CMP-CD OF PARM-SCZY1160-INOUT "]"
+      D    DISPLAY  "テーブルID[1] =["
+      D              TBL-ID OF PARM-SCZY1160-INOUT(1) "]"
+      D    DISPLAY  "テーブルID[2] =["
+      D              TBL-ID OF PARM-SCZY1160-INOUT(2) "]"
+      D    DISPLAY  "テーブルID[3] =["
+      D              TBL-ID OF PARM-SCZY1160-INOUT(3) "]"
+      *-----------------------------------------------------------------
+           CALL   "SCZY1160"              USING  PARM-SCZY1160-INOUT
+                                                 PARM-RTNPKG
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "RTN-CD OF SCZY1160 =["RTN-CD OF PARM-RTNPKG
+      D              (COUNTER OF PARM-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD   OF PARM-RTNPKG
+                     (COUNTER OF PARM-RTNPKG)
+             WHEN  CNS-RTN-000
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "*****   テーブルID取得正常   *****"
+      *-----------------------------------------------------------------
+      *----------  取得した運用成果残高テーブルID
+               MOVE  HENSYUGO-TBL-ID         OF  PARM-SCZY1160-INOUT(1)
+                                             TO  WK-TBL-ID-1
+      *----------  取得した元本残高テーブルID
+               MOVE  HENSYUGO-TBL-ID         OF  PARM-SCZY1160-INOUT(2)
+                                             TO  WK-TBL-ID-2
+      *----------  取得した評価履歴テーブルID
+               MOVE  HENSYUGO-TBL-ID         OF  PARM-SCZY1160-INOUT(3)
+                                             TO  WK-TBL-ID-3
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "*****   テーブルID取得エラー   *****"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-001             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-901             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-0            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  PARM-RTNPKG             TO  WK-RTN-PKGS
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "W.運用成果残高テーブルID=["WK-TBL-ID-1"]"
+      D    DISPLAY  "W.元本残高テーブルID=["WK-TBL-ID-2"]"
+      D    DISPLAY  "W.評価履歴テーブルID=["WK-TBL-ID-3"]"
+      D    DISPLAY  CNS-PGM-ID":*****テーブルID取得  END   *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       GET-TBLID-EXT.
+           EXIT.
+      ******************************************************************
+      *    ワーク再処理要銘柄一覧データ存在チェック
+      ******************************************************************
+       TKUSGP01-CHECK-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** ワーク再処理要銘柄一覧データ"
+      D                                   "存在チェックSTART ***"
+      *-----------------------------------------------------------------
+      *----------  ワーク再処理要銘柄一覧データ存在チェックPREPARE処理
+           PERFORM  PRE-TKUSGP01-DATA-RTN
+      *----------  ワーク再処理要銘柄一覧データ存在チェックOPEN処理
+           PERFORM  OPEN-TKUSGP01-DATA-RTN
+           INITIALIZE  HST-CNT
+      *----------  ワーク再処理要銘柄一覧データ存在チェックFETCH処理
+           PERFORM  FETCH-TKUSGP01-RTN
+      *----------  ワーク再処理要銘柄一覧データ存在チェックCLOSE処理
+           PERFORM  CLOSE-TKUSGP01-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** ワーク再処理要銘柄一覧データ"
+      D                                   "存在チェックEND ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       TKUSGP01-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *    ワーク再処理要銘柄一覧存在チェックPREPARE処理
+      ******************************************************************
+       PRE-TKUSGP01-DATA-RTN  SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D            "のPREPARE処理  START  *****"
+      *-----------------------------------------------------------------
+      *---------- 動的SQL文をいれるバッファの初期化
+           INITIALIZE  HST-WHERE
+                       WK-TKUSGP01-FREE-MSG
+           MOVE  TAB-TKUSGP01                OF  PARM-SUSC0003-ARG1
+                                             TO  SQL-TBL-ID
+                                             OF  SQL-TKUSGP01-FETCH
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "基準日 =["KJN-YMD OF PARM-SUSC0003-ARG1"]"
+      *-----------------------------------------------------------------
+           MOVE  CNS-SKSBT-PRI               TO  HST-SEC-SBT-CD-SQL
+           MOVE  KJN-YMD                     OF  PARM-SUSC0003-ARG1
+                                             TO  HST-KJN-YMD-SQL
+           MOVE  SPACE                       TO  SQLSTMT04-ARR
+           MOVE  SQL-TKUSGP01-FETCH          TO  SQLSTMT04-ARR
+           MOVE  FUNCTION LENGTH(SQL-TKUSGP01-FETCH)
+                                             TO  SQLSTMT04-LEN
+           STRING
+                SQLSTMT04-ARR(1:SQLSTMT04-LEN)
+                "[::P_SEC_SBT_CD="
+                 HST-SEC-SBT-CD-SQL
+                "][:P_KJN_YMD1="
+                 HST-KJN-YMD-SQL
+                "][:P_KJN_YMD2="
+                 HST-KJN-YMD-SQL
+                "]"
+                DELIMITED BY SIZE
+                INTO  WK-TKUSGP01-FREE-MSG
+           END-STRING
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "SQLSTMT04=["SQLSTMT04-ARR(1:SQLSTMT04-LEN)"]"
+      *-----------------------------------------------------------------
+           EXEC  SQL
+             PREPARE  S4  FROM  :SQLSTMT04
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックPREPARE処理"
+      D                                   "のSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックPREPARE処理正常"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックPREPARE処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-014             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKUSGP01-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *----------  カーソル定義
+           EXEC SQL
+               DECLARE CUR4 CURSOR FOR S4
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "WK-TKUSGP01-FREE-MSG  =["WK-TKUSGP01-FREE-MSG"]"
+      D    DISPLAY CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D            "のPREPARE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PRE-TKUSGP01-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    ワーク再処理要銘柄一覧存在チェックOPEN処理
+      ******************************************************************
+       OPEN-TKUSGP01-DATA-RTN SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D    "OPEN処理  START  *****"
+      *-----------------------------------------------------------------
+           MOVE  CNS-OFF                     TO  FLG-TKUSGP01-DATA-OPEN
+           EXEC  SQL
+               OPEN  CUR4  USING  :HST-SEC-SBT-CD-SQL,
+                                  :HST-KJN-YMD-SQL,
+                                  :HST-KJN-YMD-SQL
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックOPEN処理"
+      D                                       "のSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックOPEN処理正常"
+      *-----------------------------------------------------------------
+               MOVE  CNS-ON                  TO  FLG-TKUSGP01-DATA-OPEN
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックOPEN処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-015             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKUSGP01-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "OPENカーソルフラク4=["FLG-TKUSGP01-DATA-OPEN"]"
+      D    DISPLAY  CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D    "OPEN処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       OPEN-TKUSGP01-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    ワーク再処理要銘柄一覧存在チェックのFETCH処理
+      ******************************************************************
+       FETCH-TKUSGP01-RTN     SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D             "FETCH処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  HST-CNT
+           EXEC  SQL
+                 FETCH CUR4
+                 INTO  :HST-CNT
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックFETCH処理"
+      D                                       "のSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックFETCH処理正常"
+      D    DISPLAY  "COUNT(証券種別)    =[" HST-CNT "]"
+      *-----------------------------------------------------------------
+               IF  HST-CNT  >= CNS-1
+               THEN
+                 CONTINUE
+               ELSE
+      *----------  リターンコード
+                 MOVE  CNS-RTN-110
+                   TO  WK-RTN-CD          OF  WK-RTN
+                 PERFORM  END-RTN
+               END-IF
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "ワーク再処理要銘柄一覧存在チェックFETCH処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-017             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKUSGP01-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D             "FETCH処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       FETCH-TKUSGP01-EXT.
+           EXIT.
+      ******************************************************************
+      *    ワーク再処理要銘柄一覧存在チェックのCLOSE処理
+      ******************************************************************
+       CLOSE-TKUSGP01-RTN     SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****ワーク再処理要銘柄一覧存在チェック"
+      D             "CLOSE処理  START  *****"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               CLOSE CUR4
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックCLOSE処理"
+      D                                          "のSQLCODE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+               MOVE  CNS-OFF                 TO  FLG-TKUSGP01-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックCLOSE正常終了"
+      *-----------------------------------------------------------------
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "ワーク再処理要銘柄一覧存在チェックCLOSEエラー"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-018             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKUSGP01-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "ワーク再処理要銘柄一覧存在チェックカーソルフラク=["
+      D             FLG-TKUSGP01-DATA-OPEN"]"
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得の"
+      D             "CLOSE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CLOSE-TKUSGP01-EXT.
+           EXIT.
+      ******************************************************************
+      *    元本残高から運用成果残高データ保存
+      ******************************************************************
+       DATA-SAKUSEI-RTN       SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果"
+      D    "残高データ保存  START  *****"
+      *-----------------------------------------------------------------
+      *----------  元本残高から運用成果残高データの取得処理
+      *----------  元本残高テーブルからデータを取得PREPARE処理
+           PERFORM  PRE-ZAN-DATA-RTN
+      *----------  元本残高テーブルからデータを取得OPEN処理
+           PERFORM  OPEN-ZAN-DATA-RTN
+      *----------  元本残高テーブルからデータをの取得FETCH処理
+           MOVE  CNS-OFF                     TO  FLG-GANPON-DATA-FETCH
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "LOOP START"
+      *-----------------------------------------------------------------
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-SDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [DATA-SAKUSEI-RTN]"            GUT2013
+           DISPLAY "セクションの開始時間:["WK-RUN-SDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+           PERFORM  UNTIL FLG-GANPON-DATA-FETCH = CNS-EOF
+      *----------  元本残高テーブルからデータをの取得
+             PERFORM  FETCH-ZAN-DATA-RTN
+           END-PERFORM
+           MOVE FUNCTION CURRENT-DATE(1:14) TO WK-RUN-EDATETIME
+      *--------------------<DEBUG>--------------------------------------
+           DISPLAY "プログラムID:        ["CNS-PGM-ID"]"                GUT2013
+           DISPLAY "セクション:          [DATA-SAKUSEI-RTN]"            GUT2013
+           DISPLAY "セクションの終了時間:["WK-RUN-EDATETIME"]"          GUT2013
+      *-----------------------------------------------------------------
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "LOOP END"
+      *-----------------------------------------------------------------
+      *----------  元本残高テーブルからデータをの取得CLOSE処理
+           PERFORM  CLOSE-ZAN-DATA-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果"
+      D    "残高データ保存  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       DATA-SAKUSEI-EXT.
+           EXIT.
+      ******************************************************************
+      *    元本残高から運用成果残高データ保存の取得PREPARE処理
+      ******************************************************************
+       PRE-ZAN-DATA-RTN       SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY CNS-PGM-ID":*****元本残高から運用成果残高データ保存"
+      D            "の取得PREPARE処理  START  *****"
+      *-----------------------------------------------------------------
+      *---------- 動的SQL文をいれるバッファの初期化
+           INITIALIZE  HST-WHERE
+                       WK-TKMZGZ00-FREE-MSG
+           MOVE  WK-TBL-ID-2                 TO  SQL-TBL-ID
+                                             OF  SQL-GANPON-FETCH
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "W.利用会社コード      =["WK-RIYO-CMP-CD1"]"
+      D    DISPLAY  "W.ファンドコード      =["WK-FUND-CD1"]"
+      D    DISPLAY  "W.ポートフォリオコード=["WK-PTF-CD1"]"
+      D    DISPLAY  "W.基準日              =["WK-KJN-YMD"]"
+      D    DISPLAY  "W.決算日断面区分1     =["WK-KSN-YMD-DMN-KBN1"]"
+      D    DISPLAY  "W.決算日断面区分2     =["WK-KSN-YMD-DMN-KBN2"]"
+      D    DISPLAY  "W.決算日断面区分3     =["WK-KSN-YMD-DMN-KBN3"]"
+      *-----------------------------------------------------------------
+           MOVE  WK-RIYO-CMP-CD1             TO  HST-RIYO-CMP-CD-SQL
+           MOVE  WK-FUND-CD1                 TO  HST-FUND-CD-SQL
+           MOVE  WK-PTF-CD1                  TO  HST-PTF-CD-SQL
+           MOVE  WK-KJN-YMD                  TO  HST-KJN-YMD-SQL
+           MOVE  WK-KSN-YMD-DMN-KBN1         TO HST-KSN-YMD-DMN-KBN-SQL1
+           MOVE  WK-KSN-YMD-DMN-KBN2         TO HST-KSN-YMD-DMN-KBN-SQL2
+           MOVE  WK-KSN-YMD-DMN-KBN3         TO HST-KSN-YMD-DMN-KBN-SQL3
+           MOVE  SPACE                       TO  SQLSTMT01-ARR
+           MOVE  SQL-GANPON-FETCH            TO  SQLSTMT01-ARR
+           MOVE  FUNCTION LENGTH(SQL-GANPON-FETCH)
+                                             TO  SQLSTMT01-LEN
+           STRING
+                SQLSTMT01-ARR(1:SQLSTMT01-LEN)
+                "[:P_RIYO_CMP_CD="
+                 HST-RIYO-CMP-CD-SQL
+                "][:P_FUND_CD="
+                 HST-FUND-CD-SQL
+                "][:P_PTF_CD="
+                 HST-PTF-CD-SQL
+                "][:P_KJN_YMD="
+                 HST-KJN-YMD-SQL
+                "][:P_KSN_YMD_DMN_KB1="
+                 HST-KSN-YMD-DMN-KBN-SQL1
+                "][:P_KSN_YMD_DMN_KB2="
+                 HST-KSN-YMD-DMN-KBN-SQL2
+                "][:P_KSN_YMD_DMN_KB3="
+                 HST-KSN-YMD-DMN-KBN-SQL3
+                "]"
+                DELIMITED BY SIZE
+                INTO  WK-TKMZGZ00-FREE-MSG
+           END-STRING
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "SQLSTMT01=["SQLSTMT01-ARR(1:SQLSTMT01-LEN)"]"
+      *-----------------------------------------------------------------
+           EXEC  SQL
+             PREPARE  S1  FROM  :SQLSTMT01
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高から取得PREPARE処理のSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得PREPARE処理正常"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得PREPARE処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-002             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMZGZ00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *----------  カーソル定義
+           EXEC SQL
+               DECLARE CUR1 CURSOR FOR S1
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "WK-TKMZGZ00-FREE-MSG  =["WK-TKMZGZ00-FREE-MSG"]"
+      D    DISPLAY CNS-PGM-ID":*****元本残高から運用成果残高データ保存"
+      D            "の取得PREPARE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PRE-ZAN-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    元本残高から運用成果残高データ保存の取得OPEN処理
+      ******************************************************************
+       OPEN-ZAN-DATA-RTN      SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果残高データ"
+      D    "保存の取得OPEN処理  START  *****"
+      *-----------------------------------------------------------------
+           MOVE  CNS-OFF                     TO  FLG-GANPON-DATA-OPEN
+           EXEC  SQL
+               OPEN  CUR1  USING  :HST-RIYO-CMP-CD-SQL,
+                                  :HST-FUND-CD-SQL,
+                                  :HST-PTF-CD-SQL,
+                                  :HST-KJN-YMD-SQL,
+                                  :HST-KSN-YMD-DMN-KBN-SQL1,
+                                  :HST-KSN-YMD-DMN-KBN-SQL1,
+                                  :HST-KSN-YMD-DMN-KBN-SQL2,
+                                  :HST-KSN-YMD-DMN-KBN-SQL2,
+                                  :HST-KSN-YMD-DMN-KBN-SQL3,
+                                  :HST-KSN-YMD-DMN-KBN-SQL3
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得OPENのSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得OPEN処理正常"
+      *-----------------------------------------------------------------
+               MOVE  CNS-ON                  TO  FLG-GANPON-DATA-OPEN
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得OPEN処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-003             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMZGZ00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "OPENカーソルフラク1=["FLG-GANPON-DATA-OPEN"]"
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果残高データ"
+      D    "保存の取得OPEN処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       OPEN-ZAN-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    元本残高からデータの取得FETCH処理
+      ******************************************************************
+       FETCH-ZAN-DATA-RTN     SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果残高データ"
+      D             "保存の取得FETCH処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  HST-GANPON-DATA-REC
+           EXEC  SQL
+                 FETCH CUR1
+                 INTO  :HST-GANPON-DATA-REC
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得FETCHのSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高のデータ取得FETCH処理正常"
+      D    DISPLAY  "HS.利用会社コード  =["HST-RIYO-CMP-CD1"]"
+      D    DISPLAY  "HS.ファンドコード  =["HST-FUND-CD1"]"
+      D    DISPLAY  "HS.ポートフォリオコード=["HST-PTF-CD1"]"
+      D    DISPLAY  "HS.基準日          =["HST-KJN-YMD1"]"
+      D    DISPLAY  "HS.決算日断面区分  =["HST-KSN-YMD-DMN-KBN1"]"
+      D    DISPLAY  "HS.元本簿価残高    =["HST-GNP-BOKAZN1"]"
+      D    DISPLAY "---------------------------------------------"
+      D    DISPLAY " "
+      *-----------------------------------------------------------------
+               COMPUTE  WK-MEISAI-FETCH = WK-MEISAI-FETCH + CNS-1
+      *----------  評価履歴テーブルかデータを取得する
+               PERFORM  GET-HYOUKA-DATA-RTN
+      *----------  元本残高のデータを運用成果残高テーブルに保存する
+               PERFORM  HOZON-GANPON-RTN
+             WHEN  CNS-SQL-NOTFOUND
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "元本残高からデータ取得FETCH処理NOTFOUND"
+      *-----------------------------------------------------------------
+               MOVE  CNS-EOF                 TO  FLG-GANPON-DATA-FETCH
+      *----------  リターンコード
+               IF  WK-MEISAI-FETCH  =  ZERO
+               THEN
+                 MOVE  CNS-RTN-110
+                   TO  WK-RTN-CD             OF  WK-RTN
+               ELSE
+                 CONTINUE
+               END-IF
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "元本残高からデータ取得FETCH処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-004             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMZGZ00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "W.抽出件数_明細の取得=[" WK-MEISAI-FETCH "]"
+      D    DISPLAY  "カーソルフェッチフラグ_元本残高からデータの取得=["
+      D              FLG-GANPON-DATA-FETCH "]"
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果残高データ"
+      D             "保存の取得FETCH処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       FETCH-ZAN-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *     元本残高からデータの取得CLOSE処理
+      ******************************************************************
+       CLOSE-ZAN-DATA-RTN     SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果残高データ"
+      D             "保存の取得CLOSE処理  START  *****"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               CLOSE CUR1
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得CLOSEのSQLCODE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+               MOVE  CNS-OFF                 TO  FLG-GANPON-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得CLOSE正常終了"
+      *-----------------------------------------------------------------
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "元本残高からデータ取得CLOSEエラー"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-005             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMZGZ00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "元本残高からデータ取得カーソルフラク=["
+      D             FLG-GANPON-DATA-OPEN"]"
+      D    DISPLAY  CNS-PGM-ID":*****元本残高から運用成果残高データ"
+      D             "保存の取得CLOSE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CLOSE-ZAN-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    評価履歴テーブルかデータを取得する
+      ******************************************************************
+       GET-HYOUKA-DATA-RTN    SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得する"
+      D    "  START  *****"
+      *-----------------------------------------------------------------
+      *----------  評価履歴テーブルかデータを取得PREPARE処理
+           PERFORM  PRE-HYOUKA-DATA-RTN
+      *----------  評価履歴テーブルかデータを取得OPEN処理
+           PERFORM  OPEN-HYOUKA-DATA-RTN
+      *----------  評価履歴テーブルかデータを取得FETCH処理
+           INITIALIZE  HST-HYOUKA-DATA-REC
+      *----------  評価履歴テーブルかデータを取得する
+           PERFORM  FETCH-HYOUKA-RTN
+      *----------  評価履歴テーブルかデータを取得CLOSE処理
+           PERFORM  CLOSE-HYOUKA-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得する"
+      D    "  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       GET-HYOUKA-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    評価履歴テーブルかデータを取得PREPARE処理
+      ******************************************************************
+       PRE-HYOUKA-DATA-RTN    SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY CNS-PGM-ID":*****評価履歴テーブルかデータを取得"
+      D            "のPREPARE処理  START  *****"
+      *-----------------------------------------------------------------
+      *---------- 動的SQL文をいれるバッファの初期化
+           INITIALIZE  HST-WHERE
+                       WK-TKMHHR00-FREE-MSG
+           MOVE  WK-TBL-ID-3                 TO  SQL-TBL-ID
+                                             OF  SQL-HYOUKA-FETCH
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "利用会社コード        =["HST-RIYO-CMP-CD1"]"
+      D    DISPLAY  "ファンドコード        =["HST-FUND-CD1"]"
+      D    DISPLAY  "ポートフォリオコード  =["HST-PTF-CD1"]"
+      D    DISPLAY  "評価系列コード        =["WK-HYK-KRTU-CD1"]"
+      D    DISPLAY  "基準日                =["HST-KJN-YMD1"]"
+      D    DISPLAY  "決算日断面区分        =["HST-KSN-YMD-DMN-KBN1"]"
+      *-----------------------------------------------------------------
+           MOVE  HST-RIYO-CMP-CD1            TO  HST-RIYO-CMP-CD-SQL
+           MOVE  HST-FUND-CD1                TO  HST-FUND-CD-SQL
+           MOVE  HST-PTF-CD1                 TO  HST-PTF-CD-SQL
+           MOVE  WK-HYK-KRTU-CD1             TO  HST-HYK-KRTU-CD-SQL
+           MOVE  CNS-SKSBT-PRI               TO  HST-SEC-SBT-CD-SQL
+           MOVE  HST-KJN-YMD1                TO  HST-KJN-YMD-SQL
+           MOVE  HST-KSN-YMD-DMN-KBN1        TO  HST-KSN-YMD-DMN-KBN-SQL
+           MOVE  SPACE                       TO  SQLSTMT02-ARR
+           MOVE  SQL-HYOUKA-FETCH            TO  SQLSTMT02-ARR
+           MOVE  FUNCTION LENGTH(SQL-HYOUKA-FETCH)
+                                             TO  SQLSTMT02-LEN
+           STRING
+                SQLSTMT02-ARR(1:SQLSTMT02-LEN)
+                "[:P_RIYO_CMP_CD="
+                 HST-RIYO-CMP-CD-SQL
+                "][:P_FUND_CD="
+                 HST-FUND-CD-SQL
+                "][:P_PTF_CD="
+                 HST-PTF-CD-SQL
+                "][:P_HYK_KRTU_CD="
+                 HST-HYK-KRTU-CD-SQL
+                "][:P_SEC_SBT_CD="
+                 HST-SEC-SBT-CD-SQL
+                "][:P_KJN_YMD="
+                 HST-KJN-YMD-SQL
+                "][:P_KSN_YMD_DMN_KBN="
+                 HST-KSN-YMD-DMN-KBN-SQL
+                "]"
+                DELIMITED BY SIZE
+                INTO  WK-TKMHHR00-FREE-MSG
+           END-STRING
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "SQLSTMT02=["SQLSTMT02-ARR(1:SQLSTMT02-LEN)"]"
+      *-----------------------------------------------------------------
+           EXEC  SQL
+             PREPARE  S2  FROM  :SQLSTMT02
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴から取得PREPARE処理のSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴から取得PREPARE処理正常"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴から取得PREPARE処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-006             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMHHR00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *----------  カーソル定義
+           EXEC SQL
+               DECLARE CUR2 CURSOR FOR S2
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "WK-TKMHHR00-FREE-MSG  =["WK-TKMHHR00-FREE-MSG"]"
+      D    DISPLAY CNS-PGM-ID":*****評価履歴テーブルかデータを取得"
+      D            "のPREPARE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       PRE-HYOUKA-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    評価履歴テーブルかデータを取得OPEN処理
+      ******************************************************************
+       OPEN-HYOUKA-DATA-RTN   SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得"
+      D    "OPEN処理  START  *****"
+      *-----------------------------------------------------------------
+           MOVE  CNS-OFF                     TO  FLG-HYOUKA-DATA-OPEN
+           EXEC  SQL
+               OPEN  CUR2  USING  :HST-RIYO-CMP-CD-SQL,
+                                  :HST-FUND-CD-SQL,
+                                  :HST-PTF-CD-SQL,
+                                  :HST-HYK-KRTU-CD-SQL,
+                                  :HST-SEC-SBT-CD-SQL,
+                                  :HST-KJN-YMD-SQL,
+                                  :HST-KSN-YMD-DMN-KBN-SQL
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴から取得OPENのSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴から取得OPEN処理正常"
+      *-----------------------------------------------------------------
+               MOVE  CNS-ON                  TO  FLG-HYOUKA-DATA-OPEN
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴から取得OPEN処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-007             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMHHR00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "OPENカーソルフラク2=["FLG-HYOUKA-DATA-OPEN"]"
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得"
+      D    "OPEN処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       OPEN-HYOUKA-DATA-EXT.
+           EXIT.
+      ******************************************************************
+      *    評価履歴テーブルがデータを取得のFETCH処理
+      ******************************************************************
+       FETCH-HYOUKA-RTN       SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得"
+      D             "FETCH処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  HST-HYOUKA-DATA-REC
+           EXEC  SQL
+                 FETCH CUR2
+                 INTO  :HST-HYOUKA-DATA-REC
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴のデータ取得FETCHのSQLCODE=[" SQLCODE "]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴のデータ取得FETCH処理正常"
+      D    DISPLAY"HS.評価系列コード     =["HST-HYK-KRTU-CD2"]"
+      D    DISPLAY"HS.証券種別コード     =["HST-SEC-SBT-CD2"]"
+      D    DISPLAY"HS.銘柄コード         =["HST-MEG-CD2"]"
+      D    DISPLAY"HS.資産負債・買建売建フラグ=["HST-TATE-FLG2"]"
+      D    DISPLAY"HS.時価単価           =["HST-CP-TNK2"]"
+      D    DISPLAY"HS.時価系列コード     =["HST-JIKA-KRTU-CD2"]"
+      D    DISPLAY"HS.採用市場           =["HST-SAIYO-SIJO2"]"
+      D    DISPLAY"HS.ソース区分         =["HST-SOURCE-KBN2"]"
+      D    DISPLAY"HS.時価種類           =["HST-JIKA-SHRU2"]"
+      D    DISPLAY"HS.評価為替レート     =["HST-HYK-KWS2"]"
+      D    DISPLAY"HS.未収収益評価為替レート=["
+      D            HST-MS-SHEKI-HYK-KWS2"]"
+      D    DISPLAY"HS.源泉税評価為替レート=["
+      D            HST-GENS-TAX-HYK-KWS2"]"
+      D    DISPLAY"HS.為替系列コード     =["HST-KWS-KRTU-CD2"]"
+      D    DISPLAY"HS.レート採用日       =["HST-RATE-SAIYO-YMD2"]"
+      D    DISPLAY"HS.時価日付           =["HST-CP-HIZUKE2"]"
+      D    DISPLAY"HS.市場通貨評価金額   =["HST-SJTK-HYK-KN2"]"
+      D    DISPLAY"HS.市場通貨評価損益   =["HST-SJTK-HYK-SNEKI2"]"
+      D    DISPLAY"HS.運用通貨評価金額   =["HST-UYTK-HYK-KN2"]"
+      D    DISPLAY"HS.運用通貨評価損益   =["HST-UYTK-HYK-SNEKI2"]"
+      D    DISPLAY"HS.運用通貨簿価残高（為替換算額）=["
+      D            HST-UYTK-BOKAZN2"]"
+      D    DISPLAY "---------------------------------------------"
+      D    DISPLAY " "
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN  CNS-SQL-NOTFOUND
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "評価履歴の取得FETCH処理NOTFOUND"
+      *-----------------------------------------------------------------
+               CONTINUE
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "評価履歴の取得FETCH処理異常"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-008             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMHHR00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得"
+      D             "FETCH処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       FETCH-HYOUKA-EXT.
+           EXIT.
+      ******************************************************************
+      *    評価履歴テーブルかデータを取得のCLOSE処理
+      ******************************************************************
+       CLOSE-HYOUKA-RTN       SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得の"
+      D             "CLOSE処理  START  *****"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               CLOSE CUR2
+           END-EXEC
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴のデータ取得CLOSEのSQLCODE=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+               MOVE  CNS-OFF                 TO  FLG-HYOUKA-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴のデータ取得CLOSE正常終了"
+      *-----------------------------------------------------------------
+             WHEN  OTHER
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "評価履歴のデータ取得CLOSEエラー"
+      *-----------------------------------------------------------------
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-009             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKMHHR00-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "評価履歴からデータ取得カーソルフラク=["
+      D             FLG-HYOUKA-DATA-OPEN"]"
+      D    DISPLAY  CNS-PGM-ID":*****評価履歴テーブルかデータを取得の"
+      D             "CLOSE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CLOSE-HYOUKA-EXT.
+           EXIT.
+      ******************************************************************
+      *    元本残高のデータを運用成果残高テーブルに保存する
+      ******************************************************************
+       HOZON-GANPON-RTN       SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高のデータを運用成果残高"
+      D    "テーブルに保存する  START  *****"
+      *-----------------------------------------------------------------
+      *----------  DBから取得したデータを編集する
+           PERFORM  DATA-EDIT-RTN
+      *----------  データを運用成果残高テーブルに挿入PREPARE処理
+           PERFORM  INSERT-PREPARE-RTN
+      *----------  編集したデータを運用成果残高テーブルに挿入する
+           PERFORM  DATA-INSERT-RTN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高のデータを運用成果残高"
+      D    "テーブルに保存する  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       HOZON-GANPON-EXT.
+           EXIT.
+      ******************************************************************
+      *    DBから取得したデータを編集する
+      ******************************************************************
+       DATA-EDIT-RTN          SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高のデータを編集する"
+      D    "  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  HST-INSERT-VALUE
+      D    DISPLAY  "HS.利用会社コード         =["HST-RIYO-CMP-CD"]"
+      D    DISPLAY  "HS.ファンドコード         =["HST-FUND-CD"]"
+      D    DISPLAY  "HS.ポートフォリオコード   =["HST-PTF-CD"]"
+      D    DISPLAY  "HS.約定受渡区分           =["HST-YJ-UW-KBN"]"
+      D    DISPLAY  "HS.残高日付               =["HST-ZANTK-YMD"]"
+      D    DISPLAY  "HS.決算日断面区分         =["HST-KSN-YMD-DMN-KBN"]"
+      D    DISPLAY  "HS.評価系列コード         =["HST-HYK-KRTU-CD"]"
+      D    DISPLAY  "HS.証券種別コード         =["HST-SEC-SBT-CD"]"
+      D    DISPLAY  "HS.取消フラグ             =["HST-DEL-KBN"]"
+      D    DISPLAY  "HS.確定フラグ             =["HST-KT-KBN"]"
+      D    DISPLAY  "HS.取引通貨               =["HST-TRHK-TUKA"]"
+      D    DISPLAY  "HS.為替取引決済通貨       =["HST-KWS-TH-TUKA-CD"]"
+      D    DISPLAY  "HS.発行国コード           =["HST-HAKO-CD"]"
+      D    DISPLAY  "HS.銘柄コード             =["HST-MEG-CD"]"
+      D    DISPLAY  "HS.資産負債・買建売建フラグ=["HST-TATE-FLG"]"
+      D    DISPLAY  "HS.個別建玉約定日         =["HST-TG-YKJ-YMD"]"
+      D    DISPLAY  "HS.個別玉管理番号         =["HST-KB-KANRI-ID"]"
+      D    DISPLAY  "HS.カストディコード       =["HST-CAST-CD"]"
+      D    DISPLAY  "HS.保有数量               =["HST-HOU-SURYO"]"
+      D    DISPLAY  "HS.数量単位               =["HST-SURYO-TANI"]"
+      D    DISPLAY  "HS.取得金額(取引通貨)     =["HST-THTK-ST-KNG"]"
+      D    DISPLAY  "HS.取得単価(取引通貨)     =["HST-THTK-ST-TNK"]"
+      D    DISPLAY  "HS.時価(取引通貨)         =["HST-CP-KRTU-CD"]"
+      D    DISPLAY  "HS.時価採用日付           =["HST-CP-SAIYO-YMD"]"
+      D    DISPLAY  "HS.時価採用市場           =["HST-CP-SAIYO-SIJO"]"
+      D    DISPLAY  "HS.評価金額(取引通貨)     =["HST-THTK-HYK-KN"]"
+      D    DISPLAY  "HS.評価損益(取引通貨)     =["HST-THTK-HYK-SNEKI"]"
+      D    DISPLAY  "HS.前払金残(取引通貨)     =["HST-THTK-PPAYZN"]"
+      D    DISPLAY  "HS.経過利息(取引通貨)     =["HST-THTK-KKRS"]"
+      D    DISPLAY  "HS.未収収益(取引通貨)     =["HST-THTK-MS-EKI"]"
+      D    DISPLAY  "HS.評価為替レート         =["HST-HYK-KWS"]"
+      D    DISPLAY  "HS.為替採用日付           =["HST-KWS-SAIYO-YMD"]"
+      D    DISPLAY  "HS.為替採用ソース        =["HST-KWS-SAIYO-SOURCE"]"
+      D    DISPLAY  "HS.取得金額(運用通貨為替換算額)=["
+      D              HST-UYTK-KWS-BOKAZN"]"
+      D    DISPLAY  "HS.取得金額(運用通貨)     =["HST-SHTK-KN-LC"]"
+      D    DISPLAY  "HS.取得単価(運用通貨)     =["HST-UYTK-ST-TNK"]"
+      D    DISPLAY  "HS.評価金額(運用通貨)     =["HST-HYK-KN-LC"]"
+      D    DISPLAY  "HS.評価損益(運用通貨)     =["HST-HYK-SNEKI-LC"]"
+      D    DISPLAY  "HS.前払金残(運用通貨)     =["HST-UYTK-PPAY-ZN"]"
+      D    DISPLAY  "HS.経過利息(運用通貨)     =["HST-KEKA-RSK-LC"]"
+      D    DISPLAY  "HS.未収収益(運用通貨)     =["HST-UYTK-MS-EKI"]"
+      D    DISPLAY  "HS.備考１                 =["HST-BIKOU-1"]"
+      D    DISPLAY  "HS.備考２                 =["HST-BIKOU-2"]"
+      D    DISPLAY  "HS.備考３                 =["HST-BIKOU-3"]"
+      D    DISPLAY  "HS.備考４                 =["HST-BIKOU-4"]"
+      D    DISPLAY  "HS.備考５                 =["HST-BIKOU-5"]"
+      D    DISPLAY  "HS.備考６                 =["HST-BIKOU-6"]"
+      D    DISPLAY  "HS.備考７                 =["HST-BIKOU-7"]"
+      D    DISPLAY  "HS.備考８                 =["HST-BIKOU-8"]"
+      D    DISPLAY  "HS.備考９                 =["HST-BIKOU-9"]"
+      D    DISPLAY  "HS.投資対象国             =["HST-TS-TARGET-KUNI"]"
+      D    DISPLAY  "HS.未払費用残(取引通貨)   =["HST-SJTK-MBHY-ZN"]"
+      D    DISPLAY  "HS.未払費用残(運用通貨)   =["HST-UYTK-MBHY-ZN"]"
+      D    DISPLAY  "HS.建玉為替レート         =["HST-TGYOKU-KWS-RATE"]"
+      D    DISPLAY  "HS.建玉約定金額残(取引通貨)=["
+      D              HST-THTK-TG-YJKN-ZN"]"
+      D    DISPLAY  "HS.建玉約定金額残(運用通貨)=["
+      D              HST-UYTK-TG-YJKN-ZN"]"
+      D    DISPLAY  "HS.建玉手数料残(取引通貨) =["HST-THTK-TG-TSR-ZN"]"
+      D    DISPLAY  "HS.建玉手数料残(運用通貨) =["HST-UYTK-TG-TSR-ZN"]"
+      D    DISPLAY  "HS.建玉消費税残(取引通貨) =["
+      D              HST-THTK-TG-S-TAX-ZN"]"
+      D    DISPLAY  "HS.建玉消費税残(運用通貨) =["
+      D              HST-UYTK-TG-S-TAX-ZN"]"
+      D    DISPLAY  "HS.建玉その他費用残(取引通貨)=["
+      D              HST-THTK-TG-ELS-HIYO-ZN"]"
+      D    DISPLAY  "HS.建玉その他費用残(運用通貨)=["
+      D              HST-UYTK-TG-ELS-HIYO-ZN"]"
+      D    DISPLAY  "HS.建玉精算金額残(取引通貨)=["
+      D              HST-THTK-TG-SSKG-ZN"]"
+      D    DISPLAY  "HS.建玉精算金額残(運用通貨)=["
+      D              HST-UYTK-TG-SSKG-ZN"]"
+      D    DISPLAY  "HS.前受金残(取引通貨)     =["HST-THTK-AREC-ZN"]"
+      D    DISPLAY  "HS.前受金残(運用通貨)     =["HST-UYTK-AREC-ZN"]"
+      D    DISPLAY  "HS.仮払金残(取引通貨)     =["HST-THTK-SPAY-ZN"]"
+      D    DISPLAY  "HS.仮払金残(運用通貨)     =["HST-UYTK-SPAY-ZN"]"
+      D    DISPLAY  "HS.源泉税(取引通貨)       =["HST-THTK-GSZ"]"
+      D    DISPLAY  "HS.源泉税(運用通貨)       =["HST-GENSEN-TAX-LC"]"
+      D    DISPLAY  "HS.源泉税還付予定額残高(取引通貨=["
+      D              HST-THTK-GSZKP-YT-ZN"]"
+      D    DISPLAY  "HS.源泉税還付予定額残高(運用通貨=["
+      D              HST-UYTK-GSZKP-YT-ZN"]"
+      D    DISPLAY  "HS.簿価為替レート         =["HST-BOKA-KWS"]"
+      D    DISPLAY  "HS.移管評価損益残(取引通貨)=["
+      D              HST-THTK-IKAN-HYK-SEZN"]"
+      D    DISPLAY  "HS.移管評価損益残(運用通貨)=["
+      D              HST-UYTK-IKAN-HYK-SEZN"]"
+      D    DISPLAY  "HS.移管未収収益(取引通貨)=["
+      D              HST-SJTK-IKAN-MSSHEKI"]"
+      D    DISPLAY  "HS.移管未収収益(運用通貨)=["
+      D              HST-UYTK-IKAN-MSSHEKI"]"
+      D    DISPLAY  "HS.移管前払金評価損益残(運用通貨)=["
+      D              HST-UYTK-IKAN-PPHKZN"]"
+      D    DISPLAY  "HS.ＯＰ資産負債・買建売建フラグ=["
+      D              HST-OP-TATE-FLG"]"
+      D    DISPLAY  "HS.時価系列コード         =["HST-JIKA-KRTU-CD"]"
+      D    DISPLAY  "HS.取得時遡及有無         =["HST-SKYU-UMU-FLG"]"
+      D    DISPLAY  "HS.時価種類               =["HST-JIKA-SHRU"]"
+      D    DISPLAY  "HS.ソース区分             =["HST-SOURCE-KBN"]"
+      D    DISPLAY  "HS.前払金評価額(運用通貨) =["
+      D              HST-UYTK-KPPAY-HYK-GK"]"
+      D    DISPLAY  "HS.前払金評価損益(運用通貨)=["
+      D              HST-UYTK-PPAY-SNEKI"]"
+      D    DISPLAY  "HS.未収収益評価為替レート =["
+      D              HST-MS-SHEKI-HYK-KWS"]"
+      D    DISPLAY  "HS.源泉税評価為替レート   =["
+      D              HST-GENS-TAX-HYK-KWS"]"
+      D    DISPLAY  "HS.データ区分             =["HST-DATA-KBN"]"
+      D    DISPLAY  "HS.商品区分               =["HST-SYOHIN-KBN"]"
+      D    DISPLAY  "HS.帳票出力区分           =["HST-REP-KBN"]"
+      D    DISPLAY  "HS.項目コード１           =["HST-KODE-1"]"
+      D    DISPLAY  "HS.数値１１               =["HST-SUJI-11"]"
+      D    DISPLAY  "HS.数値１２               =["HST-SUJI-12"]"
+      D    DISPLAY  "HS.数値１３               =["HST-SUJI-13"]"
+      D    DISPLAY  "HS.項目コード２           =["HST-KODE-2"]"
+      D    DISPLAY  "HS.数値２１               =["HST-SUJI-21"]"
+      D    DISPLAY  "HS.数値２２               =["HST-SUJI-22"]"
+      D    DISPLAY  "HS.数値２３               =["HST-SUJI-23"]"
+      D    DISPLAY  "HS.項目コード３           =["HST-KODE-3"]"
+      D    DISPLAY  "HS.数値３１               =["HST-SUJI-31"]"
+      D    DISPLAY  "HS.数値３２               =["HST-SUJI-32"]"
+      D    DISPLAY  "HS.数値３３               =["HST-SUJI-33"]"
+      D    DISPLAY  "HS.予備１                 =["HST-YOBI1"]"
+      D    DISPLAY  "HS.予備２                 =["HST-YOBI2"]"
+      D    DISPLAY  "HS.作成フラグ             =["HST-SK-FLG"]"
+      D    DISPLAY  "HS.作成画面ＩＤ           =["HST-SK-GAMEN"]"
+      D    DISPLAY  "HS.作成ファイル名         =["HST-SK-FILE"]"
+      D    DISPLAY  "HS.作成ログインユーザ会社コード=["
+      D             HST-SK-LOGIN-CMP-CD"]"
+      D    DISPLAY  "HS.作成ユーザＩＤ         =["HST-SK-SID"]"
+      D    DISPLAY  "HS.作成プログラムＩＤ     =["HST-SK-PGMID"]"
+      D    DISPLAY  "HS.更新フラグ             =["HST-UPD-FLG"]"
+      D    DISPLAY  "HS.更新画面ＩＤ           =["HST-UPD-GAMEN"]"
+      D    DISPLAY  "HS.更新ファイル名         =["HST-UPD-FILE"]"
+      D    DISPLAY  "HS.更新ログインユーザ会社コード=["
+      D             HST-UPD-LOGIN-CMP-CD"]"
+      D    DISPLAY  "HS.更新ユーザＩＤ         =["HST-UPD-SID"]"
+      D    DISPLAY  "HS.更新プログラムＩＤ     =["HST-UPD-PGMID"]"
+      *----------  利用会社コード
+           MOVE  HST-RIYO-CMP-CD1            TO  HST-RIYO-CMP-CD
+      *----------  ファンドコード
+           MOVE  HST-FUND-CD1                TO  HST-FUND-CD
+      *----------  ポートフォリオコード
+           MOVE  HST-PTF-CD1                 TO  HST-PTF-CD
+      *----------  約定受渡区分
+           MOVE  WK-YJ-UW-KBN                TO  HST-YJ-UW-KBN
+      *----------  残高日付
+           MOVE  HST-KJN-YMD1                TO  HST-ZANTK-YMD
+      *----------  決算日断面区分
+           MOVE  HST-KSN-YMD-DMN-KBN1        TO  HST-KSN-YMD-DMN-KBN
+      *----------  評価系列コード
+           MOVE  WK-HYK-KRTU-CD1             TO  HST-HYK-KRTU-CD
+      *----------  証券種別
+           MOVE  CNS-SKSBT-PRI               TO  HST-SEC-SBT-CD
+      *----------  取消フラグ
+           MOVE  SPACE                       TO  HST-DEL-KBN
+      *----------  確定フラグ
+           MOVE  CNS-X-0                     TO  HST-KT-KBN
+      *----------  取引通貨
+           MOVE  WK-UYTK-TUKA-CD             TO  HST-TRHK-TUKA
+      *----------  為替取引決済通貨
+           MOVE  SPACE                       TO  HST-KWS-TH-TUKA-CD
+      *----------  発行国
+           MOVE  CNS-OTHR                    TO  HST-HAKO-CD
+      *----------  銘柄コード
+           MOVE  CNS-PRINCIPAL               TO  HST-MEG-CD
+      *----------  資産負債・買建売建フラグ
+           MOVE  CNS-TATE-FLG-L              TO  HST-TATE-FLG
+      *----------  個別建玉約定日
+           MOVE  ZERO                        TO  HST-TG-YKJ-YMD
+      *----------  個別玉管理番号
+           MOVE  CNS-X-0000000000            TO  HST-KB-KANRI-ID
+      *----------  カストディコード
+           MOVE  SPACE                       TO  HST-CAST-CD
+      *----------  保有数量
+           MOVE  ZERO                        TO  HST-HOU-SURYO
+      *----------  数量単位
+           MOVE  CNS-1                       TO  HST-SURYO-TANI
+      *----------  取得金額(取引通貨)
+           MOVE  HST-GNP-BOKAZN1             TO  HST-THTK-ST-KNG
+      *----------  取得単価(取引通貨)
+           MOVE  CNS-1                       TO  HST-THTK-ST-TNK
+      *----------  時価(取引通貨)
+           MOVE  HST-CP-TNK2                 TO  HST-CP-KRTU-CD
+      *----------  時価採用日付
+           MOVE  HST-CP-HIZUKE2              TO  HST-CP-SAIYO-YMD
+      *----------  時価採用市場
+           MOVE  HST-SAIYO-SIJO2             TO  HST-CP-SAIYO-SIJO
+      *----------  評価金額(取引通貨)
+           MOVE  HST-SJTK-HYK-KN2            TO  HST-THTK-HYK-KN
+      *----------  評価損益(取引通貨)
+           MOVE  HST-SJTK-HYK-SNEKI2         TO  HST-THTK-HYK-SNEKI
+      *----------  前払金残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-PPAYZN
+      *----------  経過利息(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-KKRS
+      *----------  未収収益(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-MS-EKI
+      *----------  評価為替レート
+           MOVE  HST-HYK-KWS2                TO  HST-HYK-KWS
+      *----------  為替採用日付
+           MOVE  HST-RATE-SAIYO-YMD2         TO  HST-KWS-SAIYO-YMD
+      *----------  為替採用ソース
+           MOVE  HST-KWS-KRTU-CD2            TO  HST-KWS-SAIYO-SOURCE
+      *----------  取得金額(運用通貨為替換算額)
+           MOVE  HST-UYTK-BOKAZN2            TO  HST-UYTK-KWS-BOKAZN
+      *----------  取得金額(運用通貨)
+           MOVE  HST-GNP-BOKAZN1             TO  HST-SHTK-KN-LC
+      *----------  取得単価(運用通貨)
+           MOVE  CNS-1                       TO  HST-UYTK-ST-TNK
+      *----------  評価金額(運用通貨)
+           MOVE  HST-UYTK-HYK-KN2            TO  HST-HYK-KN-LC
+      *----------  評価損益(運用通貨)
+           MOVE  HST-UYTK-HYK-SNEKI2         TO  HST-HYK-SNEKI-LC
+      *----------  前払金残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-PPAY-ZN
+      *----------  経過利息(運用通貨)
+           MOVE  ZERO                        TO  HST-KEKA-RSK-LC
+      *----------  未収収益(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-MS-EKI
+      *----------  備考１
+           MOVE  SPACE                       TO  HST-BIKOU-1
+      *----------  備考２
+           MOVE  SPACE                       TO  HST-BIKOU-2
+      *----------  備考３
+           MOVE  SPACE                       TO  HST-BIKOU-3
+      *----------  備考４
+           MOVE  SPACE                       TO  HST-BIKOU-4
+      *----------  備考５
+           MOVE  ZERO                        TO  HST-BIKOU-5
+      *----------  備考６
+           MOVE  ZERO                        TO  HST-BIKOU-6
+      *----------  備考７
+           MOVE  ZERO                        TO  HST-BIKOU-7
+      *----------  備考８
+           MOVE  ZERO                        TO  HST-BIKOU-8
+      *----------  備考９
+           MOVE  ZERO                        TO  HST-BIKOU-9
+      *----------  投資対象国
+           MOVE  HST-HAKO-CD                 TO  HST-TS-TARGET-KUNI
+      *----------  未払費用残(取引通貨)
+           MOVE  ZERO                        TO  HST-SJTK-MBHY-ZN
+      *----------  未払費用残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-MBHY-ZN
+      *----------  建玉為替レート
+           MOVE  ZERO                        TO  HST-TGYOKU-KWS-RATE
+      *----------  建玉約定金額残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-TG-YJKN-ZN
+      *----------  建玉約定金額残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-TG-YJKN-ZN
+      *----------  建玉手数料残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-TG-TSR-ZN
+      *----------  建玉手数料残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-TG-TSR-ZN
+      *----------  建玉消費税残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-TG-S-TAX-ZN
+      *----------  建玉消費税残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-TG-S-TAX-ZN
+      *----------  建玉その他費用残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-TG-ELS-HIYO-ZN
+      *----------  建玉その他費用残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-TG-ELS-HIYO-ZN
+      *----------  建玉精算金額残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-TG-SSKG-ZN
+      *----------  建玉精算金額残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-TG-SSKG-ZN
+      *----------  前受金残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-AREC-ZN
+      *----------  前受金残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-AREC-ZN
+      *----------  仮払金残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-SPAY-ZN
+      *----------  仮払金残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-SPAY-ZN
+      *----------  源泉税(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-GSZ
+      *----------  源泉税(運用通貨)
+           MOVE  ZERO                        TO  HST-GENSEN-TAX-LC
+      *----------  源泉税還付予定額残高(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-GSZKP-YT-ZN
+      *----------  源泉税還付予定額残高(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-GSZKP-YT-ZN
+      *----------  簿価為替レート
+           MOVE  CNS-1                       TO  HST-BOKA-KWS
+      *----------  移管評価損益残(取引通貨)
+           MOVE  ZERO                        TO  HST-THTK-IKAN-HYK-SEZN
+      *----------  移管評価損益残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-IKAN-HYK-SEZN
+      *----------  移管未収収益(取引通貨)
+           MOVE  ZERO                        TO  HST-SJTK-IKAN-MSSHEKI
+      *----------  移管未収収益(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-IKAN-MSSHEKI
+      *----------  移管前払金評価損益残(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-IKAN-PPHKZN
+      *----------  ＯＰ資産負債・買建売建フラグ
+           MOVE  SPACE                       TO  HST-OP-TATE-FLG
+      *----------  時価系列コード
+           MOVE  HST-JIKA-KRTU-CD2           TO  HST-JIKA-KRTU-CD
+      D    DISPLAY  "残高日付=["HST-ZANTK-YMD"]"
+      D    DISPLAY  "時価採用日付=["HST-CP-SAIYO-YMD"]"
+      *----------  取得時遡及有無
+           IF  HST-ZANTK-YMD = HST-CP-SAIYO-YMD
+           THEN
+               MOVE  CNS-X-0                 TO  HST-SKYU-UMU-FLG
+           ELSE
+               MOVE  CNS-X-1                 TO  HST-SKYU-UMU-FLG
+           END-IF
+      *----------  時価種類
+           MOVE  HST-JIKA-SHRU2              TO  HST-JIKA-SHRU
+      *----------  ソース区分
+           MOVE  HST-SOURCE-KBN2             TO  HST-SOURCE-KBN
+      *----------  前払金評価額(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-KPPAY-HYK-GK
+      *----------  前払金評価損益(運用通貨)
+           MOVE  ZERO                        TO  HST-UYTK-PPAY-SNEKI
+      *----------  未収収益評価為替レート
+           MOVE  HST-MS-SHEKI-HYK-KWS2       TO  HST-MS-SHEKI-HYK-KWS
+      *----------  源泉税評価為替レート
+           MOVE  HST-GENS-TAX-HYK-KWS2       TO  HST-GENS-TAX-HYK-KWS
+      *----------  データ区分
+           MOVE  SPACE                       TO  HST-DATA-KBN
+      *----------  商品区分
+           MOVE  WK-SYOHIN-KBN-SYUTOKU       TO  HST-SYOHIN-KBN
+      *----------  帳票出力区分
+           MOVE  WK-REP-KBN-SYUTOKU          TO  HST-REP-KBN
+      *----------  項目コード１
+           MOVE  SPACE                       TO  HST-KODE-1
+      *----------  数値１１
+           MOVE  ZERO                        TO  HST-SUJI-11
+      *----------  数値１２
+           MOVE  ZERO                        TO  HST-SUJI-12
+      *----------  数値１３
+           MOVE  ZERO                        TO  HST-SUJI-13
+      *----------  項目コード２
+           MOVE  SPACE                       TO  HST-KODE-2
+      *----------  数値２１
+           MOVE  ZERO                        TO  HST-SUJI-21
+      *----------  数値２２
+           MOVE  ZERO                        TO  HST-SUJI-22
+      *----------  数値２３
+           MOVE  ZERO                        TO  HST-SUJI-23
+      *----------  項目コード３
+           MOVE  SPACE                       TO  HST-KODE-3
+      *----------  数値３１
+           MOVE  ZERO                        TO  HST-SUJI-31
+      *----------  数値３２
+           MOVE  ZERO                        TO  HST-SUJI-32
+      *----------  数値３３
+           MOVE  ZERO                        TO  HST-SUJI-33
+      *----------  予備１
+           MOVE  SPACE                       TO  HST-YOBI1
+      *----------  予備２
+           MOVE  SPACE                       TO  HST-YOBI2
+      *----------  作成フラグ
+           MOVE  CNS-X-8                     TO  HST-SK-FLG
+      *----------  作成画面ＩＤ
+           MOVE  WK-GAMEN                    TO  HST-SK-GAMEN
+      *----------  作成ファイル名
+           MOVE  SPACE                       TO  HST-SK-FILE
+      *----------  作成ログインユーザ会社コード
+           MOVE  WK-CMP-CD                   TO  HST-SK-LOGIN-CMP-CD
+      *----------  作成ユーザＩＤ
+           MOVE  WK-JOB-USER-ID              TO  HST-SK-SID
+      *----------  作成プログラムＩＤ
+           MOVE  CNS-PGM-ID                  TO HST-SK-PGMID
+      *----------  更新フラグ
+           MOVE  CNS-X-8                     TO  HST-UPD-FLG
+      *----------  更新画面ＩＤ
+           MOVE  WK-GAMEN                    TO  HST-UPD-GAMEN
+      *----------  更新ファイル名
+           MOVE  SPACE                       TO  HST-UPD-FILE
+      *----------  更新ログインユーザ会社コード
+           MOVE  WK-CMP-CD                   TO  HST-UPD-LOGIN-CMP-CD
+      *----------  更新ユーザＩＤ
+           MOVE  WK-JOB-USER-ID              TO  HST-UPD-SID
+      *----------  更新プログラムＩＤ
+           MOVE  CNS-PGM-ID                  TO HST-UPD-PGMID
+      D    DISPLAY  "HS.利用会社コード         =["HST-RIYO-CMP-CD"]"
+      D    DISPLAY  "HS.ファンドコード         =["HST-FUND-CD"]"
+      D    DISPLAY  "HS.ポートフォリオコード   =["HST-PTF-CD"]"
+      D    DISPLAY  "HS.約定受渡区分           =["HST-YJ-UW-KBN"]"
+      D    DISPLAY  "HS.残高日付               =["HST-ZANTK-YMD"]"
+      D    DISPLAY  "HS.決算日断面区分         =["HST-KSN-YMD-DMN-KBN"]"
+      D    DISPLAY  "HS.評価系列コード         =["HST-HYK-KRTU-CD"]"
+      D    DISPLAY  "HS.証券種別コード         =["HST-SEC-SBT-CD"]"
+      D    DISPLAY  "HS.取消フラグ             =["HST-DEL-KBN"]"
+      D    DISPLAY  "HS.確定フラグ             =["HST-KT-KBN"]"
+      D    DISPLAY  "HS.取引通貨               =["HST-TRHK-TUKA"]"
+      D    DISPLAY  "HS.為替取引決済通貨       =["HST-KWS-TH-TUKA-CD"]"
+      D    DISPLAY  "HS.発行国コード           =["HST-HAKO-CD"]"
+      D    DISPLAY  "HS.銘柄コード             =["HST-MEG-CD"]"
+      D    DISPLAY  "HS.資産負債・買建売建フラグ=["HST-TATE-FLG"]"
+      D    DISPLAY  "HS.個別建玉約定日         =["HST-TG-YKJ-YMD"]"
+      D    DISPLAY  "HS.個別玉管理番号         =["HST-KB-KANRI-ID"]"
+      D    DISPLAY  "HS.カストディコード       =["HST-CAST-CD"]"
+      D    DISPLAY  "HS.保有数量               =["HST-HOU-SURYO"]"
+      D    DISPLAY  "HS.数量単位               =["HST-SURYO-TANI"]"
+      D    DISPLAY  "HS.取得金額(取引通貨)     =["HST-THTK-ST-KNG"]"
+      D    DISPLAY  "HS.取得単価(取引通貨)     =["HST-THTK-ST-TNK"]"
+      D    DISPLAY  "HS.時価(取引通貨)         =["HST-CP-KRTU-CD"]"
+      D    DISPLAY  "HS.時価採用日付           =["HST-CP-SAIYO-YMD"]"
+      D    DISPLAY  "HS.時価採用市場           =["HST-CP-SAIYO-SIJO"]"
+      D    DISPLAY  "HS.評価金額(取引通貨)     =["HST-THTK-HYK-KN"]"
+      D    DISPLAY  "HS.評価損益(取引通貨)     =["HST-THTK-HYK-SNEKI"]"
+      D    DISPLAY  "HS.前払金残(取引通貨)     =["HST-THTK-PPAYZN"]"
+      D    DISPLAY  "HS.経過利息金額(取引通貨) =["HST-THTK-KKRS"]"
+      D    DISPLAY  "HS.未収収益(取引通貨)     =["HST-THTK-MS-EKI"]"
+      D    DISPLAY  "HS.評価為替レート         =["HST-HYK-KWS"]"
+      D    DISPLAY  "HS.為替採用日付           =["HST-KWS-SAIYO-YMD"]"
+      D    DISPLAY  "HS.為替採用ソース        =["HST-KWS-SAIYO-SOURCE"]"
+      D    DISPLAY  "HS.取得金額(運用通貨為替換算額)=["
+      D              HST-UYTK-KWS-BOKAZN"]"
+      D    DISPLAY  "HS.取得金額(運用通貨)     =["HST-SHTK-KN-LC"]"
+      D    DISPLAY  "HS.取得単価(運用通貨)     =["HST-UYTK-ST-TNK"]"
+      D    DISPLAY  "HS.評価金額(運用通貨)     =["HST-HYK-KN-LC"]"
+      D    DISPLAY  "HS.評価損益(運用通貨)     =["HST-HYK-SNEKI-LC"]"
+      D    DISPLAY  "HS.前払金残(運用通貨)     =["HST-UYTK-PPAY-ZN"]"
+      D    DISPLAY  "HS.経過利息金額(運用通貨) =["HST-KEKA-RSK-LC"]"
+      D    DISPLAY  "HS.未収収益(運用通貨)     =["HST-UYTK-MS-EKI"]"
+      D    DISPLAY  "HS.備考１                 =["HST-BIKOU-1"]"
+      D    DISPLAY  "HS.備考２                 =["HST-BIKOU-2"]"
+      D    DISPLAY  "HS.備考３                 =["HST-BIKOU-3"]"
+      D    DISPLAY  "HS.備考４                 =["HST-BIKOU-4"]"
+      D    DISPLAY  "HS.備考５                 =["HST-BIKOU-5"]"
+      D    DISPLAY  "HS.備考６                 =["HST-BIKOU-6"]"
+      D    DISPLAY  "HS.備考７                 =["HST-BIKOU-7"]"
+      D    DISPLAY  "HS.備考８                 =["HST-BIKOU-8"]"
+      D    DISPLAY  "HS.備考９                 =["HST-BIKOU-9"]"
+      D    DISPLAY  "HS.投資対象国             =["HST-TS-TARGET-KUNI"]"
+      D    DISPLAY  "HS.未払費用残(取引通貨)   =["HST-SJTK-MBHY-ZN"]"
+      D    DISPLAY  "HS.未払費用残(運用通貨)   =["HST-UYTK-MBHY-ZN"]"
+      D    DISPLAY  "HS.建玉為替レート         =["HST-TGYOKU-KWS-RATE"]"
+      D    DISPLAY  "HS.建玉約定金額残(取引通貨)=["
+      D              HST-THTK-TG-YJKN-ZN"]"
+      D    DISPLAY  "HS.建玉約定金額残(運用通貨)=["
+      D              HST-UYTK-TG-YJKN-ZN"]"
+      D    DISPLAY  "HS.建玉手数料残(取引通貨) =["HST-THTK-TG-TSR-ZN"]"
+      D    DISPLAY  "HS.建玉手数料残(運用通貨) =["HST-UYTK-TG-TSR-ZN"]"
+      D    DISPLAY  "HS.建玉消費税残(取引通貨) =["
+      D              HST-THTK-TG-S-TAX-ZN"]"
+      D    DISPLAY  "HS.建玉消費税残(運用通貨) =["
+      D              HST-UYTK-TG-S-TAX-ZN"]"
+      D    DISPLAY  "HS.建玉その他費用残(取引通貨)=["
+      D              HST-THTK-TG-ELS-HIYO-ZN"]"
+      D    DISPLAY  "HS.建玉その他費用残(運用通貨)=["
+      D              HST-UYTK-TG-ELS-HIYO-ZN"]"
+      D    DISPLAY  "HS.建玉精算金額残(取引通貨)=["
+      D              HST-THTK-TG-SSKG-ZN"]"
+      D    DISPLAY  "HS.建玉精算金額残(運用通貨)=["
+      D              HST-UYTK-TG-SSKG-ZN"]"
+      D    DISPLAY  "HS.前受金残(取引通貨)     =["HST-THTK-AREC-ZN"]"
+      D    DISPLAY  "HS.前受金残(運用通貨)     =["HST-UYTK-AREC-ZN"]"
+      D    DISPLAY  "HS.仮払金残(取引通貨)     =["HST-THTK-SPAY-ZN"]"
+      D    DISPLAY  "HS.仮払金残(運用通貨)     =["HST-UYTK-SPAY-ZN"]"
+      D    DISPLAY  "HS.源泉税(取引通貨)       =["HST-THTK-GSZ"]"
+      D    DISPLAY  "HS.源泉税(運用通貨)       =["HST-GENSEN-TAX-LC"]"
+      D    DISPLAY  "HS.源泉税還付予定額残高(取引通貨=["
+      D              HST-THTK-GSZKP-YT-ZN"]"
+      D    DISPLAY  "HS.源泉税還付予定額残高(運用通貨=["
+      D              HST-UYTK-GSZKP-YT-ZN"]"
+      D    DISPLAY  "HS.簿価為替レート         =["HST-BOKA-KWS"]"
+      D    DISPLAY  "HS.移管評価損益残(取引通貨)=["
+      D              HST-THTK-IKAN-HYK-SEZN"]"
+      D    DISPLAY  "HS.移管評価損益残(運用通貨)=["
+      D              HST-UYTK-IKAN-HYK-SEZN"]"
+      D    DISPLAY  "HS.移管未収収益(取引通貨)=["
+      D              HST-SJTK-IKAN-MSSHEKI"]"
+      D    DISPLAY  "HS.移管未収収益(運用通貨)=["
+      D              HST-UYTK-IKAN-MSSHEKI"]"
+      D    DISPLAY  "HS.移管前払金評価損益残(運用通貨)=["
+      D              HST-UYTK-IKAN-PPHKZN"]"
+      D    DISPLAY  "HS.ＯＰ資産負債・買建売建フラグ=["
+      D              HST-OP-TATE-FLG"]"
+      D    DISPLAY  "HS.時価系列コード         =["HST-JIKA-KRTU-CD"]"
+      D    DISPLAY  "HS.取得時遡及有無         =["HST-SKYU-UMU-FLG"]"
+      D    DISPLAY  "HS.時価種類               =["HST-JIKA-SHRU"]"
+      D    DISPLAY  "HS.ソース区分             =["HST-SOURCE-KBN"]"
+      D    DISPLAY  "HS.前払金評価額(運用通貨) =["
+      D              HST-UYTK-KPPAY-HYK-GK"]"
+      D    DISPLAY  "HS.前払金評価損益(運用通貨)=["
+      D              HST-UYTK-PPAY-SNEKI"]"
+      D    DISPLAY  "HS.未収収益評価為替レート =["
+      D              HST-MS-SHEKI-HYK-KWS"]"
+      D    DISPLAY  "HS.源泉税評価為替レート   =["
+      D              HST-GENS-TAX-HYK-KWS"]"
+      D    DISPLAY  "HS.データ区分             =["HST-DATA-KBN"]"
+      D    DISPLAY  "HS.商品区分               =["HST-SYOHIN-KBN"]"
+      D    DISPLAY  "HS.帳票出力区分           =["HST-REP-KBN"]"
+      D    DISPLAY  "HS.項目コード１           =["HST-KODE-1"]"
+      D    DISPLAY  "HS.数値１１               =["HST-SUJI-11"]"
+      D    DISPLAY  "HS.数値１２               =["HST-SUJI-12"]"
+      D    DISPLAY  "HS.数値１３               =["HST-SUJI-13"]"
+      D    DISPLAY  "HS.項目コード２           =["HST-KODE-2"]"
+      D    DISPLAY  "HS.数値２１               =["HST-SUJI-21"]"
+      D    DISPLAY  "HS.数値２２               =["HST-SUJI-22"]"
+      D    DISPLAY  "HS.数値２３               =["HST-SUJI-23"]"
+      D    DISPLAY  "HS.項目コード３           =["HST-KODE-3"]"
+      D    DISPLAY  "HS.数値３１               =["HST-SUJI-31"]"
+      D    DISPLAY  "HS.数値３２               =["HST-SUJI-32"]"
+      D    DISPLAY  "HS.数値３３               =["HST-SUJI-33"]"
+      D    DISPLAY  "HS.予備１                 =["HST-YOBI1"]"
+      D    DISPLAY  "HS.予備２                 =["HST-YOBI2"]"
+      D    DISPLAY  "HS.作成フラグ             =["HST-SK-FLG"]"
+      D    DISPLAY  "HS.作成画面ＩＤ           =["HST-SK-GAMEN"]"
+      D    DISPLAY  "HS.作成ファイル名         =["HST-SK-FILE"]"
+      D    DISPLAY  "HS.作成ログインユーザ会社コード=["
+      D             HST-SK-LOGIN-CMP-CD"]"
+      D    DISPLAY  "HS.作成ユーザＩＤ         =["HST-SK-SID"]"
+      D    DISPLAY  "HS.作成プログラムＩＤ     =["HST-SK-PGMID"]"
+      D    DISPLAY  "HS.更新フラグ             =["HST-UPD-FLG"]"
+      D    DISPLAY  "HS.更新画面ＩＤ           =["HST-UPD-GAMEN"]"
+      D    DISPLAY  "HS.更新ファイル名         =["HST-UPD-FILE"]"
+      D    DISPLAY  "HS.更新ログインユーザ会社コード=["
+      D             HST-UPD-LOGIN-CMP-CD"]"
+      D    DISPLAY  "HS.更新ユーザＩＤ         =["HST-UPD-SID"]"
+      D    DISPLAY  "HS.更新プログラムＩＤ     =["HST-UPD-PGMID"]"
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****元本残高のデータを編集する"
+      D    "  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       DATA-EDIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    INSERT-SQL作成PREPARE処理
+      ******************************************************************
+       INSERT-PREPARE-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****編集したデータを運用成果残高"
+      D             "テーブルに挿入するPREPARE処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE  SQLSTMT03
+                       WK-TKUSZT01-FREE-MSG
+      *---------- 動的SQL文をいれるバッファの初期化
+           MOVE  WK-TBL-ID-1                 TO  SQL-TBL-ID
+                                             OF  SQL-INSERT
+           STRING  SQL-INSERT
+                   DELIMITED BY SIZE
+                   INTO SQLSTMT03-ARR
+           END-STRING
+           MOVE  FUNCTION LENGTH(SQL-INSERT) TO  SQLSTMT03-LEN
+           STRING  SQLSTMT03-ARR(1:SQLSTMT03-LEN)
+                "[RIYO_CMP_CD="
+                 HST-RIYO-CMP-CD
+                "][FUND_CD="
+                 HST-FUND-CD
+                "][PTF_CD="
+                 HST-PTF-CD
+                "][ZANTK_YMD="
+                 HST-ZANTK-YMD
+                "][KSN_YMD_DMN_KBN="
+                 HST-KSN-YMD-DMN-KBN
+                "][HYK_KRTU_CD="
+                 HST-HYK-KRTU-CD
+                "][SEC_SBT_CD="
+                 HST-SEC-SBT-CD
+                "][TRHK_TUKA="
+                 HST-TRHK-TUKA
+                "][MEG_CD="
+                 HST-MEG-CD
+                "][TATE_FLG="
+                 HST-TATE-FLG
+                "][KB_KANRI_ID="
+                 HST-KB-KANRI-ID
+                "]"
+                DELIMITED BY SIZE
+                INTO  WK-TKUSZT01-FREE-MSG
+           END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT03-ARR=["SQLSTMT03-ARR(1:SQLSTMT03-LEN)"]"
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":SQLSTMT03-ARR  =["SQLSTMT03-ARR"]"
+      *--------------------<DEBUG>--------------------------------------
+           EXEC  SQL
+             PREPARE  SINS FROM  :SQLSTMT03
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+               CONTINUE
+             WHEN  OTHER
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-010             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKUSZT01-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-TKUSZT01-FREE-MSG  =["WK-TKUSZT01-FREE-MSG"]"
+      D    DISPLAY  CNS-PGM-ID":*****編集したデータを運用成果残高"
+      D             "テーブルに挿入するPREPARE処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INSERT-PREPARE-EXT.
+           EXIT.
+      ******************************************************************
+      *    編集したデータを運用成果残高テーブルに挿入する
+      ******************************************************************
+       DATA-INSERT-RTN        SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****編集したデータを運用成果残高"
+      D    "テーブルに挿入する  START  *****"
+      *-----------------------------------------------------------------
+           EXEC SQL EXECUTE SINS
+                 USING :HST-INSERT-VALUE.HST-RIYO-CMP-CD,
+                       :HST-INSERT-VALUE.HST-FUND-CD,
+                       :HST-INSERT-VALUE.HST-PTF-CD,
+                       :HST-INSERT-VALUE.HST-YJ-UW-KBN,
+                       :HST-INSERT-VALUE.HST-ZANTK-YMD,
+                       :HST-INSERT-VALUE.HST-KSN-YMD-DMN-KBN,
+                       :HST-INSERT-VALUE.HST-HYK-KRTU-CD,
+                       :HST-INSERT-VALUE.HST-SEC-SBT-CD,
+                       :HST-INSERT-VALUE.HST-DEL-KBN,
+                       :HST-INSERT-VALUE.HST-KT-KBN,
+                       :HST-INSERT-VALUE.HST-TRHK-TUKA,
+                       :HST-INSERT-VALUE.HST-KWS-TH-TUKA-CD,
+                       :HST-INSERT-VALUE.HST-HAKO-CD,
+                       :HST-INSERT-VALUE.HST-MEG-CD,
+                       :HST-INSERT-VALUE.HST-TATE-FLG,
+                       :HST-INSERT-VALUE.HST-TG-YKJ-YMD,
+                       :HST-INSERT-VALUE.HST-KB-KANRI-ID,
+                       :HST-INSERT-VALUE.HST-CAST-CD,
+                       :HST-INSERT-VALUE.HST-HOU-SURYO,
+                       :HST-INSERT-VALUE.HST-SURYO-TANI,
+                       :HST-INSERT-VALUE.HST-THTK-ST-KNG,
+                       :HST-INSERT-VALUE.HST-THTK-ST-TNK,
+                       :HST-INSERT-VALUE.HST-CP-KRTU-CD,
+                       :HST-INSERT-VALUE.HST-CP-SAIYO-YMD,
+                       :HST-INSERT-VALUE.HST-CP-SAIYO-SIJO,
+                       :HST-INSERT-VALUE.HST-THTK-HYK-KN,
+                       :HST-INSERT-VALUE.HST-THTK-HYK-SNEKI,
+                       :HST-INSERT-VALUE.HST-THTK-PPAYZN,
+                       :HST-INSERT-VALUE.HST-THTK-KKRS,
+                       :HST-INSERT-VALUE.HST-THTK-MS-EKI,
+                       :HST-INSERT-VALUE.HST-HYK-KWS,
+                       :HST-INSERT-VALUE.HST-KWS-SAIYO-YMD,
+                       :HST-INSERT-VALUE.HST-KWS-SAIYO-SOURCE,
+                       :HST-INSERT-VALUE.HST-UYTK-KWS-BOKAZN,
+                       :HST-INSERT-VALUE.HST-SHTK-KN-LC,
+                       :HST-INSERT-VALUE.HST-UYTK-ST-TNK,
+                       :HST-INSERT-VALUE.HST-HYK-KN-LC,
+                       :HST-INSERT-VALUE.HST-HYK-SNEKI-LC,
+                       :HST-INSERT-VALUE.HST-UYTK-PPAY-ZN,
+                       :HST-INSERT-VALUE.HST-KEKA-RSK-LC,
+                       :HST-INSERT-VALUE.HST-UYTK-MS-EKI,
+                       :HST-INSERT-VALUE.HST-BIKOU-1,
+                       :HST-INSERT-VALUE.HST-BIKOU-2,
+                       :HST-INSERT-VALUE.HST-BIKOU-3,
+                       :HST-INSERT-VALUE.HST-BIKOU-4,
+                       :HST-INSERT-VALUE.HST-BIKOU-5,
+                       :HST-INSERT-VALUE.HST-BIKOU-6,
+                       :HST-INSERT-VALUE.HST-BIKOU-7,
+                       :HST-INSERT-VALUE.HST-BIKOU-8,
+                       :HST-INSERT-VALUE.HST-BIKOU-9,
+                       :HST-INSERT-VALUE.HST-TS-TARGET-KUNI,
+                       :HST-INSERT-VALUE.HST-SJTK-MBHY-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-MBHY-ZN,
+                       :HST-INSERT-VALUE.HST-TGYOKU-KWS-RATE,
+                       :HST-INSERT-VALUE.HST-THTK-TG-YJKN-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-TG-YJKN-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-TG-TSR-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-TG-TSR-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-TG-S-TAX-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-TG-S-TAX-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-TG-ELS-HIYO-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-TG-ELS-HIYO-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-TG-SSKG-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-TG-SSKG-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-AREC-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-AREC-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-SPAY-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-SPAY-ZN,
+                       :HST-INSERT-VALUE.HST-THTK-GSZ,
+                       :HST-INSERT-VALUE.HST-GENSEN-TAX-LC,
+                       :HST-INSERT-VALUE.HST-THTK-GSZKP-YT-ZN,
+                       :HST-INSERT-VALUE.HST-UYTK-GSZKP-YT-ZN,
+                       :HST-INSERT-VALUE.HST-BOKA-KWS,
+                       :HST-INSERT-VALUE.HST-THTK-IKAN-HYK-SEZN,
+                       :HST-INSERT-VALUE.HST-UYTK-IKAN-HYK-SEZN,
+                       :HST-INSERT-VALUE.HST-SJTK-IKAN-MSSHEKI,
+                       :HST-INSERT-VALUE.HST-UYTK-IKAN-MSSHEKI,
+                       :HST-INSERT-VALUE.HST-UYTK-IKAN-PPHKZN,
+                       :HST-INSERT-VALUE.HST-OP-TATE-FLG,
+                       :HST-INSERT-VALUE.HST-JIKA-KRTU-CD,
+                       :HST-INSERT-VALUE.HST-SKYU-UMU-FLG,
+                       :HST-INSERT-VALUE.HST-JIKA-SHRU,
+                       :HST-INSERT-VALUE.HST-SOURCE-KBN,
+                       :HST-INSERT-VALUE.HST-UYTK-KPPAY-HYK-GK,
+                       :HST-INSERT-VALUE.HST-UYTK-PPAY-SNEKI,
+                       :HST-INSERT-VALUE.HST-MS-SHEKI-HYK-KWS,
+                       :HST-INSERT-VALUE.HST-GENS-TAX-HYK-KWS,
+                       :HST-INSERT-VALUE.HST-DATA-KBN,
+                       :HST-INSERT-VALUE.HST-SYOHIN-KBN,
+                       :HST-INSERT-VALUE.HST-REP-KBN,
+                       :HST-INSERT-VALUE.HST-KODE-1,
+                       :HST-INSERT-VALUE.HST-SUJI-11,
+                       :HST-INSERT-VALUE.HST-SUJI-12,
+                       :HST-INSERT-VALUE.HST-SUJI-13,
+                       :HST-INSERT-VALUE.HST-KODE-2,
+                       :HST-INSERT-VALUE.HST-SUJI-21,
+                       :HST-INSERT-VALUE.HST-SUJI-22,
+                       :HST-INSERT-VALUE.HST-SUJI-23,
+                       :HST-INSERT-VALUE.HST-KODE-3,
+                       :HST-INSERT-VALUE.HST-SUJI-31,
+                       :HST-INSERT-VALUE.HST-SUJI-32,
+                       :HST-INSERT-VALUE.HST-SUJI-33,
+                       :HST-INSERT-VALUE.HST-YOBI1,
+                       :HST-INSERT-VALUE.HST-YOBI2,
+                       :HST-INSERT-VALUE.HST-SK-FLG,
+                       :HST-INSERT-VALUE.HST-SK-GAMEN,
+                       :HST-INSERT-VALUE.HST-SK-FILE,
+                       :HST-INSERT-VALUE.HST-SK-LOGIN-CMP-CD,
+                       :HST-INSERT-VALUE.HST-SK-SID,
+                       :HST-INSERT-VALUE.HST-SK-PGMID,
+                       :HST-INSERT-VALUE.HST-UPD-FLG,
+                       :HST-INSERT-VALUE.HST-UPD-GAMEN,
+                       :HST-INSERT-VALUE.HST-UPD-FILE,
+                       :HST-INSERT-VALUE.HST-UPD-LOGIN-CMP-CD,
+                       :HST-INSERT-VALUE.HST-UPD-SID,
+                       :HST-INSERT-VALUE.HST-UPD-PGMID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(EXECUTE)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           EVALUATE  SQLCODE
+             WHEN  CNS-SQL-NORMAL
+               CONTINUE
+             WHEN  OTHER
+      *----------  メッセージ出力用 RTNパッケージの設定
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-011             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-900             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-1            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  WK-TKUSZT01-FREE-MSG    TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*****編集したデータを運用成果残高"
+      D    "テーブルに挿入する  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       DATA-INSERT-EXT.
+           EXIT.
+      ******************************************************************
+      *    SCZY4302属性取得処理
+      ******************************************************************
+       SCZY4302-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** SCZY4302属性取得処理START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY4302-INOUT
+                       PARM-RTNPKG
+                       WK-YJ-UW-KBN
+                       WK-UYTK-TUKA-CD
+      *----------  適用開始日
+           MOVE  WK-KJN-YMD
+             TO  TEKIYO-FROM            OF  PARM-SCZY4302-ARG1
+      *----------  ポートフォリオ属性データエリア
+           MOVE  TBL-TKPFZK01-1         OF  PARM-SUSC0003-ARG4
+             TO  PARM-SCZY4302-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":適用開始日=["
+      D             TEKIYO-FROM         OF  PARM-SCZY4302-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ属性データエリア=["
+      D              PARM-SCZY4302-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY4302  START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY4302"             USING  PARM-SCZY4302-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY4302  END  ***"
+      D    DISPLAY  "RTN-CD OF SCZY4302 =["RTN-CD OF PARM-RTNPKG
+      D              (COUNTER OF PARM-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD OF PARM-RTNPKG
+                     (COUNTER OF PARM-RTNPKG)
+      *----------  正常
+             WHEN  CNS-RTN-000
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SCZY4302:SWK-KJN-PTN-CD =["
+      D             SWK-KJN-PTN-CD           OF  PARM-SCZY4302-ARG3"]"
+      *-----------------------------------------------------------------
+               IF  SWK-KJN-PTN-CD            OF
+                   PARM-SCZY4302-ARG3(CNS-1:CNS-1) = CNS-FLG-T
+               THEN
+      *----------  約定受渡区分
+                 MOVE  CNS-X-1               TO  WK-YJ-UW-KBN
+               ELSE
+      *----------  約定受渡区分
+                 MOVE  CNS-X-2               TO  WK-YJ-UW-KBN
+               END-IF
+      *----------  運用通貨コード
+               MOVE  CAPITAL-TUKA-CD         OF  PARM-SCZY4302-ARG3
+                                             TO  WK-UYTK-TUKA-CD
+             WHEN  CNS-RTN-110
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "*****   ポートフォリオ属性取得処理なし   *****"
+      *-----------------------------------------------------------------
+      *----------  ワーク業務エラーパッケージを編集
+               COMPUTE  WK-J = WK-J + CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-J=["WK-J"]"
+      *-----------------------------------------------------------------
+               IF  WK-J <= CNS-999
+               THEN
+      *----------  ファンドコード
+                 MOVE  WK-FUND-CD1
+                   TO  MSG-FUND-CD      OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  ポートフォリオコード
+                 MOVE  WK-PTF-CD1
+                   TO  MSG-PTF-CD       OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  評価系列コード
+                 MOVE  WK-HYK-KRTU-CD1
+                   TO  MSG-HYK-KRTU-CD  OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  基準日From
+                 MOVE  WK-KJN-YMD
+                   TO  KJN-YMD-FROM     OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  基準日To
+                 MOVE  WK-KJN-YMD
+                   TO  KJN-YMD-TO       OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  メッセージID
+                 MOVE  CNS-MSG-E000090
+                   TO  MSG-ID           OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  置換文字
+                 MOVE  CNS-PTF-DATA
+                   TO  TK-MOJI          OF  PARM-SUSC0003-ARG2(WK-J,1)
+      *----------  フリーメッセージ
+                 MOVE  SPACE
+                   TO  FREE-MSG         OF  PARM-SUSC0003-ARG2(WK-J)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ファンドコード=["
+      D              MSG-FUND-CD        OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "ポートフォリオコード=["
+      D              MSG-PTF-CD         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "評価系列コード=["
+      D              MSG-HYK-KRTU-CD    OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "帳票ID =["
+      D              REP-ID             OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "帳票任意コード=["
+      D              REP-ANY-CD         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "基準日From=["
+      D              KJN-YMD-FROM       OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "基準日To =["
+      D              KJN-YMD-TO         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "メッセージID=["
+      D              MSG-ID             OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "置換文字=["
+      D              TK-MOJI            OF PARM-SUSC0003-ARG2(WK-J,1)"]"
+      D    DISPLAY  "フリーメッセージ=["
+      D              FREE-MSG           OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      *-----------------------------------------------------------------
+               ELSE
+                 CONTINUE
+               END-IF
+      *----------  リターンコード
+               MOVE  CNS-RTN-113
+                 TO  WK-RTN-CD          OF  WK-RTN
+               PERFORM  END-RTN
+             WHEN  CNS-RTN-800
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "*****   パラメータエラー   *****"
+      *-----------------------------------------------------------------
+      *----------  ワーク業務エラーパッケージを編集
+               COMPUTE  WK-J = WK-J + CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-J=["WK-J"]"
+      *-----------------------------------------------------------------
+               IF  WK-J <= CNS-999
+               THEN
+      *----------  ファンドコード
+                 MOVE  WK-FUND-CD1
+                   TO  MSG-FUND-CD      OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  ポートフォリオコード
+                 MOVE  WK-PTF-CD1
+                   TO  MSG-PTF-CD       OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  評価系列コード
+                 MOVE  WK-HYK-KRTU-CD1
+                   TO  MSG-HYK-KRTU-CD  OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  基準日From
+                 MOVE  WK-KJN-YMD
+                   TO  KJN-YMD-FROM     OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  基準日To
+                 MOVE  WK-KJN-YMD
+                   TO  KJN-YMD-TO       OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  メッセージID
+                 MOVE  CNS-MSG-E000189
+                   TO  MSG-ID           OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  置換文字
+                 MOVE  SPACE
+                   TO  TK-MOJI          OF  PARM-SUSC0003-ARG2(WK-J,1)
+      *----------  フリーメッセージ
+                 MOVE  SPACE
+                   TO  FREE-MSG         OF  PARM-SUSC0003-ARG2(WK-J)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ファンドコード=["
+      D              MSG-FUND-CD        OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "ポートフォリオコード=["
+      D              MSG-PTF-CD         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "評価系列コード=["
+      D              MSG-HYK-KRTU-CD    OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "帳票ID =["
+      D              REP-ID             OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "帳票任意コード=["
+      D              REP-ANY-CD         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "基準日From=["
+      D              KJN-YMD-FROM       OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "基準日To =["
+      D              KJN-YMD-TO         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "メッセージID=["
+      D              MSG-ID             OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "置換文字=["
+      D              TK-MOJI            OF PARM-SUSC0003-ARG2(WK-J,1)"]"
+      D    DISPLAY  "フリーメッセージ=["
+      D              FREE-MSG           OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      *-----------------------------------------------------------------
+               ELSE
+                 CONTINUE
+               END-IF
+      *----------  リターンコード
+               MOVE  CNS-RTN-113
+                 TO  WK-RTN-CD          OF  WK-RTN
+               PERFORM  END-RTN
+             WHEN  OTHER
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-012             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-901             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-0            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  PARM-RTNPKG             TO  WK-RTN-PKGS
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":約定受渡区分=["WK-YJ-UW-KBN"]"
+      D    DISPLAY  CNS-PGM-ID":運用通貨コード=["WK-UYTK-TUKA-CD"]"
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4302属性取得処理END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY4302-EXT.
+           EXIT.
+      ******************************************************************
+      *    SCZY4404商品属性全項目取得
+      ******************************************************************
+       SCZY4404-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** SCZY4404商品属性取得処理START ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY4404-INOUT
+                       PARM-RTNPKG
+                       WK-SYOHIN-KBN-SYUTOKU
+                       WK-REP-KBN-SYUTOKU
+      *----------  証券種別コード
+           MOVE  CNS-SKSBT-PRI
+             TO  SEC-SBT-CD                  OF  PARM-SCZY4404-ARG1
+      *----------  商品属性データエリア
+           MOVE  TBL-TKCMSZ00           OF  PARM-SUSC0003-ARG5
+             TO  TBL-TKCMSZ00           OF  PARM-SCZY4404-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":証券種別コード=["
+      D             SEC-SBT-CD               OF  PARM-SCZY4404-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":商品属性データエリア=["
+      D             TBL-TKCMSZ00        OF  PARM-SCZY4404-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY4404  START  ***"
+      *-----------------------------------------------------------------
+           CALL  "SCZY4404"             USING  PARM-SCZY4404-INOUT
+                                               PARM-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***  CALL SCZY4404  END  ***"
+      D    DISPLAY  "RTN-CD OF SCZY4404 =["RTN-CD OF PARM-RTNPKG
+      D              (COUNTER OF PARM-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD   OF PARM-RTNPKG
+                     (COUNTER OF PARM-RTNPKG)
+      *----------  正常
+             WHEN  CNS-RTN-000
+      *----------  商品区分
+               MOVE  SYOHIN-KBN              OF  PARM-SCZY4404-ARG3
+                                             TO  WK-SYOHIN-KBN-SYUTOKU
+      *----------  帳票出力区分
+               MOVE  REP-OUT-BUNRUI          OF  PARM-SCZY4404-ARG3(2:1)
+                                             TO  WK-REP-KBN-SYUTOKU
+             WHEN  CNS-RTN-110
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "*****   商品区分データなし   *****"
+      *-----------------------------------------------------------------
+      *----------  ワーク業務エラーパッケージを編集
+               COMPUTE  WK-J = WK-J + CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-J=["WK-J"]"
+      *-----------------------------------------------------------------
+               IF  WK-J <= CNS-999
+               THEN
+      *----------  ファンドコード
+                 MOVE  WK-FUND-CD1
+                   TO  MSG-FUND-CD      OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  ポートフォリオコード
+                 MOVE  WK-PTF-CD1
+                   TO  MSG-PTF-CD       OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  評価系列コード
+                 MOVE  WK-HYK-KRTU-CD1
+                   TO  MSG-HYK-KRTU-CD  OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  基準日From
+                 MOVE  WK-KJN-YMD
+                   TO  KJN-YMD-FROM     OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  基準日To
+                 MOVE  WK-KJN-YMD
+                   TO  KJN-YMD-TO       OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  メッセージID
+                 MOVE  CNS-MSG-E000090
+                   TO  MSG-ID           OF  PARM-SUSC0003-ARG2(WK-J)
+      *----------  置換文字
+                 MOVE  CNS-SEC-SBT
+                   TO  TK-MOJI          OF  PARM-SUSC0003-ARG2(WK-J,1)
+      *----------  フリーメッセージ
+                 MOVE  SPACE
+                   TO  FREE-MSG         OF  PARM-SUSC0003-ARG2(WK-J)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ファンドコード=["
+      D              MSG-FUND-CD        OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "ポートフォリオコード=["
+      D              MSG-PTF-CD         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "評価系列コード=["
+      D              MSG-HYK-KRTU-CD    OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "帳票ID =["
+      D              REP-ID             OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "帳票任意コード=["
+      D              REP-ANY-CD         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "基準日From=["
+      D              KJN-YMD-FROM       OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "基準日To =["
+      D              KJN-YMD-TO         OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "メッセージID=["
+      D              MSG-ID             OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      D    DISPLAY  "置換文字=["
+      D              TK-MOJI            OF PARM-SUSC0003-ARG2(WK-J,1)"]"
+      D    DISPLAY  "フリーメッセージ=["
+      D              FREE-MSG           OF  PARM-SUSC0003-ARG2(WK-J)"]"
+      *-----------------------------------------------------------------
+               ELSE
+                 CONTINUE
+               END-IF
+      *----------  リターンコード
+               MOVE  CNS-RTN-113
+                 TO  WK-RTN-CD          OF  WK-RTN
+               PERFORM  END-RTN
+             WHEN  OTHER
+               MOVE  CNS-PGM-ID              TO  WK-ERR-PGM-ID
+                                             OF  WK-RTN
+               MOVE  CNS-POS-013             TO  WK-ERR-POS
+                                             OF  WK-RTN
+               MOVE  CNS-RTN-901             TO  WK-RTN-CD
+                                             OF  WK-RTN
+               MOVE  CNS-DETAIL-0            TO  WK-DETAIL-RTN-CD-FLG
+                                             OF  WK-RTN
+               MOVE  SPACE                   TO  WK-FREE-MSG
+                                             OF  WK-RTN
+               MOVE  PARM-RTNPKG             TO  WK-RTN-PKGS
+               PERFORM  ERROR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":商品区分=["WK-SYOHIN-KBN-SYUTOKU"]"
+      D    DISPLAY  CNS-PGM-ID":帳票出力区分=["WK-REP-KBN-SYUTOKU"]"
+      D    DISPLAY  CNS-PGM-ID":***  SCZY4404商品属性取得処理END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY4404-EXT.
+           EXIT.
+      ******************************************************************
+      *    後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "*****SUSC0003:終了処理  START  *****"
+      D    DISPLAY  "CLOSE前のワーク再処理要銘柄一覧データの"
+      D             "取得カーソルフラク= [" FLG-TKUSGP01-DATA-OPEN "]"
+      *-----------------------------------------------------------------
+           IF  FLG-TKUSGP01-DATA-OPEN  =  CNS-ON
+           THEN
+             EXEC SQL
+                 CLOSE CUR4
+             END-EXEC
+             MOVE  CNS-OFF                   TO  FLG-TKUSGP01-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "ワーク再処理要銘柄一覧データの取得CLOSE"
+      D                                     "のSQLCODE =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "CLOSE後のワーク再処理要銘柄一覧の取得カーソルフラク"
+      D             "= [" FLG-TKUSGP01-DATA-OPEN "]"
+      D    DISPLAY "ワーク再処理要銘柄一覧データの取得カーソル"
+      D                                        "をクローズする"
+      *-----------------------------------------------------------------
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-RTNPKG
+           MOVE  WK-RTN-CD                   OF  WK-RTN
+             TO  RTN-CD                      OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "RTN-CD OF PARM-SCZY1170-ARG1:["
+      D              RTN-CD OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"          USING  PARM-SCZY1170-INOUT
+                                            PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SUSC0003-ARG3
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "SUSC0003:ERR-PGM-ID        OF PARM-SCZY1170-ARG1=["
+      D             ERR-PGM-ID                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:ERR-POS           OF PARM-SCZY1170-ARG1=["
+      D             ERR-POS                    OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:RTN-CD            OF PARM-SCZY1170-ARG1=["
+      D             RTN-CD                     OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:DETAIL-RTN-CD     OF PARM-SCZY1170-ARG1=["
+      D             DETAIL-RTN-CD              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:DETAIL-RTN-CD-FLG OF PARM-SCZY1170-ARG1=["
+      D             DETAIL-RTN-CD-FLG          OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:FREE-MSG          OF PARM-SCZY1170-ARG1=["
+      D             FREE-MSG                   OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:PARM-SUSC0003-ARG3=["PARM-SUSC0003-ARG3"]"
+      D    DISPLAY  "*****SUSC0003:終了処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *    エラー処理
+      ******************************************************************
+       ERROR-RTN              SECTION.
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  "◆◇◆◇◆◇SUSC0003:エラー処理"
+      D             "  START  ◆◇◆◇◆◇"
+      D    DISPLAY  "CLOSE前の元本残高データの取得カーソルフラク= ["
+      D              FLG-GANPON-DATA-OPEN "]"
+      *-----------------------------------------------------------------
+           IF  FLG-GANPON-DATA-OPEN  =  CNS-ON
+           THEN
+             EXEC SQL
+                 CLOSE CUR1
+             END-EXEC
+             MOVE  CNS-OFF                   TO  FLG-GANPON-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "元本残高データの取得CLOSEのSQLCODE =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "CLOSE後の元本残高データの取得カーソルフラク= ["
+      D              FLG-GANPON-DATA-OPEN "]"
+      D    DISPLAY "元本残高データの取得カーソルをクローズする"
+      D    DISPLAY  "CLOSE前の評価履歴データの取得カーソルフラク= ["
+      D              FLG-HYOUKA-DATA-OPEN "]"
+      *-----------------------------------------------------------------
+           IF  FLG-HYOUKA-DATA-OPEN  =  CNS-ON
+           THEN
+             EXEC SQL
+                 CLOSE CUR2
+             END-EXEC
+             MOVE  CNS-OFF                   TO  FLG-HYOUKA-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "評価履歴データの取得CLOSEのSQLCODE =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "CLOSE後の評価履歴データの取得カーソルフラク= ["
+      D              FLG-HYOUKA-DATA-OPEN "]"
+      D    DISPLAY "評価履歴データの取得カーソルをクローズする"
+      D    DISPLAY  "CLOSE前のワーク再処理要銘柄一覧データの"
+      D             "取得カーソルフラク= [" FLG-TKUSGP01-DATA-OPEN "]"
+      *-----------------------------------------------------------------
+           IF  FLG-TKUSGP01-DATA-OPEN  =  CNS-ON
+           THEN
+             EXEC SQL
+                 CLOSE CUR4
+             END-EXEC
+             MOVE  CNS-OFF                   TO  FLG-TKUSGP01-DATA-OPEN
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "ワーク再処理要銘柄一覧データの取得CLOSE"
+      D                                     "のSQLCODE =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           ELSE
+             CONTINUE
+           END-IF
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "CLOSE後のワーク再処理要銘柄一覧の取得カーソルフラク"
+      D             "= [" FLG-TKUSGP01-DATA-OPEN "]"
+      D    DISPLAY "ワーク再処理要銘柄一覧データの取得カーソル"
+      D                                        "をクローズする"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチン
+           MOVE  WK-RTN                      TO  PARM-SCZY1170-INOUT
+           MOVE  WK-RTN-PKGS                 TO  PARM-SCZY1170-RTNPKG
+           CALL  "SCZY1170"               USING  PARM-SCZY1170-INOUT
+                                                 PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SUSC0003-ARG3
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY "SUSC0003:ERR-PGM-ID        OF PARM-SCZY1170-ARG1=["
+      D             ERR-PGM-ID                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:ERR-POS           OF PARM-SCZY1170-ARG1=["
+      D             ERR-POS                    OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:RTN-CD            OF PARM-SCZY1170-ARG1=["
+      D             RTN-CD                     OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:DETAIL-RTN-CD     OF PARM-SCZY1170-ARG1=["
+      D             DETAIL-RTN-CD              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:DETAIL-RTN-CD-FLG OF PARM-SCZY1170-ARG1=["
+      D             DETAIL-RTN-CD-FLG          OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:FREE-MSG          OF PARM-SCZY1170-ARG1=["
+      D             FREE-MSG                   OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY "SUSC0003:PARM-SUSC0003-ARG3=["PARM-SUSC0003-ARG3"]"
+      D    DISPLAY "◆◇◆◇◆◇SUSC0003:エラー処理  END  ◆◇◆◇◆◇"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERROR-EXT.
+           GOBACK.
+      ******************************************************************
+      *        プログラムの末尾
+      ******************************************************************

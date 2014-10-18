@@ -1,0 +1,1472 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラムＩＤ : SCZY7180
+      *     プログラム名称 : 転送制御ファイル作成ルーチン
+      *     処理概要       : GXサーバ・拠点サーバ・SBAサーバへ送信用の
+      *                      中間転送制御ファイルを作成する
+      *     参照ＤＢ       :
+      *     引数           : IN  利用会社
+      *                      IN  処理実行日
+      *                      IN  起動ID
+      *                      IN  実行処理ID
+      *                      IN  拠点サーバ区分
+      *                      IN  最大連番
+      *                      IN  デスティネーションファイル名
+      *                    : OUT RTNパッケージ
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20080805   新規  SCS        周立峰  新規作成
+      *     20101109   修正  SCS        趙潔瓊  テーマ2922対応
+      *     20121114   修正  ISC        蒋小波  テーマ3406対応
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY7180.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-08-05.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+       ENVIRONMENT-NAME               ENV-NAME
+       ENVIRONMENT-VALUE              ENV-VALUE.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+           SELECT  FTP-FILE   ASSIGN  TO  FTPFILENAME
+           ORGANIZATION IS LINE SEQUENTIAL
+           FILE          STATUS  IS  ST-FTPFILE.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+           FILE               SECTION.
+       FD  FTP-FILE
+                         LABEL      RECORD    STANDARD.
+       01  FTPFILE-REC.
+         05  FTPFILE-DATA          PIC  X(200).
+      ******************************************************************
+      *                   作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                    ファイル  エリア
+      ******************************************************************
+       01  FILE-AREA.
+         05  FTPFILENAME           PIC  X(300).
+         05  FTP-PATH              PIC  X(256).
+         05  ST-FTPFILE            PIC  X(02).
+      ******************************************************************
+      *                   コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+      *----------  エラー検知プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SCZY7180".
+      *20121114 変更 テーマ3406 BEGIN
+      *----------  ＳＢＡポートＦ属性データ接続の業務タスクID
+         05  CNS-TSKID-PF          PIC  X(07)  VALUE  "T1250PF".
+      *----------  ＳＢＡ為替レートデータ接続の業務タスクID
+         05  CNS-TSKID-KWS         PIC  X(07)  VALUE  "T2100JC".
+      *----------  ＳＢＡ銘柄属性（債券型）データ接続の業務タスクID
+         05  CNS-SAYIKEN-SBA       PIC  X(07)  VALUE  "T2091JC".
+      *20121114 変更 テーマ3406 END
+      *----------  拠点サーバ区分
+         05  CNS-KBN-01            PIC  X(02)  VALUE  "01".
+         05  CNS-KBN-02            PIC  X(02)  VALUE  "02".
+         05  CNS-KBN-03            PIC  X(02)  VALUE  "03".
+      *----------  詳細リターンコード
+         05  CNS-DETAIL-0          PIC  9(01)  VALUE  0.
+      *----------  詳細リターンコードデコードフラグ
+         05  CNS-DETAIL-FLG-0      PIC  X(01)  VALUE  "0".
+         05  CNS-DETAIL-FLG-1      PIC  X(01)  VALUE  "1".
+      *----------  リターンコード(正常終了)
+         05  CNS-RTN-000           PIC  X(03)  VALUE  "000".
+      *----------  パラメータエラー
+         05  CNS-RTN-800           PIC  X(03)  VALUE  "800".
+      *----------  システムエラー（環境変数）
+         05  CNS-RTN-910           PIC  X(03)  VALUE  "910".
+      *----------  ファイルアクセスエラー（OPEN）
+         05  CNS-RTN-200           PIC  X(03)  VALUE  "200".
+      *----------  ファイルアクセスエラー（WRITE）
+         05  CNS-RTN-220           PIC  X(03)  VALUE  "220".
+      *----------  ファイルアクセスエラー（CLOSE）
+         05  CNS-RTN-230           PIC  X(03)  VALUE  "230".
+      *----------  システムエラー（Oracle）
+         05  CNS-RTN-900           PIC  X(03)  VALUE  "900".
+      *----------  システムエラー（Oracle以外）
+         05  CNS-RTN-901           PIC  X(03)  VALUE  "901".
+      *----------  OPEN FLG
+         05  CNS-ON                PIC  9(01)  VALUE  1.
+      *----------  CLOSE FLG
+         05  CNS-OFF               PIC  9(01)  VALUE  0.
+      *----------  TBL ID
+         05  CNS-TBL-TKDYAA31      PIC  X(08)  VALUE "TKDYAA31".
+      *----------  エラーポジション
+         05  CNS-POS-001           PIC  X(04)  VALUE "0001".
+         05  CNS-POS-002           PIC  X(04)  VALUE "0002".
+         05  CNS-POS-003           PIC  X(04)  VALUE "0003".
+         05  CNS-POS-004           PIC  X(04)  VALUE "0004".
+         05  CNS-POS-005           PIC  X(04)  VALUE "0005".
+         05  CNS-POS-006           PIC  X(04)  VALUE "0006".
+         05  CNS-POS-007           PIC  X(04)  VALUE "0007".
+         05  CNS-POS-008           PIC  X(04)  VALUE "0008".
+         05  CNS-POS-009           PIC  X(04)  VALUE "0009".
+         05  CNS-POS-010           PIC  X(04)  VALUE "0010".
+         05  CNS-POS-011           PIC  X(04)  VALUE "0011".
+         05  CNS-POS-012           PIC  X(04)  VALUE "0012".
+         05  CNS-POS-013           PIC  X(04)  VALUE "0013".
+      *----------  SQLCODE
+         05  CNS-SQL-NORMAL        PIC  S9(04)  COMP-3 VALUE +0000.
+         05  CNS-SQL-NOTFOUND      PIC  S9(04)  COMP-3 VALUE +1403.
+      ******************************************************************
+      *                ワ－ク  エリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  ワーク連番
+         05  WK-RENBAN             PIC  9(02).
+      *----------  ワーク番号
+         05  WK-BANGOU             PIC  X(02).
+      *----------  ワークファイル名
+         05  WK-FILE-MEI.
+      *----------  ワークDATファイル名
+           10  WK-DAT-FILE-MEI     PIC  X(128).
+      *----------  ワークENDファイル名
+           10  WK-END-FILE-MEI     PIC  X(128).
+      *----------  ワークデスティネーションファイル名
+           10  WK-DES-FILE-MEI     PIC  X(128).
+      *----------  デスティネーションファイル名から拡張子を取り除く
+         05  WK-DES-X              PIC  9(03).
+         05  WK-DES-Y              PIC  9(03).
+      *----------  TBL ID
+         05  WK-TBL-TKDYAA31       PIC  X(13).
+      *----------  SQL文字POINT
+         05  WK-SQL-POINTER        PIC  9(09)  COMP.
+      *----------  SQL条件
+         05  WK-SQL-MSG            PIC  X(1000).
+      *----------  利用会社コード
+         05  WK-RIYO-CMP-CD        PIC  X(04).
+      *----------  処理実行日
+         05  WK-SYORI-YMD          PIC  X(08).
+      *----------  起動ID
+         05  WK-KIDOU-ID           PIC  X(04).
+      ******************************************************************
+      *                      フラグエリア
+      ******************************************************************
+       01  FLAG-AREA.
+         05  FLG-FILE-OPEN         PIC  9(01).
+         05  FLG-CLOSE             PIC  9(01).
+         05  FLG-FETCH             PIC  9(01).
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  テーブルID取得ルーチン
+       01  PARM-SCZY1160-INOUT.
+           COPY  "SCZY1160.cpy".
+       01  PARM-SCZY1160-RTNPKG.
+         05  PARM-SCZY1160-ARG3.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *    SQL通信, ORACLE通信,ホスト変数定義 エリア
+      ******************************************************************
+           EXEC SQL INCLUDE  SQLCA             END-EXEC.
+           EXEC SQL BEGIN DECLARE  SECTION     END-EXEC.
+       01  DYNAMIC-SQL-LANGUAGE.
+         05  SQLSTMT               PIC  X(1000)  VARYING.
+       01  ORA-WORKING-ITEMS.
+      *----------  ORACLE接続
+         05  H-RIYO-CMP-CD         PIC  X(04).
+           EXEC SQL END  DECLARE   SECTION     END-EXEC.
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY7180-INOUT.
+           COPY "SCZY7180.cpy".
+      *----------  RTNパッケージ
+       01  PARM-SCZY7180-RTNPKG.
+         05  PARM-SCZY7180-ARG2.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY7180-INOUT
+                  PARM-SCZY7180-RTNPKG.
+      ******************************************************************
+      *    SCZY7180処理
+      ******************************************************************
+       SCZY7180-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SCZY7180転送制御ファイル作成ルーチン START"
+      *-----------------------------------------------------------------
+      *----------  前処理
+           PERFORM  INIT-RTN
+      *----------  主処理
+           PERFORM  MAIN-RTN
+      *----------  後処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SCZY7180転送制御ファイル作成ルーチン END"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY7180-EXT.
+           GOBACK.
+      ******************************************************************
+      *    前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****  前処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  ワークエリアの初期化
+           INITIALIZE               WORK-AREA
+                                    FTPFILE-REC
+                                    FILE-AREA
+                                    FLAG-AREA
+                                    DYNAMIC-SQL-LANGUAGE
+                                    ORA-WORKING-ITEMS
+                                    PARM-SCZY1160-INOUT
+                                    PARM-SCZY1160-RTNPKG
+                                    PARM-SCZY1170-INOUT
+                                    PARM-SCZY1170-RTNPKG
+                                    PARM-SCZY7180-RTNPKG
+           MOVE  '000'            TO   RTN-CD  OF  PARM-SCZY1170-ARG1
+      *----------------------------<DEBUG>------------------------------
+      D    DISPLAY  "WORK-AREA              =["WORK-AREA"]"
+      D    DISPLAY  "FTPFILE-REC            =["FTPFILE-REC"]"
+      D    DISPLAY  "FILE-AREA              =["FILE-AREA"]"
+      D    DISPLAY  "FLAG-AREA              =["FLAG-AREA"]"
+      D    DISPLAY  "DYNAMIC-SQL-LANGUAGE   =["DYNAMIC-SQL-LANGUAGE"]"
+      D    DISPLAY  "ORA-WORKING-ITEMS      =["ORA-WORKING-ITEMS"]"
+      D    DISPLAY  "PARM-SCZY1160-INOUT    =["PARM-SCZY1160-INOUT"]"
+      D    DISPLAY  "PARM-SCZY1160-RTNPKG   =["PARM-SCZY1160-RTNPKG"]"
+      D    DISPLAY  "PARM-SCZY1170-INOUT    =["PARM-SCZY1170-INOUT"]"
+      D    DISPLAY  "PARM-SCZY1170-RTNPKG   =["PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  "PARM-SCZY7180-RTNPKG   =["PARM-SCZY7180-RTNPKG"]"
+      *-----------------------------------------------------------------
+      *----------------------------<DEBUG>------------------------------
+      D    DISPLAY  "KYOTEN-KBN=["KYOTEN-KBN  OF  PARM-SCZY7180-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  引数判断処理
+           IF   (KYOTEN-KBN  OF  PARM-SCZY7180-ARG1  NOT = CNS-KBN-01)
+           AND  (KYOTEN-KBN  OF  PARM-SCZY7180-ARG1  NOT = CNS-KBN-02)
+           AND  (KYOTEN-KBN  OF  PARM-SCZY7180-ARG1  NOT = CNS-KBN-03)
+           THEN
+      *-------------------------DEBUG-----------------------------------
+      D        DISPLAY  "*****   パラメータエラー   *****"
+      *-----------------------------------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-001
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  "パラメータエラー"
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+           PERFORM  SCZY1160-RTN
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****  前処理   END   *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                 テーブルID取得処理
+      ******************************************************************
+       SCZY1160-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  SCZY1160処理  START  *****"
+      *-----------------------------------------------------------------
+      *---------- 利用会社コード
+           MOVE  RIYO-CMP-CD                 OF PARM-SCZY7180-ARG1
+             TO  RIYO-CMP-CD                 OF PARM-SCZY1160-ARG1
+      *---------- テーブルID
+           MOVE  CNS-TBL-TKDYAA31
+             TO  TBL-ID                      OF PARM-SCZY1160-ARG1(1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY1160-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY1160-ARG1"]"
+      D    DISPLAY  "TBL-ID                  OF PARM-SCZY1160-ARG1(1)=["
+      D              TBL-ID                  OF PARM-SCZY1160-ARG1(1)"]"
+      D    DISPLAY  "CALL テーブルID取得ルーチンSCZY1160 開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1160"
+           USING  PARM-SCZY1160-INOUT
+                  PARM-SCZY1160-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CALL テーブルID取得ルーチンSCZY1160 終了"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1160-RTNPKG=["
+      D              RTN-CD                  OF PARM-SCZY1160-RTNPKG
+      D                             (COUNTER OF PARM-SCZY1160-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD                        OF PARM-SCZY1160-RTNPKG
+                                    (COUNTER OF PARM-SCZY1160-RTNPKG)
+               <> CNS-RTN-000  THEN
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-006
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-901
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           ELSE
+             MOVE  HENSYUGO-TBL-ID           OF PARM-SCZY1160-ARG2(1)
+               TO  WK-TBL-TKDYAA31
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  SCZY1160処理  END  *****".
+      *-----------------------------------------------------------------
+       SCZY1160-EXT.
+           EXIT.
+      ******************************************************************
+      *    主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****   主処理  START   *****"
+      *-----------------------------------------------------------------
+      *----------  環境変数取得処理
+           PERFORM  GET-ENV-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****   転送制御ファイル作成  START   *****"
+      D    DISPLAY  "KYOTEN-KBN              OF PARM-SCZY7180-ARG1=["
+      D              KYOTEN-KBN              OF PARM-SCZY7180-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  転送制御ファイル作成
+           IF  KYOTEN-KBN               OF PARM-SCZY7180-ARG1
+               = CNS-KBN-02  THEN
+      *----------  GXサーバへ送信用中間制御ファイルの作成
+           PERFORM  MAK-FILE-RTN    VARYING  WK-RENBAN
+           FROM 1   BY  1
+           UNTIL  WK-RENBAN > SAIDAI-RBN   OF  PARM-SCZY7180-ARG1
+           ELSE
+      *----------  拠点サーバへ送信用中間制御ファイルの作成
+           PERFORM  KYOTEN-FILE-RTN
+           END-IF
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****   転送制御ファイル作成  END   *****"
+      D    DISPLAY  "*****   主処理   END    *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *    環境変数取得処理
+      ******************************************************************
+       GET-ENV-RTN            SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  環境変数取得処理  START  *****"
+      *-----------------------------------------------------------------
+           DISPLAY  "APL_TMP_DIR"  UPON  ENV-NAME
+           ACCEPT  FTP-PATH        FROM  ENV-VALUE  ON EXCEPTION
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "環境変数制御ファイルのパス取得できない."
+      *-----------------------------------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-002
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-910
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-ACCEPT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  環境変数取得処理  END  *****"
+      D    DISPLAY  "制御ファイルのパス      :["FTP-PATH"]"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       GET-ENV-EXT.
+           EXIT.
+      ******************************************************************
+      *   GXサーバへ送信用中間制御ファイルの作成
+      ******************************************************************
+       MAK-FILE-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-RENBAN     =["WK-RENBAN"]"
+      D    DISPLAY  "SAIDAI-RBN              OF PARM-SCZY7180-ARG1=["
+      D              SAIDAI-RBN              OF PARM-SCZY7180-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  伝送ファイル名を取得処理1
+           PERFORM  GET1-FILE-RTN
+      *----------  制御ファイルをオーペンする1
+           PERFORM  OPEN1-SEIGYO-RTN
+      *----------  制御ファイル出力1
+           PERFORM  WRITE1-SEIGYO-RTN
+      *----------  制御ファイルをクロースする1
+           PERFORM  CLOSE1-SEIGYO-RTN
+           CONTINUE.
+       MAK-FILE-EXT.
+           EXIT.
+      ******************************************************************
+      *   拠点サーバへ送信用中間制御ファイルの作成
+      ******************************************************************
+       KYOTEN-FILE-RTN        SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY "*** 拠点サーバへ送信用中間制御ファイル作成START ***"
+      *-----------------------------------------------------------------
+      *----------  ARG1.拠点サーバ区分 = '01'(拠点サーバ)、
+      *----------  '03'拠点サーバ(ZIPファイル)の場合、
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "KYOTEN-KBN  OF  PARM-SCZY7180-ARG1=["
+      D              KYOTEN-KBN  OF  PARM-SCZY7180-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  KYOTEN-KBN  OF  PARM-SCZY7180-ARG1 ="01"
+             OR  KYOTEN-KBN  OF  PARM-SCZY7180-ARG1 ="03"
+           THEN
+      *20121114 変更 テーマ3406 BEGIN
+      *----------  ＳＢＡポートＦ属性データ接続或いはＳＢＡ為替レート
+      *----------  データ接続或いはＳＢＡ銘柄属性（債券型）データ接続
+      *----------  の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "JIKOU-SYORI-ID  OF  PARM-SCZY7180-ARG1=["
+      D              JIKOU-SYORI-ID  OF  PARM-SCZY7180-ARG1"]"
+      *-----------------------------------------------------------------
+               IF  JIKOU-SYORI-ID  OF  PARM-SCZY7180-ARG1 = CNS-TSKID-PF
+                 OR  JIKOU-SYORI-ID  OF  PARM-SCZY7180-ARG1
+                     = CNS-TSKID-KWS
+                 OR  JIKOU-SYORI-ID  OF  PARM-SCZY7180-ARG1
+                     = CNS-SAYIKEN-SBA
+               THEN
+      *----------  伝送ファイル名を取得処理2
+                   PERFORM  GET2-FILE-RTN
+      *----------  制御ファイルをオーペンする2
+                   PERFORM  OPEN2-SEIGYO-RTN
+      *----------  制御ファイル出力2
+                   PERFORM  WRITE2-SEIGYO-RTN
+      *----------  制御ファイルをクロースする2
+                   PERFORM  CLOSE2-SEIGYO-RTN
+               ELSE
+      *----------  カーソルをオープンする
+                   PERFORM  CURSOR-OPEN-RTN
+      *----------  カーソルをフェッチする
+                   PERFORM  CURSOR-FETCH-RTN
+      *----------  カーソルをクロースする
+                   PERFORM  CURSOR-CLOSE-RTN
+               END-IF
+           ELSE
+               CONTINUE
+           END-IF
+      *20121114 変更 テーマ3406 END
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 拠点サーバへ送信用中間制御ファイル作成 END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       KYOTEN-FILE-EXT.
+           EXIT.
+      ******************************************************************
+      *    カーソル OPEN処理
+      ******************************************************************
+       CURSOR-OPEN-RTN        SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  カーソル OPEN処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE          WK-SQL-POINTER
+                               WK-SQL-MSG
+                               SQLSTMT
+           MOVE  1                           TO WK-SQL-POINTER
+           MOVE  RIYO-CMP-CD        OF PARM-SCZY7180-ARG1
+             TO  WK-RIYO-CMP-CD
+           MOVE  SYORI-YMD          OF PARM-SCZY7180-ARG1
+             TO  WK-SYORI-YMD
+           MOVE  KIDOU-ID           OF PARM-SCZY7180-ARG1
+             TO  WK-KIDOU-ID
+      *----------  ファンドコード,ポートフォリオコード
+           STRING  "SELECT RIYO_CMP_CD "
+      *----------  ポートフォリオ所属処理グループ
+                   "FROM "WK-TBL-TKDYAA31
+                   " WHERE RIYO_CMP_CD = :V1"
+                   " AND SYORI_YMD = :V2"
+                   " AND KIDOU_ID = :V3"
+                   " AND TSK_SCHE_KIDOU_ID <> ' ' "
+           DELIMITED BY SIZE INTO SQLSTMT-ARR
+           POINTER   WK-SQL-POINTER
+           MOVE      SQLSTMT-ARR     TO  WK-SQL-MSG
+           MOVE      WK-SQL-POINTER  TO  SQLSTMT-LEN
+      *----------  ＳＱＬ文 PREPARE
+           EXEC SQL
+               PREPARE S01  FROM :SQLSTMT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  NOT = 0  THEN
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-007
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-900
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-1
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  WK-SQL-MSG
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  カーソル DECLARE
+           EXEC SQL
+               DECLARE CR1 CURSOR  FOR S01
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(DECLARE)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+      *----------  カーソル OPEN
+           EXEC SQL
+               OPEN  CR1
+           USING  :WK-RIYO-CMP-CD,
+                  :WK-SYORI-YMD,
+                  :WK-KIDOU-ID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE  NOT = 0  THEN
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-008
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-900
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-1
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  WK-SQL-MSG
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "システムエラー(Oracle)"
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+             PERFORM  ERR-RTN
+           ELSE
+             MOVE  CNS-ON                    TO  FLG-CLOSE
+           END-IF.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  カーソル OPEN処理  END  *****".
+      *-----------------------------------------------------------------
+       CURSOR-OPEN-EXT.
+           EXIT.
+      ******************************************************************
+      *    カーソル FETCH処理
+      ******************************************************************
+       CURSOR-FETCH-RTN       SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  カーソル FETCH処理  START  *****"
+      D    DISPLAY  "FLG-FETCH =["FLG-FETCH"]"
+      *------------------------DEBUG------------------------------------
+           PERFORM  UNTIL  FLG-FETCH = CNS-ON
+      *----------  カーソル FETCH
+               EXEC SQL
+                   FETCH  CR1
+                    INTO :H-RIYO-CMP-CD
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(FETCH)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+               EVALUATE  SQLCODE
+                 WHEN  CNS-SQL-NORMAL
+      *----------  伝送ファイル名を取得処理2
+                   PERFORM  GET2-FILE-RTN
+      *----------  制御ファイルをオーペンする2
+                   PERFORM  OPEN2-SEIGYO-RTN
+      *----------  制御ファイル出力2
+                   PERFORM  WRITE2-SEIGYO-RTN
+      *----------  制御ファイルをクロースする2
+                   PERFORM  CLOSE2-SEIGYO-RTN
+                 WHEN  CNS-SQL-NOTFOUND
+      *----------  カーソルをオープンする
+                   MOVE  CNS-ON                 TO FLG-FETCH
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FETCH終了 FLG-FETCH =["FLG-FETCH"]"
+      *-----------------------------------------------------------------
+                 WHEN  OTHER
+      *----------  ERROR SET
+                   MOVE  CNS-PGM-ID
+                     TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+                   MOVE  CNS-POS-009
+                     TO  ERR-POS            OF PARM-SCZY1170-ARG1
+                   MOVE  CNS-RTN-900
+                     TO  RTN-CD             OF PARM-SCZY1170-ARG1
+                   MOVE  SQLCODE
+                     TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+                   MOVE  CNS-DETAIL-FLG-1
+                     TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+                   MOVE  WK-SQL-MSG
+                     TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+                   PERFORM  ERR-RTN
+               END-EVALUATE
+           END-PERFORM.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カーソル FETCH処理  END  *****".
+      *-----------------------------------------------------------------
+       CURSOR-FETCH-EXT.
+           EXIT.
+      ******************************************************************
+      *    カーソル CLOSE処理
+      ******************************************************************
+       CURSOR-CLOSE-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カーソル CLOSE処理  START  *****"
+      *-----------------------------------------------------------------
+           IF  FLG-CLOSE = CNS-ON
+           THEN
+             EXEC SQL
+                 CLOSE CR1
+             END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE)=["SQLCODE"]"
+      *-----------------------------------------------------------------
+             IF  SQLCODE  NOT = CNS-SQL-NORMAL
+             THEN
+      *----------  ERROR SET
+                   MOVE  CNS-PGM-ID
+                     TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+                   MOVE  CNS-POS-010
+                     TO  ERR-POS            OF PARM-SCZY1170-ARG1
+                   MOVE  CNS-RTN-900
+                     TO  RTN-CD             OF PARM-SCZY1170-ARG1
+                   MOVE  SQLCODE
+                     TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+                   MOVE  CNS-DETAIL-FLG-1
+                     TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+                   MOVE  WK-SQL-MSG
+                     TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+             ELSE
+               MOVE  CNS-OFF                   TO FLG-CLOSE
+             END-IF
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  カーソル CLOSE処理  END  *****".
+      *-----------------------------------------------------------------
+       CURSOR-CLOSE-EXT.
+           EXIT.
+      ******************************************************************
+      *   伝送ファイル名を取得処理1
+      ******************************************************************
+       GET1-FILE-RTN          SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  伝送ファイル名を取得処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE               WK-FILE-MEI
+           MOVE  WK-RENBAN              TO  WK-BANGOU
+      *----------------------------<DEBUG>------------------------------
+      D    DISPLAY  "WK-FILE-MEI              =["WK-FILE-MEI"]"
+      D    DISPLAY  "WK-BANGOU                =["WK-BANGOU"]"
+      *-----------------------------------------------------------------
+      *----------  伝送ファイル名を取得処理
+           IF  DES-FILE-MEI             OF PARM-SCZY7180-ARG1
+               = SPACE  THEN
+                 STRING  "RX",
+                         RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                         "_",
+                         SYORI-YMD,
+                         "_",
+                         KIDOU-ID,
+                         "_",
+                         JIKOU-SYORI-ID,
+                         "_",
+                         WK-BANGOU,
+                         ".gz"
+                         DELIMITED BY SPACE
+                         INTO  WK-DAT-FILE-MEI
+      *----WK-DAT-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY7180-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "SYORI-YMD               OF PARM-SCZY7180-ARG1=["
+      D              SYORI-YMD               OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "KIDOU-ID                OF PARM-SCZY7180-ARG1=["
+      D              KIDOU-ID                OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1=["
+      D              JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "WK-BANGOU        =       ["WK-BANGOU"]"
+      D    DISPLAY  "WK-DAT-FILE-MEI  =       ["WK-DAT-FILE-MEI"]"
+      *-----------------------------------------------------------------
+               STRING  "RX",
+                       RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                       "_",
+                       SYORI-YMD,
+                       "_",
+                       KIDOU-ID,
+                       "_",
+                       JIKOU-SYORI-ID,
+                       "_",
+                       WK-BANGOU,
+                       ".ctl"
+                       DELIMITED BY SPACE
+                       INTO  WK-END-FILE-MEI
+      *----WK-END-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY7180-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "SYORI-YMD               OF PARM-SCZY7180-ARG1=["
+      D              SYORI-YMD               OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "KIDOU-ID                OF PARM-SCZY7180-ARG1=["
+      D              KIDOU-ID                OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1=["
+      D              JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "WK-BANGOU        =       ["WK-BANGOU"]"
+      D    DISPLAY  "WK-END-FILE-MEI  =       ["WK-END-FILE-MEI"]"
+      *-----------------------------------------------------------------
+      *----------  デスティネーションファイル名から拡張子を取り除く
+           ELSE
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  拡張子を取り除く処理  START  *****"
+      *-----------------------------------------------------------------
+             MOVE  DES-FILE-MEI           TO  WK-DES-FILE-MEI
+               PERFORM  DES-FILE-RTN     VARYING  WK-DES-X
+               FROM 1   BY  1
+               UNTIL  WK-DES-X > 128
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "WK-DES-FILE-MEI  =       ["WK-DES-FILE-MEI"]"
+      D    DISPLAY  "*****  拡張子を取り除く処理  END  *****"
+      *-----------------------------------------------------------------
+                 STRING  WK-DES-FILE-MEI,
+                         "_",
+                         WK-BANGOU,
+                         ".gz"
+                         DELIMITED BY SPACE
+                         INTO  WK-DAT-FILE-MEI
+      *----WK-DAT-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "WK-DES-FILE-MEI  =       ["WK-DES-FILE-MEI"]"
+      D    DISPLAY  "WK-BANGOU        =       ["WK-BANGOU"]"
+      D    DISPLAY  "WK-DAT-FILE-MEI  =       ["WK-DAT-FILE-MEI"]"
+      *-----------------------------------------------------------------
+                 STRING  WK-DES-FILE-MEI,
+                         "_",
+                         WK-BANGOU,
+                         ".ctl"
+                         DELIMITED BY SPACE
+                         INTO  WK-END-FILE-MEI
+      *----WK-END-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "WK-DES-FILE-MEI  =       ["WK-DES-FILE-MEI"]"
+      D    DISPLAY  "WK-BANGOU        =       ["WK-BANGOU"]"
+      D    DISPLAY  "WK-END-FILE-MEI  =       ["WK-END-FILE-MEI"]"
+      *-----------------------------------------------------------------
+           END-IF
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  伝送ファイル名を取得処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       GET1-FILE-EXT.
+           EXIT.
+      ******************************************************************
+      *   伝送ファイル名を取得処理2
+      ******************************************************************
+       GET2-FILE-RTN          SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  伝送ファイル名を取得処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  伝送ファイル名を取得処理
+            INITIALIZE                  WK-FILE-MEI
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "WK-FILE-MEI =[" WK-FILE-MEI "]"
+      D    DISPLAY  "デスティネーションファイル名=["
+      D             DES-FILE-MEI OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY "拠点サーバ区分=["KYOTEN-KBN OF PARM-SCZY7180-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  DES-FILE-MEI             OF PARM-SCZY7180-ARG1
+               = SPACE  THEN
+             EVALUATE  KYOTEN-KBN       OF PARM-SCZY7180-ARG1
+               WHEN  "01"
+                 STRING  RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                         "_",
+                         SYORI-YMD,
+                         "_",
+                         KIDOU-ID,
+                         "_",
+                         JIKOU-SYORI-ID,
+                         ".tsv"
+                         DELIMITED BY SPACE
+                         INTO  WK-DAT-FILE-MEI
+      *----WK-DAT-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY7180-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "SYORI-YMD               OF PARM-SCZY7180-ARG1=["
+      D              SYORI-YMD               OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "KIDOU-ID                OF PARM-SCZY7180-ARG1=["
+      D              KIDOU-ID                OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1=["
+      D              JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "WK-DAT-FILE-MEI  =       ["WK-DAT-FILE-MEI"]"
+      *-----------------------------------------------------------------
+                 STRING  RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                       "_",
+                       SYORI-YMD,
+                       "_",
+                       KIDOU-ID,
+                       "_",
+                       JIKOU-SYORI-ID,
+                       ".ctl"
+                       DELIMITED BY SPACE
+                       INTO  WK-END-FILE-MEI
+      *----WK-DAT-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY7180-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "SYORI-YMD               OF PARM-SCZY7180-ARG1=["
+      D              SYORI-YMD               OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "KIDOU-ID                OF PARM-SCZY7180-ARG1=["
+      D              KIDOU-ID                OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1=["
+      D              JIKOU-SYORI-ID          OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "WK-END-FILE-MEI  =       ["WK-END-FILE-MEI"]"
+      *-----------------------------------------------------------------
+               WHEN  "03"
+                 STRING  RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                         "_",
+                         SYORI-YMD,
+                         "_",
+                         KIDOU-ID,
+                         ".zip"
+                         DELIMITED BY SPACE
+                         INTO  WK-DAT-FILE-MEI
+      *----WK-DAT-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY7180-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "SYORI-YMD               OF PARM-SCZY7180-ARG1=["
+      D              SYORI-YMD               OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "KIDOU-ID                OF PARM-SCZY7180-ARG1=["
+      D              KIDOU-ID                OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "WK-DAT-FILE-MEI  =       ["WK-DAT-FILE-MEI"]"
+      *-----------------------------------------------------------------
+                 STRING  RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                       "_",
+                       SYORI-YMD,
+                       "_",
+                       KIDOU-ID,
+                       ".ctl"
+                       DELIMITED BY SPACE
+                       INTO  WK-END-FILE-MEI
+      *----WK-END-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD             OF PARM-SCZY7180-ARG1=["
+      D              RIYO-CMP-CD             OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "SYORI-YMD               OF PARM-SCZY7180-ARG1=["
+      D              SYORI-YMD               OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "KIDOU-ID                OF PARM-SCZY7180-ARG1=["
+      D              KIDOU-ID                OF PARM-SCZY7180-ARG1"]"
+      D    DISPLAY  "WK-END-FILE-MEI  =       ["WK-END-FILE-MEI"]"
+      *-----------------------------------------------------------------
+               WHEN  OTHER
+                 CONTINUE
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "処理を続く"
+      *-----------------------------------------------------------------
+               END-EVALUATE
+      *----------  デスティネーションファイル名から拡張子を取り除く
+           ELSE
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  拡張子を取り除く処理  START  *****"
+      *-----------------------------------------------------------------
+             MOVE  DES-FILE-MEI           TO  WK-DES-FILE-MEI
+               PERFORM  DES-FILE-RTN     VARYING  WK-DES-X
+               FROM 1   BY  1
+               UNTIL  WK-DES-X > 128
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "WK-DES-FILE-MEI  =       ["WK-DES-FILE-MEI"]"
+      D    DISPLAY  "*****  拡張子を取り除く処理  END  *****"
+      *-----------------------------------------------------------------
+                 STRING  DES-FILE-MEI
+                         DELIMITED BY SPACE
+                         INTO  WK-DAT-FILE-MEI
+      *----WK-DAT-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "WK-DES-FILE-MEI  =       ["WK-DES-FILE-MEI"]"
+      D    DISPLAY  "WK-DAT-FILE-MEI  =       ["WK-DAT-FILE-MEI"]"
+      *-----------------------------------------------------------------
+                 STRING  WK-DES-FILE-MEI,
+                         ".ctl"
+                         DELIMITED BY SPACE
+                         INTO  WK-END-FILE-MEI
+      *----WK-END-FILE-MEI--<DEBUG>-------------------------------------
+      D    DISPLAY  "WK-DES-FILE-MEI  =       ["WK-DES-FILE-MEI"]"
+      D    DISPLAY  "WK-END-FILE-MEI  =       ["WK-END-FILE-MEI"]"
+      *-----------------------------------------------------------------
+           END-IF
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  伝送ファイル名を取得処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       GET2-FILE-EXT.
+           EXIT.
+      ******************************************************************
+      *    デスティネーションファイル名から拡張子を取り除く
+      ******************************************************************
+       DES-FILE-RTN           SECTION.
+           IF  WK-DES-FILE-MEI(WK-DES-X:1) = "."  THEN
+           COMPUTE  WK-DES-Y = WK-DES-X - 1
+           MOVE  WK-DES-FILE-MEI(1:WK-DES-Y)  TO  WK-DES-FILE-MEI
+           END-IF
+           CONTINUE.
+       DES-FILE-EXT.
+           EXIT.
+      ******************************************************************
+      *               制御ファイルをオープンする1
+      ******************************************************************
+       OPEN1-SEIGYO-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをオープンする START ***"
+      *-----------------------------------------------------------------
+           STRING  FTP-PATH,
+                   "/",
+                   RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                   "_",
+                   SYORI-YMD,
+                   "_",
+                   KIDOU-ID,
+                   "_",
+                   CNS-PGM-ID,
+                   "_",
+                   WK-BANGOU,
+                   ".cnt"
+                   DELIMITED BY SPACE
+                   INTO  FTPFILENAME
+           OPEN OUTPUT FTP-FILE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FTPFILENAME=["FTPFILENAME"]"
+      D    DISPLAY  "ST-FTPFILE(OPEN)=["ST-FTPFILE"]"
+      *-----------------------------------------------------------------
+           IF  ST-FTPFILE = "00"
+           THEN
+               MOVE    CNS-ON          TO  FLG-FILE-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FLG-FILE-OPEN=["FLG-FILE-OPEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "制御ファイルをオーペンする エラー"
+      *-----------------------------------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-003
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-200
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  ST-FTPFILE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  FTPFILENAME
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをオープンする END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       OPEN1-SEIGYO-EXT.
+           EXIT.
+      ******************************************************************
+      *               制御ファイルをオープンする2
+      ******************************************************************
+       OPEN2-SEIGYO-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをオープンする START ***"
+      *-----------------------------------------------------------------
+           STRING  FTP-PATH,
+                   "/",
+                   RIYO-CMP-CD OF PARM-SCZY7180-ARG1,
+                   "_",
+                   SYORI-YMD,
+                   "_",
+                   KIDOU-ID,
+                   "_",
+                   CNS-PGM-ID,
+                   "_",
+                   "01",
+                   ".cnt"
+                   DELIMITED BY SPACE
+                   INTO  FTPFILENAME
+           OPEN OUTPUT FTP-FILE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FTPFILENAME=["FTPFILENAME"]"
+      D    DISPLAY  "ST-FTPFILE(OPEN)=["ST-FTPFILE"]"
+      *-----------------------------------------------------------------
+           IF  ST-FTPFILE = "00"
+           THEN
+               MOVE    CNS-ON          TO  FLG-FILE-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FLG-FILE-OPEN=["FLG-FILE-OPEN"]"
+      *-----------------------------------------------------------------
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "制御ファイルをオーペンする エラー"
+      *-----------------------------------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-011
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-200
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  ST-FTPFILE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  FTPFILENAME
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをオープンする END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       OPEN2-SEIGYO-EXT.
+           EXIT.
+      ******************************************************************
+      *               制御ファイルを出力処理1
+      ******************************************************************
+       WRITE1-SEIGYO-RTN      SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  制御ファイル出力処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE   FTPFILE-REC
+      *----------  一行めの＜デスティネーションファイル名＞
+           STRING  " , , ,",
+                  WK-DAT-FILE-MEI
+               DELIMITED BY SIZE
+               INTO  FTPFILE-DATA        OF  FTPFILE-REC
+           WRITE  FTPFILE-REC
+      *----------  二行めの＜デスティネーションファイル名＞
+           STRING  " , , ,",
+                  WK-END-FILE-MEI
+               DELIMITED BY SIZE
+               INTO  FTPFILE-DATA        OF  FTPFILE-REC
+           WRITE  FTPFILE-REC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-FTPFILE(WRITE)=["ST-FTPFILE"]"
+      *-----------------------------------------------------------------
+           IF  ST-FTPFILE  NOT = "00"
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "制御ファイルをWRITE エラー"
+      *-----------------------------------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-004
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-220
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  ST-FTPFILE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  FTPFILENAME
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  制御ファイル出力処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       WRITE1-SEIGYO-EXT.
+           EXIT.
+      ******************************************************************
+      *               制御ファイルを出力処理2
+      ******************************************************************
+       WRITE2-SEIGYO-RTN      SECTION.
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  制御ファイル出力処理  START  *****"
+      *-----------------------------------------------------------------
+           INITIALIZE   FTPFILE-REC
+      *----------  一行めの＜デスティネーションファイル名＞
+           STRING  " , , ,",
+                  WK-DAT-FILE-MEI
+               DELIMITED BY SIZE
+               INTO  FTPFILE-DATA        OF  FTPFILE-REC
+           WRITE  FTPFILE-REC
+      *----------  二行めの＜デスティネーションファイル名＞
+           STRING  " , , ,",
+                  WK-END-FILE-MEI
+               DELIMITED BY SIZE
+               INTO  FTPFILE-DATA        OF  FTPFILE-REC
+           WRITE  FTPFILE-REC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-FTPFILE(WRITE)=["ST-FTPFILE"]"
+      *-----------------------------------------------------------------
+           IF  ST-FTPFILE  NOT = "00"
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "制御ファイルをWRITE エラー"
+      *-----------------------------------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-012
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-220
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  ST-FTPFILE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  FTPFILENAME
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+               PERFORM  ERR-RTN
+           END-IF
+      *------------------------DEBUG------------------------------------
+      D    DISPLAY  "*****  制御ファイル出力処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       WRITE2-SEIGYO-EXT.
+           EXIT.
+      ******************************************************************
+      *               制御ファイルをクロースする1
+      ******************************************************************
+       CLOSE1-SEIGYO-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをクロースする START ***"
+      D    DISPLAY  "FLG-FILE-OPEN=["FLG-FILE-OPEN"]"
+      *-----------------------------------------------------------------
+           IF  FLG-FILE-OPEN  = CNS-ON
+           THEN
+               CLOSE  FTP-FILE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-FTPFILE(CLOSE)=["ST-FTPFILE"]"
+      *-----------------------------------------------------------------
+               IF  ST-FTPFILE = "00"
+               THEN
+                   MOVE  CNS-OFF            TO  FLG-FILE-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FLG-FILE-OPEN=["FLG-FILE-OPEN"]"
+      *-----------------------------------------------------------------
+               ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "制御ファイルをクロースする エラー"
+      *-------------------<DEBUG>---------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-005
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-230
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  ST-FTPFILE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  FTPFILENAME
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+               END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをクロースする END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CLOSE1-SEIGYO-EXT.
+           EXIT.
+      ******************************************************************
+      *               制御ファイルをクロースする2
+      ******************************************************************
+       CLOSE2-SEIGYO-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをクロースする START ***"
+      D    DISPLAY  "FLG-FILE-OPEN=["FLG-FILE-OPEN"]"
+      *-----------------------------------------------------------------
+           IF  FLG-FILE-OPEN  = CNS-ON
+           THEN
+               CLOSE  FTP-FILE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ST-FTPFILE(CLOSE)=["ST-FTPFILE"]"
+      *-----------------------------------------------------------------
+               IF  ST-FTPFILE = "00"
+               THEN
+                   MOVE  CNS-OFF            TO  FLG-FILE-OPEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FLG-FILE-OPEN=["FLG-FILE-OPEN"]"
+      *-----------------------------------------------------------------
+               ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "制御ファイルをクロースする エラー"
+      *-------------------<DEBUG>---------------------------------------
+      *----------  ERROR SET
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID         OF PARM-SCZY1170-ARG1
+               MOVE  CNS-POS-013
+                 TO  ERR-POS            OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RTN-230
+                 TO  RTN-CD             OF PARM-SCZY1170-ARG1
+               MOVE  ST-FTPFILE
+                 TO  DETAIL-RTN-CD      OF PARM-SCZY1170-ARG1
+               MOVE  CNS-DETAIL-FLG-0
+                 TO  DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1
+               MOVE  FTPFILENAME
+                 TO  FREE-MSG           OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID              OF PARM-SCZY1170-ARG1=["
+      D              ERR-PGM-ID              OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF PARM-SCZY1170-ARG1=["
+      D              ERR-POS                 OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD           OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1=["
+      D              DETAIL-RTN-CD-FLG       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF PARM-SCZY1170-ARG1=["
+      D              FREE-MSG                OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+                   PERFORM  ERR-RTN
+               END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*** 制御ファイルをクロースする END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       CLOSE2-SEIGYO-EXT.
+           EXIT.
+      ******************************************************************
+      *    後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****  後処理  START  *****"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RTN-000
+             TO  RTN-CD                      OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD                  OF PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *-----------------------------------------------------------------
+      D    DISPLAY  "CALL SCZY1170リターンパッケージセットルーチン 開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"
+           USING  PARM-SCZY1170-INOUT
+                  PARM-SCZY1170-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CALL SCZY1170リターンパッケージセットルーチン 終了"
+      *-----------------------------------------------------------------
+           MOVE   PARM-SCZY1170-ARG2         TO  PARM-SCZY7180-ARG2
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "PARM-SCZY7180-ARG2  =  ["PARM-SCZY7180-ARG2"]"
+      D    DISPLAY  "*****  後処理   END   *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *    エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "*****  エラー処理   START   *****"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"
+           USING  PARM-SCZY1170-INOUT
+                  PARM-SCZY1170-RTNPKG
+           MOVE   PARM-SCZY1170-ARG2         TO  PARM-SCZY7180-ARG2
+      *-------------------------DEBUG-----------------------------------
+      D    DISPLAY  "PARM-SCZY7180-ARG2  =  ["PARM-SCZY7180-ARG2"]"
+      D    DISPLAY  "*****  エラー処理   END   *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************

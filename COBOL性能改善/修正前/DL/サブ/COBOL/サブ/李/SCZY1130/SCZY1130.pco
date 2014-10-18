@@ -1,0 +1,2058 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラム名称 : 利用権限チェックルーチン
+      *     処理概要       : 利用権限チェックルーチン
+      *     参照ＤＢ       : 業務グループマスタ(TOC0SE31)
+      *                    : メニュー所属業務グループ(TOC0SE32)
+      *                    : ユーザー会社利用メニューマスタ(TOC0SE21)
+      *                    : ユーザー会社利用アップロードマスタ(TOC0DA24)
+      *                    : 帳票所属業務グループ(TOC0SE33)
+      *                    : ユーザー会社利用帳票マスタ(TOC0DA26)
+      *                    : 業務タスク所属業務グループ(TOC0SE34)
+      *                    : ユーザー会社利用業務タスクマスタ(TOC0DA22)
+      *                    : メニューマスタ(TOC0SE20)
+      *                    : 業務タスクマスタ(TOC0DA21)
+      *                    : 帳票マスタ(TOC0DA25)
+      *                    : アップロードマスタ(TOC0DA23)
+      *                    : ポートフォリオ所属業務グループマスタ(TOC0SE36)
+      *                    : ユーザー会社利用ポートフォリオ(TOC0SE22)
+      *     引数           : IN  業務グループコード
+      *                    : IN  利用会社コード
+      *                    : IN  ログインユーザー会社コード
+      *                    : IN  メニューID
+      *                    : IN  実行処理ID
+      *                    : IN  ファンドコード
+      *                    : IN  ポートフォリオコード
+      *                    : IN  予備
+      *                    : OUT RTNパッケージ
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20070828   新規  SCS        邱喆    新規作成
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY1130.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  07-08-28.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      * SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                 コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE "SCZY1130".
+         05  CNS-RET-CD-NORMAL     PIC  X(03)  VALUE "000".
+         05  CNS-RET-CD-PARM-ERR   PIC  X(03)  VALUE "800".
+         05  CNS-RET-CD-DATA-NASI  PIC  X(03)  VALUE "110".
+         05  CNS-RET-CD-DB-ERR     PIC  X(03)  VALUE "900".
+         05  CNS-RET-CD-KGEN-NASI  PIC  X(03)  VALUE "130".
+         05  CNS-RET-CD-SYSERR     PIC  X(03)  VALUE "901".
+         05  CNS-ERR-01            PIC  X(03)  VALUE "E01".
+         05  CNS-ERR-02            PIC  X(03)  VALUE "E02".
+         05  CNS-ERR-03            PIC  X(03)  VALUE "E03".
+         05  CNS-ERR-04            PIC  X(03)  VALUE "E04".
+         05  CNS-ERR-05            PIC  X(03)  VALUE "E05".
+         05  CNS-1                 PIC  X(01)  VALUE "1".
+         05  CNS-0                 PIC  X(01)  VALUE "0".
+         05  CNS-GYOMU-TASK        PIC  X(01)  VALUE "T".
+         05  CNS-REP               PIC  X(01)  VALUE "P".
+         05  CNS-UPLOAD            PIC  X(01)  VALUE "U".
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+         05  WK-ERR-ID             PIC  X(03).
+         05  WK-POS                PIC  X(04).
+      *----------  SEL-WHERE-TSC0SE20
+         05  SEL-WHERE-TSC0SE20.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  メニューID ＝ ARG1．メニューID
+           10  FILLER              PIC  X(10)
+             VALUE  "MENU_ID = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  MENU-ID             PIC  X(06).
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+      *
+      *----------  SEL-WHERE-TSC0DA21
+         05  SEL-WHERE-TSC0DA21.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  業務タスクID ＝ ARG1．実行処理ID
+           10  FILLER              PIC  X(16)
+             VALUE  "GYOMU_TASK_ID = ".
+           10  FILLER              PIC  X(06)
+             VALUE  "TRIM('".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(02)
+             VALUE  "')".
+      *
+      *----------  SEL-WHERE-TSC0DA25
+         05  SEL-WHERE-TSC0DA25.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  帳票ID ＝ ARG1．実行処理ID
+           10  FILLER              PIC  X(09)
+             VALUE  "REP_ID = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+      *
+      *----------  SEL-WHERE-TSC0DA23
+         05  SEL-WHERE-TSC0DA23.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  アップロードID ＝ ARG1．実行処理ID
+           10  FILLER              PIC  X(12)
+             VALUE  "UPLOAD_ID = ".
+           10  FILLER              PIC  X(06)
+             VALUE  "TRIM('".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(02)
+             VALUE  "')".
+      *
+      *----------  SEL-WHERE-TSC0SE31
+         05  SEL-WHERE-TSC0SE31.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務グループコード ＝ ARG1．業務グループコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(15)
+             VALUE  "GYOMU_GRP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  GYOMU-GRP-CD        PIC  X(10).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  削除取消区分    ＝ "0"（正常）
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(18)
+             VALUE  "DEL_TKS_KBN = '0' ".
+      *
+      *----------  SEL-WHERE-TSC0SE32
+         05  SEL-WHERE-TSC0SE32.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務グループコード ＝ ARG1．業務グループコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(15)
+             VALUE  "GYOMU_GRP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  GYOMU-GRP-CD        PIC  X(10).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  メニューID     ＝ ARG1．メニューID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(10)
+             VALUE  "MENU_ID = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  MENU-ID             PIC  X(06).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  削除取消区分    ＝ "0"（正常）
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(18)
+             VALUE  "DEL_TKS_KBN = '0' ".
+      *
+      *----------  SEL-WHERE-TSC0SE21
+         05  SEL-WHERE-TSC0SE21.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  利用会社コード      ＝ ARG1．利用会社コード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(14)
+             VALUE  "RIYO_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  RIYO-CMP-CD         PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  メニューID     ＝ ARG1．メニューID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(10)
+             VALUE  "MENU_ID = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  MENU-ID             PIC  X(06).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *
+      *----------  SEL-WHERE-TSC0SE34
+         05  SEL-WHERE-TSC0SE34.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務グループコード ＝ ARG1．業務グループコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(15)
+             VALUE  "GYOMU_GRP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  GYOMU-GRP-CD        PIC  X(10).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務タスクID    ＝ ARG1．業務タスクID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(16)
+             VALUE  "GYOMU_TASK_ID = ".
+           10  FILLER              PIC  X(06)
+             VALUE  "TRIM('".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(03)
+             VALUE  "') ".
+      *----------  削除取消区分    ＝ "0"（正常）
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(18)
+             VALUE  "DEL_TKS_KBN = '0' ".
+      *
+      *----------  SEL-WHERE-TSC0DA22
+         05  SEL-WHERE-TSC0DA22.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  利用会社コード      ＝ ARG1．利用会社コード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(14)
+             VALUE  "RIYO_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  RIYO-CMP-CD         PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務タスクID      ＝ ARG1．業務タスクID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(16)
+             VALUE  "GYOMU_TASK_ID = ".
+           10  FILLER              PIC  X(06)
+             VALUE  "TRIM('".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(03)
+             VALUE  "') ".
+      *
+      *----------  SEL-WHERE-TSC0SE33
+         05  SEL-WHERE-TSC0SE33.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務グループコード ＝ ARG1．業務グループコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(15)
+             VALUE  "GYOMU_GRP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  GYOMU-GRP-CD        PIC  X(10).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  帳票ID       ＝ ARG1．帳票ID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(09)
+             VALUE  "REP_ID = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  削除取消区分    ＝ "0"（正常）
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(18)
+             VALUE  "DEL_TKS_KBN = '0' ".
+      *
+      *----------  SEL-WHERE-TSC0DA26
+         05  SEL-WHERE-TSC0DA26.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  利用会社コード      ＝ ARG1．利用会社コード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(14)
+             VALUE  "RIYO_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  RIYO-CMP-CD         PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  帳票ID       ＝ ARG1．帳票ID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(09)
+             VALUE  "REP_ID = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *
+      *----------  SEL-WHERE-TSC0DA24
+         05  SEL-WHERE-TSC0DA24.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  利用会社コード      ＝ ARG1．利用会社コード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(14)
+             VALUE  "RIYO_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  RIYO-CMP-CD         PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  アップロードID ＝ ARG1．アップロードID
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(12)
+             VALUE  "UPLOAD_ID = ".
+           10  FILLER              PIC  X(06)
+             VALUE  "TRIM('".
+           10  JIKOU-SYORI-ID      PIC  X(08).
+           10  FILLER              PIC  X(03)
+             VALUE  "') ".
+      *
+      *----------  SEL-WHERE-TSC0SE36
+         05  SEL-WHERE-TSC0SE36.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  業務グループコード = ARG1．業務グループコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(15)
+             VALUE  "GYOMU_GRP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  GYOMU-GRP-CD        PIC  X(10).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  ファンドコード = ARG1．ファンドコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(10)
+             VALUE  "FUND_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  FUND-CD             PIC  X(12).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  ポートフォリオコード = ARG1．ポートフォリオコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(09)
+             VALUE  "PTF_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  PTF-CD              PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  削除取消区分 = "0"（正常）
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(17)
+             VALUE  "DEL_TKS_KBN = '0'".
+      *
+      *----------  SEL-WHERE-TSC0SE22
+         05  SEL-WHERE-TSC0SE22.
+      *----------  WHERE
+           10  FILLER              PIC  X(06)
+             VALUE  "WHERE ".
+      *----------  ログインユーザ会社コード ＝ ARG1．ログインユーザ会社コード
+           10  FILLER              PIC  X(15)
+             VALUE  "LOGIN_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  LOGIN-CMP-CD        PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  利用会社コード      ＝ ARG1．利用会社コード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(14)
+             VALUE  "RIYO_CMP_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  RIYO-CMP-CD         PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  ファンドコード = ARG1．ファンドコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(10)
+             VALUE  "FUND_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  FUND-CD             PIC  X(12).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *----------  ポートフォリオコード = ARG1．ポートフォリオコード
+           10  FILLER              PIC  X(04)
+             VALUE  "AND ".
+           10  FILLER              PIC  X(09)
+             VALUE  "PTF_CD = ".
+           10  FILLER              PIC  X(01)
+             VALUE  "'".
+           10  PTF-CD              PIC  X(04).
+           10  FILLER              PIC  X(02)
+             VALUE  "' ".
+      *
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  メニューマスタ(TOC0SE20)アクセスルーチン(SELECT)
+       01  PARM-TSC0SE20-INOUT.
+         05  PARM-TSC0SE20-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE20-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE20.cpy".
+       01  PARM-TSC0SE20-RTNPKG.
+         05  PARM-TSC0SE20-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  業務タスクマスタ（TOC0DA21）アクセスルーチン(SELECT)
+       01  PARM-TSC0DA21-INOUT.
+         05  PARM-TSC0DA21-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0DA21-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0DA21.cpy".
+       01  PARM-TSC0DA21-RTNPKG.
+         05  PARM-TSC0DA21-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  帳票マスタ（TOC0DA25）アクセスルーチン(SELECT)
+       01  PARM-TSC0DA25-INOUT.
+         05  PARM-TSC0DA25-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0DA25-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0DA25.cpy".
+       01  PARM-TSC0DA25-RTNPKG.
+         05  PARM-TSC0DA25-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  アップロードマスタ（TOC0DA23）アクセスルーチン(SELECT)
+       01  PARM-TSC0DA23-INOUT.
+         05  PARM-TSC0DA23-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0DA23-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0DA23.cpy".
+       01  PARM-TSC0DA23-RTNPKG.
+         05  PARM-TSC0DA23-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  業務グループマスタ（TOC0SE31）アクセスルーチン(SELECT)
+       01  PARM-TSC0SE31-INOUT.
+         05  PARM-TSC0SE31-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE31-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE31.cpy".
+       01  PARM-TSC0SE31-RTNPKG.
+         05  PARM-TSC0SE31-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  メニュー所属業務グループ（TOC0SE32）アクセスルーチン(SELECT)
+       01  PARM-TSC0SE32-INOUT.
+         05  PARM-TSC0SE32-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE32-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE32.cpy".
+       01  PARM-TSC0SE32-RTNPKG.
+         05  PARM-TSC0SE32-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  ユーザー会社利用メニューマスタ（TOC0SE21）アクセスルーチン(SELECT)
+       01  PARM-TSC0SE21-INOUT.
+         05  PARM-TSC0SE21-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE21-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE21.cpy".
+       01  PARM-TSC0SE21-RTNPKG.
+         05  PARM-TSC0SE21-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  業務タスク所属業務グループ（TOC0SE34）アクセスルーチン(SELECT)
+       01  PARM-TSC0SE34-INOUT.
+         05  PARM-TSC0SE34-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE34-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE34.cpy".
+       01  PARM-TSC0SE34-RTNPKG.
+         05  PARM-TSC0SE34-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  ユーザー会社利用業務タスクマスタ（TOC0DA22）アクセスルーチン(SELECT)
+       01  PARM-TSC0DA22-INOUT.
+         05  PARM-TSC0DA22-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0DA22-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0DA22.cpy".
+       01  PARM-TSC0DA22-RTNPKG.
+         05  PARM-TSC0DA22-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  帳票所属業務グループ（TOC0SE33）アクセスルーチン(SELECT)
+       01  PARM-TSC0SE33-INOUT.
+         05  PARM-TSC0SE33-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE33-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE33.cpy".
+       01  PARM-TSC0SE33-RTNPKG.
+         05  PARM-TSC0SE33-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  ユーザー会社利用帳票マスタ（TOC0DA26）アクセスルーチン(SELECT)
+       01  PARM-TSC0DA26-INOUT.
+         05  PARM-TSC0DA26-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0DA26-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0DA26.cpy".
+       01  PARM-TSC0DA26-RTNPKG.
+         05  PARM-TSC0DA26-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  ユーザー会社利用アップロードマスタ（TOC0DA24）アクセスルーチン(SELECT)
+       01  PARM-TSC0DA24-INOUT.
+         05  PARM-TSC0DA24-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0DA24-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0DA24.cpy".
+       01  PARM-TSC0DA24-RTNPKG.
+         05  PARM-TSC0DA24-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  ポートフォリオ所属業務グループマスタ(TOC0SE36)アクセスルーチン(SELECT)
+       01  PARM-TSC0SE36-INOUT.
+         05  PARM-TSC0SE36-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE36-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE36.cpy".
+       01  PARM-TSC0SE36-RTNPKG.
+         05  PARM-TSC0SE36-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  ユーザー会社利用ポートフォリオ(TOC0SE22)アクセスルーチン(SELECT)
+       01  PARM-TSC0SE22-INOUT.
+         05  PARM-TSC0SE22-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-TSC0SE22-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY "TOC0SE22.cpy".
+       01  PARM-TSC0SE22-RTNPKG.
+         05  PARM-TSC0SE22-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTN-PAKEG.
+             COPY "CZRTNPACKAGE.cpy".
+      *
+      *----------  リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+         COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *
+      ******************************************************************
+      *                ＳＱＬ通信領域
+      ******************************************************************
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY1130-INOUT.
+         COPY  "SCZY1130.cpy".
+       01  PARM-SCZY1130-RTNPKG.
+         05  PARM-SCZY1130-ARG2.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY1130-INOUT
+                  PARM-SCZY1130-RTNPKG.
+      ******************************************************************
+      *                 SCZY1130処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1130処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期処理
+           PERFORM  INIT-RTN
+      *----------  メイン処理
+           PERFORM  MAIN-RTN
+      *----------  終了処理
+           PERFORM  END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZY1130処理  END  ***".
+      *-----------------------------------------------------------------
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 初期処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  初期処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE  WORK-AREA
+                       PARM-SCZY1130-ARG2
+                       PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-ARG2
+                       PARM-TSC0SE20-INOUT
+                       PARM-TSC0SE20-RTNPKG
+                       PARM-TSC0DA21-INOUT
+                       PARM-TSC0DA21-RTNPKG
+                       PARM-TSC0DA25-INOUT
+                       PARM-TSC0DA25-RTNPKG
+                       PARM-TSC0DA23-INOUT
+                       PARM-TSC0DA23-RTNPKG
+                       PARM-TSC0SE31-INOUT
+                       PARM-TSC0SE31-RTNPKG
+                       PARM-TSC0SE32-INOUT
+                       PARM-TSC0SE32-RTNPKG
+                       PARM-TSC0SE21-INOUT
+                       PARM-TSC0SE21-RTNPKG
+                       PARM-TSC0SE34-INOUT
+                       PARM-TSC0SE34-RTNPKG
+                       PARM-TSC0DA22-INOUT
+                       PARM-TSC0DA22-RTNPKG
+                       PARM-TSC0SE33-INOUT
+                       PARM-TSC0SE33-RTNPKG
+                       PARM-TSC0DA26-INOUT
+                       PARM-TSC0DA26-RTNPKG
+                       PARM-TSC0DA24-INOUT
+                       PARM-TSC0DA24-RTNPKG
+                       PARM-TSC0SE36-INOUT
+                       PARM-TSC0SE36-RTNPKG
+                       PARM-TSC0SE22-INOUT
+                       PARM-TSC0SE22-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WORK-AREA=          [" WORK-AREA              "]"
+      D    DISPLAY  "PARM-SCZY1130-ARG2= [" PARM-SCZY1130-ARG2     "]"
+      D    DISPLAY  "PARM-SCZY1170-INOUT=[" PARM-SCZY1170-INOUT    "]"
+      D    DISPLAY  "PARM-SCZY1170-ARG2= [" PARM-SCZY1170-ARG2     "]"
+      *-----------------------------------------------------------------
+      *----------  SEL-WHERE-TSC0SE20
+      *----------  メニューID
+           MOVE  MENU-ID                     OF PARM-SCZY1130-ARG1
+             TO  MENU-ID                     OF SEL-WHERE-TSC0SE20
+      *
+      *----------  SEL-WHERE-TSC0DA21
+      *----------  業務タスクID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0DA21
+      *
+      *----------  SEL-WHERE-TSC0DA25
+      *----------  帳票ID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0DA25
+      *
+      *----------  SEL-WHERE-TSC0DA23
+      *----------  アップロードID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0DA23
+      *
+      *----------  SEL-WHERE-TSC0SE31
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE31
+      *----------  業務グループコード
+           MOVE  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+             TO  GYOMU-GRP-CD                OF SEL-WHERE-TSC0SE31
+      *
+      *----------  SEL-WHERE-TSC0SE32
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE32
+      *----------  業務グループコード
+           MOVE  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+             TO  GYOMU-GRP-CD                OF SEL-WHERE-TSC0SE32
+      *----------  メニューID
+           MOVE  MENU-ID                     OF PARM-SCZY1130-ARG1
+             TO  MENU-ID                     OF SEL-WHERE-TSC0SE32
+      *
+      *----------  SEL-WHERE-TSC0SE21
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE21
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF PARM-SCZY1130-ARG1
+             TO  RIYO-CMP-CD                 OF SEL-WHERE-TSC0SE21
+      *----------  メニューID
+           MOVE  MENU-ID                     OF PARM-SCZY1130-ARG1
+             TO  MENU-ID                     OF SEL-WHERE-TSC0SE21
+      *
+      *----------  SEL-WHERE-TSC0SE34
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE34
+      *----------  業務グループコード
+           MOVE  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+             TO  GYOMU-GRP-CD                OF SEL-WHERE-TSC0SE34
+      *----------  業務タスクID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0SE34
+      *
+      *----------  SEL-WHERE-TSC0DA22
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0DA22
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF PARM-SCZY1130-ARG1
+             TO  RIYO-CMP-CD                 OF SEL-WHERE-TSC0DA22
+      *----------  業務タスクID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0DA22
+      *
+      *----------  SEL-WHERE-TSC0SE33
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE33
+      *----------  業務グループコード
+           MOVE  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+             TO  GYOMU-GRP-CD                OF SEL-WHERE-TSC0SE33
+      *----------  帳票ID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0SE33
+      *
+      *----------  SEL-WHERE-TSC0DA26
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0DA26
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF PARM-SCZY1130-ARG1
+             TO  RIYO-CMP-CD                 OF SEL-WHERE-TSC0DA26
+      *----------  帳票ID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0DA26
+      *
+      *----------  SEL-WHERE-TSC0DA24
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0DA24
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF PARM-SCZY1130-ARG1
+             TO  RIYO-CMP-CD                 OF SEL-WHERE-TSC0DA24
+      *----------  アップロードID
+           MOVE  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+             TO  JIKOU-SYORI-ID              OF SEL-WHERE-TSC0DA24
+      *
+      *----------  SEL-WHERE-TSC0SE36
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE36
+      *----------  業務グループコード
+           MOVE  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+             TO  GYOMU-GRP-CD                OF SEL-WHERE-TSC0SE36
+      *----------  ファンドコード
+           MOVE  FUND-CD                     OF PARM-SCZY1130-ARG1
+             TO  FUND-CD                     OF SEL-WHERE-TSC0SE36
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                      OF PARM-SCZY1130-ARG1
+             TO  PTF-CD                      OF SEL-WHERE-TSC0SE36
+      *
+      *----------  SEL-WHERE-TSC0SE22
+      *----------  ログインユーザ会社コード
+           MOVE  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+             TO  LOGIN-CMP-CD                OF SEL-WHERE-TSC0SE22
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF PARM-SCZY1130-ARG1
+             TO  RIYO-CMP-CD                 OF SEL-WHERE-TSC0SE22
+      *----------  ファンドコード
+           MOVE  FUND-CD                     OF PARM-SCZY1130-ARG1
+             TO  FUND-CD                     OF SEL-WHERE-TSC0SE22
+      *----------  ポートフォリオコード
+           MOVE  PTF-CD                      OF PARM-SCZY1130-ARG1
+             TO  PTF-CD                      OF SEL-WHERE-TSC0SE22
+      *
+      *----------  パラメータチェック処理
+      *----------  メニューID＝SPACE and 実行処理ID＝SPACE
+      *----------  and ファンドコード＝SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニューIDと実行処理IDとファンドコードチェック開始"
+      D    DISPLAY  "MENU-ID= ["    MENU-ID  OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "JIKOU-SYORI-ID=[" JIKOU-SYORI-ID
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "FUND-CD=[" FUND-CD      OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  MENU-ID                       OF PARM-SCZY1130-ARG1
+               = SPACE
+             AND  JIKOU-SYORI-ID             OF PARM-SCZY1130-ARG1
+               = SPACE
+             AND  FUND-CD                    OF PARM-SCZY1130-ARG1
+               = SPACE
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0001"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ・メニューID≠SPACE  and
+      *---------- （実行処理ID≠SPACE or ファンドコード≠SPACE）の場合
+           IF  MENU-ID                       OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  (JIKOU-SYORI-ID            OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             OR  FUND-CD                     OF PARM-SCZY1130-ARG1
+               NOT = SPACE)
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0040"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニューIDと実行処理IDチェックとファンドコード終了"
+      *-----------------------------------------------------------------
+      *
+      *----------  実行処理ID≠SPACE and 実行処理IDの頭1桁
+      *----------  ≠（"T"（業務タスク）、"P"（帳票）、"U"（アップロード））の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDの頭1桁チェック開始"
+      D    DISPLAY  "JIKOU-SYORI-ID(1:1)=[" JIKOU-SYORI-ID
+      D                                    OF PARM-SCZY1130-ARG1(1:1)"]"
+      *-----------------------------------------------------------------
+           IF  JIKOU-SYORI-ID                OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  JIKOU-SYORI-ID             OF PARM-SCZY1130-ARG1(1:1)
+                  NOT = CNS-GYOMU-TASK
+             AND  JIKOU-SYORI-ID             OF PARM-SCZY1130-ARG1(1:1)
+                  NOT = CNS-REP
+             AND  JIKOU-SYORI-ID             OF PARM-SCZY1130-ARG1(1:1)
+                  NOT = CNS-UPLOAD
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0002"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDの頭1桁チェック終了"
+      *-----------------------------------------------------------------
+      *----------  利用会社コードとログインユーザ会社コード
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "利用会社コードとログインユーザ会社コード開始"
+      D    DISPLAY  "RIYO-CMP-CD=[" RIYO-CMP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "LOGIN-CMP-CD=[" LOGIN-CMP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  利用会社コード = SPACEの場合
+           IF  RIYO-CMP-CD                   OF PARM-SCZY1130-ARG1
+               = SPACE
+      *----------  ログインユーザ会社コード = SPACEの場合
+             OR  LOGIN-CMP-CD                OF PARM-SCZY1130-ARG1
+                 = SPACE
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0039"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "利用会社コードとログインユーザ会社コード終了"
+      *-----------------------------------------------------------------
+      *----------  実行処理ID≠SPACE  and  ファンドコード≠SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDとファンドコード開始"
+      D    DISPLAY  "JIKOU-SYORI-ID=[" JIKOU-SYORI-ID
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "FUND-CD=[" FUND-CD      OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  JIKOU-SYORI-ID                OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  FUND-CD                    OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0041"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDとファンドコード終了"
+      *-----------------------------------------------------------------
+      *----------  ファンドコード≠SPACE  and  ポートフォリオコード＝SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ファンドコードとポートフォリオコード開始"
+      D    DISPLAY  "FUND-CD=[" FUND-CD      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "PTF-CD =[" PTF-CD       OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  FUND-CD                       OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  PTF-CD                     OF PARM-SCZY1130-ARG1
+               = SPACE
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0042"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF
+      *----------  ファンドコード＝SPACE  and  ポートフォリオコード≠SPACEの場合
+           IF  FUND-CD                       OF PARM-SCZY1130-ARG1
+               = SPACE
+             AND  PTF-CD                     OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+           THEN
+             MOVE  CNS-ERR-01                TO  WK-ERR-ID
+             MOVE  "0049"                    TO  WK-POS
+             PERFORM  ERR-RTN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ファンドコードとポートフォリオコード終了"
+      D    DISPLAY  "パラメータチェック処理終了"
+      *-----------------------------------------------------------------
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  初期処理  END  ***".
+      *-----------------------------------------------------------------
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                 メイン処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  存在チェック処理
+           PERFORM  SONZAI-CHECK-RTN
+      *----------  メニュー権限チェック処理
+           PERFORM  MENU-KGEN-CHECK-RTN
+      *----------  実行処理ID権限チェック
+           PERFORM  JIKOU-SYORI-ID-CHECK-RTN
+      *----------  ポートフォリオ権限チェック
+           PERFORM  PTF-KGEN-CHECK-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  END  *****".
+      *-----------------------------------------------------------------
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                 存在チェック処理
+      ******************************************************************
+       SONZAI-CHECK-RTN       SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  存在チェック処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  メニューID≠SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニューIDチェック処理開始"
+      D    DISPLAY  "MENU-ID= ["    MENU-ID  OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  MENU-ID                       OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+           THEN
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0SE20-ARG1
+      *----------  SELECT条件(TSC0SE20)
+             MOVE  SEL-WHERE-TSC0SE20
+               TO  SEL-WHERE                 OF PARM-TSC0SE20-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニューマスタ(TSC0SE20)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0SE20"  USING  PARM-TSC0SE20-INOUT
+                                      PARM-TSC0SE20-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニューマスタ(TSC0SE20)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE20-RTNPKG
+      D           ") OF TSC0SE20=["  RTN-CD  OF PARM-TSC0SE20-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE20-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0SE20-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0SE20-RTNPKG
+                                   (COUNTER  OF PARM-TSC0SE20-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-02          TO  WK-ERR-ID
+                   MOVE  "0003"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0004"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0005"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニューIDチェック処理終了"
+      *-----------------------------------------------------------------
+      *----------  実行処理ID≠SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDチェック処理開始"
+      D    DISPLAY  "JIKOU-SYORI-ID=[" JIKOU-SYORI-ID
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  JIKOU-SYORI-ID                OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDの頭1桁チェック処理開始"
+      D    DISPLAY  "JIKOU-SYORI-ID=[" JIKOU-SYORI-ID
+      D                                    OF PARM-SCZY1130-ARG1(1:1)"]"
+      *-----------------------------------------------------------------
+             EVALUATE  JIKOU-SYORI-ID        OF PARM-SCZY1130-ARG1(1:1)
+      *----------  実行処理IDの頭1桁＝"T"（業務タスク）の場合、「業務タスクマスタ」から該当データを検索する
+                 WHEN  CNS-GYOMU-TASK
+      *----------  利用会社コード
+                   MOVE  RIYO-CMP-CD         OF PARM-SCZY1130-ARG1
+                     TO  RIYO-CMP-CD         OF PARM-TSC0DA21-ARG1
+      *----------  SELECT条件
+                   MOVE  SEL-WHERE-TSC0DA21
+                     TO  SEL-WHERE           OF PARM-TSC0DA21-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務タスクマスタ(TSC0DA21)開始"
+      *-----------------------------------------------------------------
+                   CALL  "TSC0DA21"  USING  PARM-TSC0DA21-INOUT
+                                            PARM-TSC0DA21-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務タスクマスタ(TSC0DA21)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0DA21-RTNPKG
+      D           ") OF TSC0DA21=["  RTN-CD  OF PARM-TSC0DA21-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0DA21-RTNPKG)"]"
+      *-----------------------------------------------------------------
+                   MOVE  PARM-TSC0DA21-ARG3  TO  PARM-SCZY1130-ARG2
+                   EVALUATE  RTN-CD          OF PARM-TSC0DA21-RTNPKG
+                                   (COUNTER  OF PARM-TSC0DA21-RTNPKG)
+                       WHEN  CNS-RET-CD-NORMAL
+                         CONTINUE
+                       WHEN  CNS-RET-CD-DATA-NASI
+                         MOVE  CNS-ERR-02    TO  WK-ERR-ID
+                         MOVE  "0006"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                       WHEN  CNS-RET-CD-DB-ERR
+                         MOVE  CNS-ERR-03    TO  WK-ERR-ID
+                         MOVE  "0007"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                       WHEN  OTHER
+                         MOVE  CNS-ERR-05    TO  WK-ERR-ID
+                         MOVE  "0008"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                   END-EVALUATE
+      *
+      *----------  実行処理IDの頭1桁＝"P"（帳票）の場合、「帳票マスタ」から該当データを検索する
+                 WHEN  CNS-REP
+      *----------  利用会社コード
+                   MOVE  RIYO-CMP-CD         OF PARM-SCZY1130-ARG1
+                     TO  RIYO-CMP-CD         OF PARM-TSC0DA25-ARG1
+      *----------  SELECT条件
+                   MOVE  SEL-WHERE-TSC0DA25
+                     TO  SEL-WHERE           OF PARM-TSC0DA25-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "帳票マスタ(TSC0DA25)開始"
+      *-----------------------------------------------------------------
+                   CALL  "TSC0DA25"  USING  PARM-TSC0DA25-INOUT
+                                            PARM-TSC0DA25-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "帳票マスタ(TSC0DA25)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0DA25-RTNPKG
+      D          ") OF TSC0DA25=["   RTN-CD  OF PARM-TSC0DA25-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0DA25-RTNPKG)"]"
+      *-----------------------------------------------------------------
+                   MOVE  PARM-TSC0DA25-ARG3  TO  PARM-SCZY1130-ARG2
+                   EVALUATE  RTN-CD          OF PARM-TSC0DA25-RTNPKG
+                                   (COUNTER  OF PARM-TSC0DA25-RTNPKG)
+                       WHEN  CNS-RET-CD-NORMAL
+                         CONTINUE
+                       WHEN  CNS-RET-CD-DATA-NASI
+                         MOVE  CNS-ERR-02    TO  WK-ERR-ID
+                         MOVE  "0009"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                       WHEN  CNS-RET-CD-DB-ERR
+                         MOVE  CNS-ERR-03    TO  WK-ERR-ID
+                         MOVE  "0010"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                       WHEN  OTHER
+                         MOVE  CNS-ERR-05    TO  WK-ERR-ID
+                         MOVE  "0011"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                   END-EVALUATE
+      *
+      *----------  実行処理IDの頭1桁＝"U"（アップロード）の場合、「アップロードマスタ」から該当データを検索する
+                 WHEN  CNS-UPLOAD
+      *----------  利用会社コード
+                   MOVE  RIYO-CMP-CD         OF PARM-SCZY1130-ARG1
+                     TO  RIYO-CMP-CD         OF PARM-TSC0DA23-ARG1
+      *----------  SELECT条件
+                   MOVE  SEL-WHERE-TSC0DA23
+                     TO  SEL-WHERE           OF PARM-TSC0DA23-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "アップロードマスタ(TSC0DA23)開始"
+      *-----------------------------------------------------------------
+                   CALL  "TSC0DA23"  USING  PARM-TSC0DA23-INOUT
+                                            PARM-TSC0DA23-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "アップロードマスタ(TSC0DA23)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0DA23-RTNPKG
+      D          ") OF TSC0DA23=["   RTN-CD  OF PARM-TSC0DA23-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0DA23-RTNPKG)"]"
+      *-----------------------------------------------------------------
+                   MOVE  PARM-TSC0DA23-ARG3  TO  PARM-SCZY1130-ARG2
+                   EVALUATE          RTN-CD  OF PARM-TSC0DA23-RTNPKG
+                                   (COUNTER  OF PARM-TSC0DA23-RTNPKG)
+                       WHEN  CNS-RET-CD-NORMAL
+                         CONTINUE
+                       WHEN  CNS-RET-CD-DATA-NASI
+                         MOVE  CNS-ERR-02    TO  WK-ERR-ID
+                         MOVE  "0012"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                       WHEN  CNS-RET-CD-DB-ERR
+                         MOVE  CNS-ERR-03    TO  WK-ERR-ID
+                         MOVE  "0013"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                       WHEN  OTHER
+                         MOVE  CNS-ERR-05    TO  WK-ERR-ID
+                         MOVE  "0014"        TO  WK-POS
+                         PERFORM  ERR-RTN
+                   END-EVALUATE
+      *
+                 WHEN  OTHER
+                   CONTINUE
+             END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDの頭1桁チェック処理終了"
+      *-----------------------------------------------------------------
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDチェック処理終了"
+      *-----------------------------------------------------------------
+      *----------  業務グループコード≠SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務グループコードチェック処理開始"
+      D    DISPLAY  "GYOMU-GRP-CD=[" GYOMU-GRP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  GYOMU-GRP-CD                  OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+           THEN
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0SE31-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0SE31
+               TO  SEL-WHERE                 OF PARM-TSC0SE31-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務グループマスタ(TSC0SE31)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0SE31"  USING  PARM-TSC0SE31-INOUT
+                                      PARM-TSC0SE31-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務グループマスタ(TSC0SE31)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE31-RTNPKG
+      D          ") OF TSC0SE31=["   RTN-CD  OF PARM-TSC0SE31-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE31-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0SE31-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0SE31-RTNPKG
+                                   (COUNTER  OF PARM-TSC0SE31-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0015"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0016"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0017"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務グループコードチェック処理終了"
+      D    DISPLAY  "*****  存在チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       SONZAI-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 メニュー権限チェック処理
+      ******************************************************************
+       MENU-KGEN-CHECK-RTN    SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メニュー権限チェック処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  メニューID≠SPACEの場合、下記のメニュー権限チェック処理を行う
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "MENU-ID     =["MENU-ID  OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  MENU-ID                       OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+           THEN
+      *----------  業務グループコード≠SPACE and 業務グループマスタ．メニュー利用制限区分≠'1'
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "GYOMU-GRP-CD=["GYOMU-GRP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "MENU-RIYOU-KBN=["MENU-RIYOU-KBN
+      D                                      OF PARM-TSC0SE31-ARG2"]"
+      *-----------------------------------------------------------------
+             IF  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+                 NOT = SPACE
+               AND  MENU-RIYOU-KBN           OF PARM-TSC0SE31-ARG2
+                    NOT = CNS-1
+             THEN
+      *----------  利用会社コード
+               MOVE  RIYO-CMP-CD             OF PARM-SCZY1130-ARG1
+                 TO  RIYO-CMP-CD             OF PARM-TSC0SE32-ARG1
+      *----------  SELECT条件
+               MOVE  SEL-WHERE-TSC0SE32
+                 TO  SEL-WHERE               OF PARM-TSC0SE32-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニュー所属業務グループ(TSC0SE32)開始"
+      *-----------------------------------------------------------------
+               CALL  "TSC0SE32"  USING  PARM-TSC0SE32-INOUT
+                                        PARM-TSC0SE32-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "メニュー所属業務グループ(TSC0SE32)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE32-RTNPKG
+      D          ") OF TSC0SE32=["   RTN-CD  OF PARM-TSC0SE32-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE32-RTNPKG)"]"
+      *-----------------------------------------------------------------
+               MOVE  PARM-TSC0SE32-ARG3      TO  PARM-SCZY1130-ARG2
+               EVALUATE  RTN-CD              OF PARM-TSC0SE32-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE32-RTNPKG)
+                   WHEN  CNS-RET-CD-NORMAL
+                     CONTINUE
+                   WHEN  CNS-RET-CD-DATA-NASI
+                     MOVE  CNS-ERR-04        TO  WK-ERR-ID
+                     MOVE  "0018"            TO  WK-POS
+                     PERFORM  ERR-RTN
+                   WHEN  CNS-RET-CD-DB-ERR
+                     MOVE  CNS-ERR-03        TO  WK-ERR-ID
+                     MOVE  "0019"            TO  WK-POS
+                     PERFORM  ERR-RTN
+                   WHEN  OTHER
+                     MOVE  CNS-ERR-05        TO  WK-ERR-ID
+                     MOVE  "0020"            TO  WK-POS
+                     PERFORM  ERR-RTN
+               END-EVALUATE
+      *----------  上記以外の場合
+             ELSE
+      *----------  利用会社コード
+               MOVE  RIYO-CMP-CD             OF PARM-SCZY1130-ARG1
+                 TO  RIYO-CMP-CD             OF PARM-TSC0SE21-ARG1
+      *----------  SELECT条件
+               MOVE  SEL-WHERE-TSC0SE21
+                 TO  SEL-WHERE               OF PARM-TSC0SE21-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用メニューマスタ(TSC0SE21)開始"
+      *-----------------------------------------------------------------
+               CALL  "TSC0SE21"  USING  PARM-TSC0SE21-INOUT
+                                        PARM-TSC0SE21-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用メニューマスタ(TSC0SE21)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE21-RTNPKG
+      D          ") OF TSC0SE21=["   RTN-CD  OF PARM-TSC0SE21-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE21-RTNPKG)"]"
+      *-----------------------------------------------------------------
+               MOVE  PARM-TSC0SE21-ARG3      TO  PARM-SCZY1130-ARG2
+               EVALUATE  RTN-CD              OF PARM-TSC0SE21-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE21-RTNPKG)
+                   WHEN  CNS-RET-CD-NORMAL
+                     CONTINUE
+                   WHEN  CNS-RET-CD-DATA-NASI
+                     MOVE  CNS-ERR-04        TO  WK-ERR-ID
+                     MOVE  "0021"            TO  WK-POS
+                     PERFORM  ERR-RTN
+                   WHEN  CNS-RET-CD-DB-ERR
+                     MOVE  CNS-ERR-03        TO  WK-ERR-ID
+                     MOVE  "0022"            TO  WK-POS
+                     PERFORM  ERR-RTN
+                   WHEN  OTHER
+                     MOVE  CNS-ERR-05        TO  WK-ERR-ID
+                     MOVE  "0023"            TO  WK-POS
+                     PERFORM  ERR-RTN
+               END-EVALUATE
+             END-IF
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メニュー権限チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       MENU-KGEN-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 実行処理ID権限チェック処理
+      ******************************************************************
+       JIKOU-SYORI-ID-CHECK-RTN SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行処理ID権限チェック処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  利用会社コード＝SPACE or 実行処理ID＝SPACEの場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD   =["RIYO-CMP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "JIKOU-SYORI-ID=["JIKOU-SYORI-ID
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  RIYO-CMP-CD                   OF PARM-SCZY1130-ARG1
+               = SPACE
+             OR  JIKOU-SYORI-ID              OF PARM-SCZY1130-ARG1
+                 = SPACE
+           THEN
+             CONTINUE
+      *----------  実行処理ID≠SPACEの場合
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "実行処理IDの頭１桁=["JIKOU-SYORI-ID
+      D                                    OF PARM-SCZY1130-ARG1(1:1)"]"
+      *-----------------------------------------------------------------
+             EVALUATE  JIKOU-SYORI-ID        OF PARM-SCZY1130-ARG1(1:1)
+      *----------  実行処理IDの頭１桁＝"T"(業務タスク)
+                 WHEN  CNS-GYOMU-TASK
+      *----------  業務タスク権限チェック処理
+                   PERFORM  GYOMU-TASK-CHECK-RTN
+      *----------  実行処理IDの頭１桁＝"P"（帳票）
+                 WHEN  CNS-REP
+      *----------  帳票権限チェック処理
+                   PERFORM  REP-KGEN-CHECK-RTN
+      *----------  実行処理IDの頭１桁＝"U"（アップロード）
+                 WHEN  CNS-UPLOAD
+      *----------  アップロード権限チェック処理
+                   PERFORM  UPLOAD-KGEN-CHECK-RTN
+                 WHEN  OTHER
+                   CONTINUE
+             END-EVALUATE
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  実行処理ID権限チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       JIKOU-SYORI-ID-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 業務タスク権限チェック処理
+      ******************************************************************
+       GYOMU-TASK-CHECK-RTN   SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  業務タスク権限チェック処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  業務グループコード≠SPACE and 業務グループマスタ．業務タスク利用制限区分≠'1'
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "GYOMU-GRP-CD=["GYOMU-GRP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "GYOMU-TASK-RIYOU-KBN=["GYOMU-TASK-RIYOU-KBN
+      D                                      OF PARM-TSC0SE31-ARG2"]"
+      *-----------------------------------------------------------------
+           IF  GYOMU-GRP-CD                  OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  GYOMU-TASK-RIYOU-KBN       OF PARM-TSC0SE31-ARG2
+                  NOT = CNS-1
+           THEN
+             INITIALIZE  PARM-TSC0SE34-INOUT
+                         PARM-TSC0SE34-RTNPKG
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0SE34-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0SE34
+               TO  SEL-WHERE                 OF PARM-TSC0SE34-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務タスク所属業務グループ(TSC0SE34)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0SE34"  USING  PARM-TSC0SE34-INOUT
+                                      PARM-TSC0SE34-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務タスク所属業務グループ(TSC0SE34)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE34-RTNPKG
+      D          ") OF TSC0SE34=["   RTN-CD  OF PARM-TSC0SE34-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE34-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0SE34-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0SE34-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE34-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0024"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0025"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0026"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+      *----------  上記以外の場合
+           ELSE
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0DA22-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0DA22
+               TO  SEL-WHERE                 OF PARM-TSC0DA22-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用業務タスクマスタ(TSC0DA22)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0DA22"  USING  PARM-TSC0DA22-INOUT
+                                      PARM-TSC0DA22-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用業務タスクマスタ(TSC0DA22)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0DA22-RTNPKG
+      D          ") OF TSC0DA22=["   RTN-CD  OF PARM-TSC0DA22-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0DA22-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0DA22-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0DA22-RTNPKG
+                                    (COUNTER OF PARM-TSC0DA22-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0027"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0028"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0029"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  業務タスク権限チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       GYOMU-TASK-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 帳票権限チェック処理
+      ******************************************************************
+       REP-KGEN-CHECK-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  帳票権限チェック処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  業務グループコード≠SPACE and 業務グループマスタ．帳票利用制限区分≠'1'
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "GYOMU-GRP-CD=["GYOMU-GRP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "REP-RIYOU-KBN=["REP-RIYOU-KBN
+      D                                     OF PARM-TSC0SE31-ARG2"]"
+      *-----------------------------------------------------------------
+           IF  GYOMU-GRP-CD                  OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  REP-RIYOU-KBN              OF PARM-TSC0SE31-ARG2
+                  NOT = CNS-1
+           THEN
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0SE33-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0SE33
+               TO  SEL-WHERE                 OF PARM-TSC0SE33-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "帳票所属業務グループ(TSC0SE33)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0SE33"  USING  PARM-TSC0SE33-INOUT
+                                      PARM-TSC0SE33-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "帳票所属業務グループ(TSC0SE33)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE33-RTNPKG
+      D          ") OF TSC0SE33=["   RTN-CD  OF PARM-TSC0SE33-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE33-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0SE33-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0SE33-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE33-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0030"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0031"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0032"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+      *----------  上記以外の場合
+           ELSE
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0DA26-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0DA26
+               TO  SEL-WHERE                 OF PARM-TSC0DA26-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用帳票マスタ(TSC0DA26)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0DA26"  USING  PARM-TSC0DA26-INOUT
+                                      PARM-TSC0DA26-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用帳票マスタ(TSC0DA26)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0DA26-RTNPKG
+      D          ") OF TSC0DA26=["   RTN-CD  OF PARM-TSC0DA26-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0DA26-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0DA26-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0DA26-RTNPKG
+                                    (COUNTER OF PARM-TSC0DA26-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0033"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0034"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0035"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  帳票権限チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       REP-KGEN-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 アップロード権限チェック処理
+      ******************************************************************
+       UPLOAD-KGEN-CHECK-RTN  SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  アップロード権限チェック処理  START  *****"
+      D    DISPLAY  "GYOMU-GRP-CD=["GYOMU-GRP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "GYOMU-TASK-RIYOU-KBN=["GYOMU-TASK-RIYOU-KBN
+      D                                      OF PARM-TSC0SE31-ARG2"]"
+      *-----------------------------------------------------------------
+           IF  GYOMU-GRP-CD                  OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+             AND  GYOMU-TASK-RIYOU-KBN       OF PARM-TSC0SE31-ARG2
+                  NOT = CNS-1
+           THEN
+             INITIALIZE  PARM-TSC0SE34-INOUT
+                         PARM-TSC0SE34-RTNPKG
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0SE34-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0SE34
+               TO  SEL-WHERE                 OF PARM-TSC0SE34-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務タスク所属業務グループ(TSC0SE34)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0SE34"  USING  PARM-TSC0SE34-INOUT
+                                      PARM-TSC0SE34-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "業務タスク所属業務グループ(TSC0SE34)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE34-RTNPKG
+      D          ") OF TSC0SE34=["   RTN-CD  OF PARM-TSC0SE34-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE34-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0SE34-ARG3        TO PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0SE34-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE34-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0050"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0051"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0052"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+      *----------  上記以外の場合
+           ELSE
+      *----------  利用会社コード
+             MOVE  RIYO-CMP-CD               OF PARM-SCZY1130-ARG1
+               TO  RIYO-CMP-CD               OF PARM-TSC0DA24-ARG1
+      *----------  SELECT条件
+             MOVE  SEL-WHERE-TSC0DA24
+               TO  SEL-WHERE                 OF PARM-TSC0DA24-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY"ユーザー会社利用アップロードマスタ(TSC0DA24)開始"
+      *-----------------------------------------------------------------
+             CALL  "TSC0DA24"  USING  PARM-TSC0DA24-INOUT
+                                      PARM-TSC0DA24-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY"ユーザー会社利用アップロードマスタ(TSC0DA24)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0DA24-RTNPKG
+      D          ") OF TSC0DA24=["   RTN-CD  OF PARM-TSC0DA24-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0DA24-RTNPKG)"]"
+      *-----------------------------------------------------------------
+             MOVE  PARM-TSC0DA24-ARG3        TO  PARM-SCZY1130-ARG2
+             EVALUATE  RTN-CD                OF PARM-TSC0DA24-RTNPKG
+                                   (COUNTER  OF PARM-TSC0DA24-RTNPKG)
+                 WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+                 WHEN  CNS-RET-CD-DATA-NASI
+                   MOVE  CNS-ERR-04          TO  WK-ERR-ID
+                   MOVE  "0036"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  CNS-RET-CD-DB-ERR
+                   MOVE  CNS-ERR-03          TO  WK-ERR-ID
+                   MOVE  "0037"              TO  WK-POS
+                   PERFORM  ERR-RTN
+                 WHEN  OTHER
+                   MOVE  CNS-ERR-05          TO  WK-ERR-ID
+                   MOVE  "0038"              TO  WK-POS
+                   PERFORM  ERR-RTN
+             END-EVALUATE
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  アップロード権限チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       UPLOAD-KGEN-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 ポートフォリオ権限チェック処理
+      ******************************************************************
+       PTF-KGEN-CHECK-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ポートフォリオ権限チェック処理 START  *****"
+      *-----------------------------------------------------------------
+      *----------  利用会社コード＝SPACE  or  ファンドコード＝SPACE  の場合
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RIYO-CMP-CD=["RIYO-CMP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "FUND-CD=["FUND-CD       OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+           IF  RIYO-CMP-CD                   OF PARM-SCZY1130-ARG1
+               = SPACE
+             OR  FUND-CD                     OF PARM-SCZY1130-ARG1
+               = SPACE
+           THEN
+             CONTINUE
+           ELSE
+      *----------  業務グループコード≠SPACE and 業務グループマスタ ポートフォリオ利用制限区分≠'1'
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "GYOMU-GRP-CD=["GYOMU-GRP-CD
+      D                                      OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "PTF-RIYOU-KBN=["PTF-RIYOU-KBN
+      D                                      OF PARM-TSC0SE31-ARG2"]"
+      *-----------------------------------------------------------------
+             IF  GYOMU-GRP-CD                OF PARM-SCZY1130-ARG1
+               NOT = SPACE
+               AND  PTF-RIYOU-KBN            OF PARM-TSC0SE31-ARG2
+               NOT = "1"
+             THEN
+      *----------  利用会社コード
+               MOVE  RIYO-CMP-CD             OF PARM-SCZY1130-ARG1
+                 TO  RIYO-CMP-CD             OF PARM-TSC0SE36-ARG1
+      *----------  SELECT条件
+               MOVE  SEL-WHERE-TSC0SE36
+                 TO  SEL-WHERE               OF PARM-TSC0SE36-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ポートフォリオ所属業務グループマスタ(TSC0SE36)開始"
+      *-----------------------------------------------------------------
+               CALL  "TSC0SE36"  USING  PARM-TSC0SE36-INOUT
+                                        PARM-TSC0SE36-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ポートフォリオ所属業務グループマスタ(TSC0SE36)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE36-RTNPKG
+      D          ") OF TSC0SE36=["   RTN-CD  OF PARM-TSC0SE36-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE36-RTNPKG)"]"
+      *-----------------------------------------------------------------
+               MOVE  PARM-TSC0SE36-ARG3      TO  PARM-SCZY1130-ARG2
+               EVALUATE  RTN-CD              OF PARM-TSC0SE36-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE36-RTNPKG)
+                   WHEN  CNS-RET-CD-NORMAL
+                     CONTINUE
+                   WHEN  CNS-RET-CD-DATA-NASI
+                     MOVE  CNS-ERR-04        TO  WK-ERR-ID
+                     MOVE  "0043"            TO  WK-POS
+                     PERFORM  ERR-RTN
+                   WHEN  CNS-RET-CD-DB-ERR
+                     MOVE  CNS-ERR-03        TO  WK-ERR-ID
+                     MOVE  "0044"            TO  WK-POS
+                     PERFORM  ERR-RTN
+                   WHEN  OTHER
+                     MOVE  CNS-ERR-05        TO  WK-ERR-ID
+                     MOVE  "0045"            TO  WK-POS
+                     PERFORM  ERR-RTN
+               END-EVALUATE
+      *----------  上記以外の場合
+             ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "LOGIN-CMP-CD(1:1)=["LOGIN-CMP-CD
+      D              OF PARM-SCZY1130-ARG1(1:1)"]"
+      D    DISPLAY  "LOGIN-CMP-CD=["LOGIN-CMP-CD
+      D              OF PARM-SCZY1130-ARG1"]"
+      D    DISPLAY  "RIYO-CMP-CD=["RIYO-CMP-CD
+      D              OF PARM-SCZY1130-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  ARG1.ログインユーザ会社コードの頭1桁≠'4'
+      *----------  AND  ARG1.ログインユーザ会社コード≠ARG1.利用会社コードの場合
+               IF  LOGIN-CMP-CD              OF PARM-SCZY1130-ARG1(1:1)
+                 NOT = "4"
+                 AND  LOGIN-CMP-CD           OF PARM-SCZY1130-ARG1
+                   NOT = RIYO-CMP-CD         OF PARM-SCZY1130-ARG1
+               THEN
+      *----------  利用会社コード
+                 MOVE  RIYO-CMP-CD           OF PARM-SCZY1130-ARG1
+                   TO  RIYO-CMP-CD           OF PARM-TSC0SE22-ARG1
+      *----------  SELECT条件
+                 MOVE  SEL-WHERE-TSC0SE22
+                   TO  SEL-WHERE             OF PARM-TSC0SE22-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用ポートフォリオ(TSC0SE22)開始"
+      *-----------------------------------------------------------------
+                 CALL  "TSC0SE22"  USING  PARM-TSC0SE22-INOUT
+                                          PARM-TSC0SE22-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ユーザー会社利用ポートフォリオ(TSC0SE22)終了"
+      D    DISPLAY  "RTN-CD("       COUNTER  OF PARM-TSC0SE22-RTNPKG
+      D          ") OF TSC0SE22=["   RTN-CD  OF PARM-TSC0SE22-RTNPKG
+      D                            (COUNTER  OF PARM-TSC0SE22-RTNPKG)"]"
+      *-----------------------------------------------------------------
+                 MOVE  PARM-TSC0SE22-ARG3    TO  PARM-SCZY1130-ARG2
+                 EVALUATE  RTN-CD            OF PARM-TSC0SE22-RTNPKG
+                                    (COUNTER OF PARM-TSC0SE22-RTNPKG)
+                     WHEN  CNS-RET-CD-NORMAL
+                       CONTINUE
+                     WHEN  CNS-RET-CD-DATA-NASI
+                       MOVE  CNS-ERR-04      TO  WK-ERR-ID
+                       MOVE  "0046"          TO  WK-POS
+                       PERFORM  ERR-RTN
+                     WHEN  CNS-RET-CD-DB-ERR
+                       MOVE  CNS-ERR-03      TO  WK-ERR-ID
+                       MOVE  "0047"          TO  WK-POS
+                       PERFORM  ERR-RTN
+                     WHEN  OTHER
+                       MOVE  CNS-ERR-05      TO  WK-ERR-ID
+                       MOVE  "0048"          TO  WK-POS
+                       PERFORM  ERR-RTN
+                 END-EVALUATE
+               END-IF
+             END-IF
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ポートフォリオ権限チェック処理  END  *****".
+      *-----------------------------------------------------------------
+       PTF-KGEN-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  START  ***"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RET-CD-NORMAL           TO  RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD= [" RTN-CD       OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"  USING  PARM-SCZY1170-INOUT
+                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SCZY1130-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  "PARM-SCZY1130-ARG2=["     PARM-SCZY1130-ARG2 "]"
+      D    DISPLAY  "***   後処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *                 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   ERR-RTN  START  ***"
+      *-----------------------------------------------------------------
+           MOVE  PARM-SCZY1130-ARG2          TO  PARM-SCZY1170-ARG2
+      *----------  検知プログラムID
+           MOVE  CNS-PROGRAM-ID
+             TO  ERR-PGM-ID                  OF PARM-SCZY1170-ARG1
+      *----------  ポジション
+           MOVE  WK-POS
+             TO  ERR-POS                     OF PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+           MOVE  CNS-0
+             TO  DETAIL-RTN-CD-FLG           OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+           EVALUATE  WK-ERR-ID
+      *----------  パラメータエラー
+               WHEN  CNS-ERR-01
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-PARM-ERR
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+      *----------  該当データなし
+               WHEN  CNS-ERR-02
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-DATA-NASI
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+      *----------  システムエラー（Oracle）
+               WHEN  CNS-ERR-03
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-DB-ERR
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+      *----------  権限なし
+               WHEN  CNS-ERR-04
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-KGEN-NASI
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+      *----------  システムエラー（Oracle以外）
+               WHEN  CNS-ERR-05
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-SYSERR
+                     TO  RTN-CD              OF PARM-SCZY1170-ARG1
+               WHEN  OTHER
+                   CONTINUE
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "ERR-PGM-ID=        ["
+      D                          ERR-PGM-ID  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS=           ["
+      D                             ERR-POS  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD=            ["
+      D                              RTN-CD  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD=     ["
+      D                       DETAIL-RTN-CD  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG= ["
+      D                   DETAIL-RTN-CD-FLG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG=          ["
+      D                            FREE-MSG  OF PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"  USING  PARM-SCZY1170-INOUT
+                                    PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-ARG2          TO  PARM-SCZY1130-ARG2
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  "PARM-SCZY1130-ARG2=["      PARM-SCZY1130-ARG2"]"
+      D    DISPLAY  "***  ERR-RTN  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+         GOBACK.
+      ******************************************************************

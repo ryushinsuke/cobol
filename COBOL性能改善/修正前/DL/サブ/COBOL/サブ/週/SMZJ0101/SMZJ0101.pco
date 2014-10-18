@@ -1,0 +1,1033 @@
+      ******************************************************************
+      * $Header$
+      ******************************************************************
+      *
+      * システムＩＤ   : T-STAR
+      * システム名称   : 次期TSTARシステム
+      * プログラムＩＤ : SMZJ0101
+      * プログラム名称 : 残高・損益更新処理起動単体チェック
+      * 処理概要       : 残高・損益更新処理起動単体チェック
+      * 参照ＤＢ       : なし
+      * 引数           : IN  受信データ
+      *                  IN  受信データ長
+      *                  OUT 送信データ
+      *                  OUT 送信データ長
+      *
+      * 改訂履歴
+      * 年月日     区分  所属       担当者  内容
+      * ---------- ----  ---------  ------  ----------------------------
+      * 20080523   新規  SCS        梁偉    新規作成
+      * 20091215   更新  SCS        顧孜駿  テーマ1075修正
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SMZJ0101.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-05-23.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+      ******************************************************************
+      *        作業場所節
+      ******************************************************************
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id$".
+      ******************************************************************
+      *                 コンスタント  エリア
+      ******************************************************************
+      *----------  共通コンスタント定義の宣言
+       01  CONSTANT-AREA.
+         05  CNS-MZCNS.
+           COPY "MZCNS.cpy".
+      *----------  プログラム名
+         05  CNS-PGM-ID            PIC  X(08)  VALUE "SMZJ0101".
+      *---------- ポートフォリ個別指定
+         05  CNS-PTF-SYORI-KBN-1   PIC  X(01)  VALUE  "1".
+         05  CNS-PTF-SYORI-KBN-2   PIC  X(01)  VALUE  "2".
+      *---------- 勘定異動／残高作成                                    20091215
+         05  CNS-KJIDO-ZANSK-2     PIC  9(01)  VALUE  2.                20091215
+         05  CNS-KJIDO-ZANSK-1     PIC  9(01)  VALUE  1.                20091215
+      *----------  SPP/バッチ起動区分
+         05  CNS-KIDOU-KBN-S       PIC  X(01)  VALUE  "S".
+         05  CNS-KIDOU-KBN-B       PIC  X(01)  VALUE  "B".
+      *---------- 繰り返す用
+         05  CNS-1                 PIC  9(01)  VALUE  1.
+         05  CNS-2                 PIC  9(01)  VALUE  2.
+         05  CNS-10                PIC  9(02)  VALUE  10.
+      *----------  計上基準日FROM
+         05  CNS-KJY-YMD-FROM      PIC  X(10)  VALUE  "基準日FROM".
+      *----------  計上基準日TO
+         05  CNS-KJY-YMD-TO        PIC  X(08)  VALUE  "基準日TO".
+      *----------  勘定異動／残高作成                                   20091215
+         05  CNS-KJIDO-ZANSK       PIC  X(18)                           20091215
+                                   VALUE  "勘定異動／残高作成".         20091215
+      *----------  ポートフォリオグループ
+         05  CNS-PTF-GRP           PIC  X(22)  VALUE
+                                               "ポートフォリオグループ".
+      *----------  ポートフォリオ処理区分
+         05  CNS-PTF-SYORI-KBN     PIC  X(22)  VALUE
+                                               "ポートフォリオ処理区分".
+      *----------  ポートフォリオ区分
+         05  CNS-FUND-PTF-KBN      PIC  X(18)  VALUE
+                                                   "ポートフォリオ区分".
+      *----------  ファンド/ポートフォリオグループ
+         05  CNS-FUND-CD           PIC  X(08)  VALUE  "ファンド".
+      *----------  ポートフォリオ
+         05  CNS-PTF-CD            PIC  X(14)  VALUE  "ポートフォリオ".
+      *----------  強制再計算区分
+         05  CNS-KYOSE-CALC-KBN    PIC  X(14)  VALUE  "強制再計算区分".
+         05  CNS-KYOSE-CALC-KBN-1  PIC  X(01)  VALUE  "1".
+         05  CNS-KYOSE-CALC-KBN-0  PIC  X(01)  VALUE  "0".
+      *----------  $項目TO$は$項目FROM$以降の日付を指定してください。
+         05  CNS-MSG-E000257       PIC  X(07)  VALUE  "E000257".
+      *----------  [$項目名$]の入力値が不正です。
+         05  CNS-MSG-E000130       PIC  X(07)  VALUE  "E000130".
+      *----------  [$項目名$]を入力してください。
+         05  CNS-MSG-E000133       PIC  X(07)  VALUE  "E000133".
+      *----------  [$項目名$]を一つ以上入力してください。
+         05  CNS-MSG-E000424       PIC  X(07)  VALUE  "E000424".
+      *----------  バッチエラーフラグ
+         05  CNS-X-1               PIC  X(01)  VALUE  "1".
+         05  CNS-X-2               PIC  X(01)  VALUE  "2".
+      ******************************************************************
+      *                 ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  数目
+         05  WK-INDEX              PIC  9(02).
+         05  WK-COUNTER            PIC  9(02).
+         05  WK-COUNTER-I          PIC  9(03).
+      *----------  SPP/バッチ起動区分
+         05  WK-KIDOU-KBN          PIC  X(01).
+      *----------  基準日FROM
+         05  WK-KYJ-YMD-FROM       PIC  X(08).
+      *----------  基準日TO
+         05  WK-KYJ-YMD-TO         PIC  X(08).
+      *----------  勘定異動／残高作成                                   20091215
+         05  WK-KJIDO-ZANSK        PIC  9(01).                          20091215
+      *----------  ポートフォリオ個別指定
+         05  WK-PTF-SYORI-KBN      PIC  X(01).
+      *----------  ポートフォリオ選択リスト
+         05  WK-FUND-PTF-RT.
+           10  WK-FUND-PTF-GRP     OCCURS  10.
+      *----------  ポートフォリオ区分
+             15  WK-FUND-PTF-KBN   PIC  X(01).
+      *----------  ポートフォリオ
+             15  WK-FUND-CD        PIC  X(12).
+      *----------  ポートフォリオ
+             15  WK-PTF-CD         PIC  X(04).
+      *----------  強制再計算区分
+         05  WK-KYOSE-CALC-KBN     PIC  X(01).
+      *----------  ワークメッセージID
+         05  WK-ERR-MSG-ID         PIC  X(07).
+      *---------- 置換文字
+         05  WK-STRING-PT-MOJI.
+           10  FILLER              PIC  X(01)  VALUE  "(".
+           10  WK-INDEX-I          PIC  9(02).
+           10  FILLER              PIC  X(01)  VALUE  ")".
+      *---------- ワークシステムエラーメッセージエリア
+         05  WK-SYS-ERR-MSG-AREA.
+      *---------- 置換文字
+           10  WK-TK-MOJI-G.
+             15  WK-TK-MOJI             OCCURS  5
+                                   PIC  X(30).
+      *----------  ワークAPL終了ステータス
+         05  WK-APL-STATUS         PIC  X(01).
+      *----------  ワークバッチエラースフラグ
+         05  WK-BT-ERRFLG          PIC  X(01).
+      ******************************************************************
+      *                 サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-IN.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZY5060 オンラインメッセージIDセットルーチン
+       01  PARM-SCZY5060-INOUT.
+           COPY  "SCZY5060.cpy".
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SMZJ0101-INOUT.
+           COPY  "SMZJ0101.cpy".
+       01  PARM-SMZJ0101-RTNPKG.
+         05  PARM-SMZJ0101-ARG7.
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SMZJ0101-INOUT
+                  PARM-SMZJ0101-RTNPKG.
+      ******************************************************************
+      *                 主処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  SMZJ0101処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1 前処理
+           PERFORM  INIT-RTN
+      *----------  3.2 主処理
+           PERFORM  MAIN-RTN
+      *----------  3.3 後処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  SMZJ0101処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       BASE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.1 前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  前処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  3.1.1 初期化処理
+           PERFORM  INITIALIZE-RTN
+      *----------  3.1.2 パラメータチェック処理
+           PERFORM  KIDOU-KBN-CHECK-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *****  前処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.1.1 初期化処理
+      ******************************************************************
+       INITIALIZE-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  初期化処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE  WORK-AREA
+                       PARM-SCZY1170-IN
+                       PARM-SCZY1170-RTNPKG
+                       PARM-SCZY5060-INOUT
+                       PARM-SMZJ0101-ARG3
+                       PARM-SMZJ0101-ARG4
+                       PARM-SMZJ0101-ARG5
+                       PARM-SMZJ0101-ARG6
+                       PARM-SMZJ0101-ARG7
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID":WORK-AREA           =["WORK-AREA"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SCZY1170-IN    =["
+      D            PARM-SCZY1170-IN "]"
+      D    DISPLAY CNS-PGM-ID":PARM-SCZY1170-RTNPKG=["
+      D            PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY CNS-PGM-ID": PARM-SCZY5060-INOUT=["
+      D            PARM-SCZY5060-INOUT"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SMZJ0101-ARG2  =["
+      D            PARM-SMZJ0101-ARG2"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SMZJ0101-ARG3  =["
+      D            PARM-SMZJ0101-ARG3"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SMZJ0101-ARG4  =["
+      D            PARM-SMZJ0101-ARG4"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SMZJ0101-ARG5  =["
+      D            PARM-SMZJ0101-ARG5"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SMZJ0101-ARG6  =["
+      D            PARM-SMZJ0101-ARG6"]"
+      D    DISPLAY CNS-PGM-ID":PARM-SMZJ0101-ARG7  =["
+      D            PARM-SMZJ0101-ARG7"]"
+      *-----------------------------------------------------------------
+      *----------  1170 RTN-CD 初期化
+           MOVE  CNS-RTN-000
+             TO  RTN-CD                OF  PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID":RTN-CD  OF  PARM-SCZY1170-ARG1 = ["
+      D                        RTN-CD  OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  SPP/バッチ起動区分
+           MOVE  KIDOU-KBN             OF  PARM-SMZJ0101-ARG1
+             TO  WK-KIDOU-KBN
+      *--------基準日FROM
+           MOVE  I-KYJ-YMD-FROM        OF  PARM-SMZJ0101-ARG2
+             TO  WK-KYJ-YMD-FROM
+      *--------基準日TO
+           MOVE  I-KYJ-YMD-TO          OF  PARM-SMZJ0101-ARG2
+             TO  WK-KYJ-YMD-TO
+      *--------  勘定異動／残高作成                                     20091215
+           MOVE  I-KJIDO-ZANSK         OF  PARM-SMZJ0101-ARG2           20091215
+             TO  WK-KJIDO-ZANSK                                         20091215
+      *--------  ポートフォリオ個別指定
+           MOVE  I-PTF-SYORI-KBN       OF  PARM-SMZJ0101-ARG2
+             TO  WK-PTF-SYORI-KBN
+      *--------  ポートフォリオ選択リスト
+           INITIALIZE  WK-INDEX
+           PERFORM  UNTIL  WK-INDEX = CNS-10
+             COMPUTE  WK-INDEX = WK-INDEX + CNS-1
+             MOVE  I-FUND-PTF-KBN(WK-INDEX)
+               TO  WK-FUND-PTF-KBN(WK-INDEX)
+             MOVE  I-PTF-CD(WK-INDEX)
+               TO  WK-PTF-CD(WK-INDEX)
+             MOVE  I-FUND-CD(WK-INDEX)
+               TO  WK-FUND-CD(WK-INDEX)
+           END-PERFORM
+      *--------  強制再計算区分
+           MOVE  I-KYOSE-CALC-KBN      OF  PARM-SMZJ0101-ARG2
+             TO  WK-KYOSE-CALC-KBN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":基準日FROM       =["
+      D             I-KYJ-YMD-FROM     OF  PARM-SMZJ0101-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KYJ-YMD-FROM =["
+      D             WK-KYJ-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":基準日TO         =["
+      D             I-KYJ-YMD-TO       OF  PARM-SMZJ0101-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KYJ-YMD-TO   =["
+      D             WK-KYJ-YMD-TO"]"
+      D    DISPLAY  CNS-PGM-ID":勘定異動／残高作成         =["          20091215
+      D             I-KJIDO-ZANSK      OF  PARM-SMZJ0101-INOUT"]"       20091215
+      D    DISPLAY  CNS-PGM-ID":WK-KJIDO-ZANSK   =["                    20091215
+      D             WK-KJIDO-ZANSK"]"                                   20091215
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ個別指定  =["
+      D             I-PTF-SYORI-KBN    OF  PARM-SMZJ0101-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-PTF-SYORI-KBN =["WK-PTF-SYORI-KBN"]"
+      D    INITIALIZE  WK-INDEX
+      D    PERFORM  UNTIL  WK-INDEX = CNS-10
+      D      COMPUTE  WK-INDEX = WK-INDEX + CNS-1
+      D    DISPLAY  CNS-PGM-ID":ポートフォリオ選択リスト("WK-INDEX")=["
+      D             I-FUND-PTF-GRP  OF  PARM-SMZJ0101-INOUT(WK-INDEX)"]"
+      D    END-PERFORM
+      D    DISPLAY  CNS-PGM-ID":WK-FUND-PTF-RT   =["WK-FUND-PTF-RT"]"
+      D    DISPLAY  CNS-PGM-ID":強制再計算区分   =["
+      D             I-KYOSE-CALC-KBN   OF  PARM-SMZJ0101-INOUT"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KYOSE-CALC-KBN=["WK-KYOSE-CALC-KBN"]"
+      D    DISPLAY  CNS-PGM-ID": *****  初期化処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INITIALIZE-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.1.2 パラメータチェック処理
+      ******************************************************************
+       KIDOU-KBN-CHECK-RTN    SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  パラメータチェック処理  START  ***"
+      D    DISPLAY CNS-PGM-ID": SPP/バッチ処理区分 = ["WK-KIDOU-KBN "]"
+      *-----------------------------------------------------------------
+           IF  WK-KIDOU-KBN = CNS-KIDOU-KBN-S
+             OR  WK-KIDOU-KBN = CNS-KIDOU-KBN-B
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": SPP/バッチ処理区分チェック 正常"
+      *-----------------------------------------------------------------
+             CONTINUE
+           ELSE
+      *----------  エラー検知プログラム名
+             MOVE  CNS-PGM-ID
+               TO  ERR-PGM-ID          OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+             MOVE  CNS-POS-001
+               TO  ERR-POS             OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+             MOVE  CNS-RTN-800
+               TO  RTN-CD              OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+             MOVE  ZERO
+               TO  DETAIL-RTN-CD       OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+             MOVE  CNS-DETAIL-0
+               TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+             MOVE  SPACE
+               TO  FREE-MSG            OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID         OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS            OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG           OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+      *----------  エラー処理
+             PERFORM  ERR-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  パラメータチェック処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       KIDOU-KBN-CHECK-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.2 主処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *****  主処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  1) 基準日チェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  基準日チェック START ***"
+      D    DISPLAY  CNS-PGM-ID":WK-KYJ-YMD-FROM  =["
+      D             WK-KYJ-YMD-FROM"]"
+      D    DISPLAY  CNS-PGM-ID":WK-KYJ-YMD-TO    =["
+      D             WK-KYJ-YMD-TO"]"
+      *-----------------------------------------------------------------
+           IF  WK-KYJ-YMD-TO  NOT = SPACE
+             AND  WK-KYJ-YMD-FROM > WK-KYJ-YMD-TO
+           THEN
+             MOVE  CNS-1
+               TO  KYJ-YMD-TO-ERRFLG   OF  PARM-SMZJ0101-ARG3
+             MOVE  CNS-1
+               TO  KYJ-YMD-FROM-ERRFLG OF  PARM-SMZJ0101-ARG3
+      *----------  ワークメッセージID
+             MOVE  CNS-MSG-E000257     TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+             MOVE  CNS-KJY-YMD-TO
+               TO  WK-TK-MOJI          OF  WK-TK-MOJI-G(CNS-1)
+             MOVE  CNS-KJY-YMD-FROM
+               TO  WK-TK-MOJI          OF  WK-TK-MOJI-G(CNS-2)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字1    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字2    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-2)"]"
+      *-----------------------------------------------------------------
+             IF  WK-KIDOU-KBN  =  CNS-KIDOU-KBN-S
+             THEN
+      *----------  SPPメッセージセット処理
+                 PERFORM  SPP-MES-SET-RTN
+             ELSE
+      *----------  バッチメッセージセット処理
+                 PERFORM  BT-MES-SET-RTN
+             END-IF
+           ELSE
+             CONTINUE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":KYJ-YMD-FROM-ERRFLG=["
+      D             KYJ-YMD-FROM-ERRFLG"]"
+      D    DISPLAY  CNS-PGM-ID":KYJ-YMD-TO-ERRFLG  =["
+      D             KYJ-YMD-TO-ERRFLG"]"
+      D    DISPLAY  CNS-PGM-ID":***  基準日チェック END ***"
+      *-----------------------------------------------------------------
+      *----------  1-1) 勘定異動／残高作成チェック                      20091215
+      *-------------------<DEBUG>---------------------------------------20091215
+      D    DISPLAY  CNS-PGM-ID":***勘定異動／残高作成チェックSTART***"  20091215
+      D    DISPLAY  CNS-PGM-ID":WK-KJIDO-ZANSK  =["WK-KJIDO-ZANSK"]"    20091215
+      *-----------------------------------------------------------------20091215
+           EVALUATE  WK-KJIDO-ZANSK                                     20091215
+      *----------  作成しない                                           20091215
+             WHEN  CNS-KJIDO-ZANSK-2                                    20091215
+      *----------  作成する                                             20091215
+             WHEN  CNS-KJIDO-ZANSK-1                                    20091215
+               CONTINUE                                                 20091215
+             WHEN  OTHER                                                20091215
+      *----------  ワークメッセージID                                   20091215
+               MOVE  CNS-MSG-E000130   TO  WK-ERR-MSG-ID                20091215
+      *----------  ワーク置換文字                                       20091215
+               MOVE  CNS-KJIDO-ZANSK                                    20091215
+                 TO  WK-TK-MOJI        OF  WK-TK-MOJI-G(CNS-1)          20091215
+      *-------------------<DEBUG>---------------------------------------20091215
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"   20091215
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["                   20091215
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"       20091215
+      *-----------------------------------------------------------------20091215
+      *----------  バッチメッセージセット処理                           20091215
+               PERFORM  BT-MES-SET-RTN                                  20091215
+           END-EVALUATE                                                 20091215
+      *-------------------<DEBUG>---------------------------------------20091215
+      D    DISPLAY  CNS-PGM-ID":***  勘定異動／残高作成チェック END ***"20091215
+      *-----------------------------------------------------------------20091215
+      *----------  2) ポートフォリ個別指定チェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***ポートフォリ個別指定チェックSTART***"
+      D    DISPLAY  CNS-PGM-ID":WK-PTF-SYORI-KBN  =["WK-PTF-SYORI-KBN"]"
+      *-----------------------------------------------------------------
+           EVALUATE  WK-PTF-SYORI-KBN
+             WHEN  CNS-PTF-SYORI-KBN-1
+             WHEN  CNS-PTF-SYORI-KBN-2
+               CONTINUE
+             WHEN  SPACE
+      *----------  ワークメッセージID
+               MOVE  CNS-MSG-E000133   TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+               MOVE  CNS-PTF-SYORI-KBN
+                 TO  WK-TK-MOJI        OF  WK-TK-MOJI-G(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+               PERFORM  BT-MES-SET-RTN
+             WHEN  OTHER
+      *----------  ワークメッセージID
+               MOVE  CNS-MSG-E000130   TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+               MOVE  CNS-PTF-SYORI-KBN
+                 TO  WK-TK-MOJI        OF  WK-TK-MOJI-G(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+               PERFORM  BT-MES-SET-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  ポートフォリ個別指定チェック"
+      D                       " END ***"
+      *-----------------------------------------------------------------
+      *----------  3) ポートフォリオチェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  ポートフォリオチェック START ***"
+      D    DISPLAY  CNS-PGM-ID":WK-PTF-SYORI-KBN =["WK-PTF-SYORI-KBN"]"
+      *-----------------------------------------------------------------
+           IF  WK-PTF-SYORI-KBN = CNS-X-1
+           THEN
+             INITIALIZE  WK-INDEX-I
+                         WK-COUNTER
+             PERFORM UNTIL WK-INDEX-I = CNS-10
+               COMPUTE  WK-INDEX-I = WK-INDEX-I + CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-FUND-PTF-KBN ("WK-INDEX-I")=["
+      D                                   WK-FUND-PTF-KBN(WK-INDEX-I)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-FUND-CD("WK-INDEX-I") =["
+      D    DISPLAY                             WK-FUND-CD(WK-INDEX-I)"]"
+      D    DISPLAY  CNS-PGM-ID":WK-PTF-CD("WK-INDEX-I") =["
+      D    DISPLAY                              WK-PTF-CD(WK-INDEX-I)"]"
+      *-----------------------------------------------------------------
+      *----------  ポートフォリオ区分の判定
+               EVALUATE  WK-FUND-PTF-KBN(WK-INDEX-I)
+      *--------  <SPACE>
+                 WHEN SPACE
+                   IF  WK-FUND-CD(WK-INDEX-I) = SPACE
+                     AND  WK-PTF-CD(WK-INDEX-I) = SPACE
+                   THEN
+                     COMPUTE  WK-COUNTER = WK-COUNTER + CNS-1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNTER=["WK-COUNTER"]"
+      *-----------------------------------------------------------------
+                   ELSE
+      *----------  ワークメッセージID
+                     MOVE  CNS-MSG-E000130
+                       TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                     STRING  CNS-FUND-PTF-KBN
+                             WK-STRING-PT-MOJI
+                         DELIMITED  BY  SIZE
+                         INTO  WK-TK-MOJI
+                                       OF  WK-TK-MOJI-G(CNS-1)
+                     END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                     PERFORM  BT-MES-SET-RTN
+                   END-IF
+      *--------  <ポートフォリオグループ>
+                 WHEN  CNS-X-1
+                   IF  WK-FUND-CD(WK-INDEX-I)(1:8) NOT = SPACE
+                   THEN
+                     IF  WK-FUND-CD(WK-INDEX-I)(9:4) = SPACE
+                       AND  WK-PTF-CD(WK-INDEX-I) = SPACE
+                     THEN
+                       CONTINUE
+                     ELSE
+      *----------  ワークメッセージID
+                       MOVE  CNS-MSG-E000130
+                         TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                       STRING  CNS-PTF-GRP
+                               WK-STRING-PT-MOJI
+                           DELIMITED  BY  SIZE
+                           INTO  WK-TK-MOJI
+                                       OF  WK-TK-MOJI-G(CNS-1)
+                       END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                       PERFORM  BT-MES-SET-RTN
+                     END-IF
+                   ELSE
+      *----------  ワークメッセージID
+                     MOVE  CNS-MSG-E000133
+                       TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                     STRING  CNS-PTF-GRP
+                             WK-STRING-PT-MOJI
+                         DELIMITED  BY  SIZE
+                         INTO  WK-TK-MOJI
+                                       OF  WK-TK-MOJI-G(CNS-1)
+                     END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                     PERFORM  BT-MES-SET-RTN
+                   END-IF
+      *----------  <ポートフォリオ>
+                 WHEN  CNS-X-2
+                   IF  WK-FUND-CD(WK-INDEX-I) = SPACE
+                   THEN
+      *----------  ワークメッセージID
+                     MOVE  CNS-MSG-E000133
+                       TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                     STRING  CNS-FUND-CD
+                             WK-STRING-PT-MOJI
+                       DELIMITED  BY  SIZE
+                       INTO  WK-TK-MOJI OF  WK-TK-MOJI-G(CNS-1)
+                     END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                     PERFORM  BT-MES-SET-RTN
+                   ELSE
+                     CONTINUE
+                   END-IF
+                   IF  WK-PTF-CD(WK-INDEX-I) = SPACE
+                   THEN
+      *----------  ワークメッセージID
+                     MOVE  CNS-MSG-E000133
+                       TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                     STRING  CNS-PTF-CD
+                             WK-STRING-PT-MOJI
+                         DELIMITED  BY  SIZE
+                         INTO  WK-TK-MOJI
+                                       OF  WK-TK-MOJI-G(CNS-1)
+                     END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                     PERFORM  BT-MES-SET-RTN
+                   ELSE
+                     CONTINUE
+                   END-IF
+                 WHEN  OTHER
+      *----------  ワークメッセージID
+                   MOVE  CNS-MSG-E000130
+                     TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                   STRING  CNS-FUND-PTF-KBN
+                           WK-STRING-PT-MOJI
+                       DELIMITED  BY  SIZE
+                       INTO  WK-TK-MOJI
+                                       OF  WK-TK-MOJI-G(CNS-1)
+                   END-STRING
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                   PERFORM  BT-MES-SET-RTN
+               END-EVALUATE
+             END-PERFORM
+      *----------3-2)ファンド/ポートフォリオグループポートフォリオチェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":WK-COUNTER=["WK-COUNTER"]"
+      D    DISPLAY  CNS-PGM-ID": WK-KIDOU-KBN = ["WK-KIDOU-KBN "]"
+      *-----------------------------------------------------------------
+             IF  WK-COUNTER = CNS-10
+             THEN
+               IF  CNS-KIDOU-KBN-S = WK-KIDOU-KBN
+               THEN
+                 MOVE  CNS-1
+                   TO  FUND-PTF-CD-RT-ERRFLG OF  PARM-SMZJ0101-ARG3
+      *----------  ワークメッセージID
+                 MOVE  CNS-MSG-E000133 TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                 MOVE  CNS-PTF-CD
+                   TO  WK-TK-MOJI      OF  WK-TK-MOJI-G(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  SPPメッセージセット処理
+                 PERFORM  SPP-MES-SET-RTN
+               ELSE
+      *----------  ワークメッセージID
+                 MOVE  CNS-MSG-E000424 TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                 MOVE  CNS-PTF-CD
+                   TO  WK-TK-MOJI      OF  WK-TK-MOJI-G(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                 PERFORM  BT-MES-SET-RTN
+               END-IF
+             ELSE
+               CONTINUE
+             END-IF
+           ELSE
+             CONTINUE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":FUND-PTF-CD-RT-ERRFLG=["
+      D             FUND-PTF-CD-RT-ERRFLG    OF  PARM-SMZJ0101-ARG3 "]"
+      D    DISPLAY  CNS-PGM-ID":***  ポートフォリオチェック END ***"
+      *-----------------------------------------------------------------
+      *----------  4) 強制再計算区分チェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***強制再計算区分チェック START ***"
+      D    DISPLAY  CNS-PGM-ID":WK-KYOSE-CALC-KBN=["
+      D             WK-KYOSE-CALC-KBN"]"
+      *-----------------------------------------------------------------
+           IF  WK-KYOSE-CALC-KBN NOT = CNS-KYOSE-CALC-KBN-1
+               AND  WK-KYOSE-CALC-KBN NOT = CNS-KYOSE-CALC-KBN-0
+           THEN
+      *----------  ワークメッセージID
+                 MOVE  CNS-MSG-E000130 TO  WK-ERR-MSG-ID
+      *----------  ワーク置換文字
+                 MOVE  CNS-KYOSE-CALC-KBN
+                   TO  WK-TK-MOJI      OF  WK-TK-MOJI-G(CNS-1)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークメッセージID=["WK-ERR-MSG-ID"]"
+      D    DISPLAY  CNS-PGM-ID":ワーク置換文字    =["
+      D             WK-TK-MOJI         OF  WK-TK-MOJI-G(CNS-1)"]"
+      *-----------------------------------------------------------------
+      *----------  バッチメッセージセット処理
+                 PERFORM  BT-MES-SET-RTN
+           ELSE
+             CONTINUE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***強制再計算区分チェック"
+      D             " END ***"
+      *-----------------------------------------------------------------
+      *----------  5) エラーチェック
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** エラーチェック START ***"
+      D    DISPLAY  CNS-PGM-ID":SPP/バッチ処理区分=["WK-KIDOU-KBN"]"
+      *-----------------------------------------------------------------
+           IF  WK-KIDOU-KBN = CNS-KIDOU-KBN-S
+           THEN
+             MOVE  WK-APL-STATUS
+               TO APL-STATUS           OF  PARM-SMZJ0101-ARG4
+             MOVE  PARM-SCZY5060-ARG2
+               TO  PARM-SMZJ0101-ARG5
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":ワークAPL終了ステータス=["
+      D             WK-APL-STATUS"]"
+      D    DISPLAY  CNS-PGM-ID":JYOHOU-AREA=["
+      D             JYOHOU-AREA  OF  PARM-SMZJ0101-ARG5(1:1000)"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-AREA   =["
+      D             ERR-AREA     OF  PARM-SMZJ0101-ARG5(1:1000)"]"
+      D    DISPLAY  CNS-PGM-ID":WARN-AREA  =["
+      D             WARN-AREA    OF  PARM-SMZJ0101-ARG5(1:1000)"]"
+      *-----------------------------------------------------------------
+             IF  WK-APL-STATUS = CNS-RTN-SPPLA
+             THEN
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID        OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-002
+                 TO  ERR-POS           OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD            OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  ZERO
+                 TO  DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG          OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID         OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS            OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG           OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+             ELSE
+               PERFORM  END-RTN
+             END-IF
+           ELSE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":バッチエラーフラグ=["WK-BT-ERRFLG"]"
+      *-----------------------------------------------------------------
+             IF  WK-BT-ERRFLG = CNS-X-1
+             THEN
+      *----------  エラー検知プログラム名
+               MOVE  CNS-PGM-ID
+                 TO  ERR-PGM-ID        OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+               MOVE  CNS-POS-003
+                 TO  ERR-POS           OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+               MOVE  CNS-RTN-800
+                 TO  RTN-CD            OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコード
+               MOVE  ZERO
+                 TO  DETAIL-RTN-CD     OF  PARM-SCZY1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+               MOVE  CNS-DETAIL-0
+                 TO  DETAIL-RTN-CD-FLG OF  PARM-SCZY1170-ARG1
+      *----------  フリーメッセージ
+               MOVE  SPACE
+                 TO  FREE-MSG          OF  PARM-SCZY1170-ARG1
+      *--------------------<DEBUG>--------------------------------------
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 =["
+      D             ERR-PGM-ID         OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション             =["
+      D             ERR-POS            OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード         =["
+      D             RTN-CD             OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード     =["
+      D             DETAIL-RTN-CD      OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ=["
+      D             DETAIL-RTN-CD-FLG  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ       =["
+      D             FREE-MSG           OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+             ELSE
+               CONTINUE
+             END-IF
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":*** エラーチェック END ***"
+      D    DISPLAY CNS-PGM-ID": *****  主処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.2.1 SPPメッセージセット処理
+      ******************************************************************
+       SPP-MES-SET-RTN        SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": *** SPPメッセージセット処理  START ***"
+      *-----------------------------------------------------------------
+      *----------  オンラインメッセージIDセットルーチン
+             PERFORM  SCZY5060-RTN
+      *----------  APL終了ステータス
+             MOVE  CNS-RTN-SPPLA        TO  WK-APL-STATUS
+             INITIALIZE  WK-TK-MOJI-G
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID":WK-APL-STATUS =["WK-APL-STATUS"]"
+      D    DISPLAY CNS-PGM-ID": *** SPPメッセージセット処理  END ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SPP-MES-SET-EXT.
+           EXIT.
+      ******************************************************************
+      *                 3.2.2 バッチメッセージセット処理
+      ******************************************************************
+       BT-MES-SET-RTN         SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***バッチメッセージセット処理  START***"
+      D    DISPLAY CNS-PGM-ID":WK-COUNTER-I    =["WK-COUNTER-I"]"
+      *-----------------------------------------------------------------
+           COMPUTE  WK-COUNTER-I = WK-COUNTER-I + CNS-1
+           IF  WK-COUNTER-I <= CNS-MAX-999
+           THEN
+             MOVE  WK-ERR-MSG-ID
+               TO  MSG-ID      OF PARM-SMZJ0101-ARG6(WK-COUNTER-I)
+             MOVE  WK-TK-MOJI  OF WK-TK-MOJI-G(CNS-1)
+               TO  TK-MOJI     OF PARM-SMZJ0101-ARG6(WK-COUNTER-I,CNS-1)
+           ELSE
+             CONTINUE
+           END-IF
+           MOVE  CNS-X-1  TO  WK-BT-ERRFLG
+           INITIALIZE  WK-TK-MOJI-G
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID":WK-COUNTER-I    =["WK-COUNTER-I"]"
+      D    DISPLAY CNS-PGM-ID":WK-BT-ERRFLG    =["WK-BT-ERRFLG"]"
+      D    DISPLAY CNS-PGM-ID":MSG-AREA    =["MSG-AREA"]"
+      D    DISPLAY CNS-PGM-ID": ***バッチメッセージセット処理  END***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       BT-MES-SET-EXT.
+           EXIT.
+      ******************************************************************
+      *    オンラインメッセージIDセットルーチン
+      ******************************************************************
+       SCZY5060-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":***  SCZY5060  START  ***"
+      *-----------------------------------------------------------------
+           INITIALIZE  PARM-SCZY5060-ARG1
+           MOVE  ZERO
+             TO  LINE-NO               OF  PARM-SCZY5060-ARG1
+           MOVE  WK-ERR-MSG-ID
+             TO  MESSAGE-ID            OF  PARM-SCZY5060-ARG1
+           MOVE  WK-TK-MOJI-G
+             TO  TIKAN-MOJI            OF  PARM-SCZY5060-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":LINE-NO =["
+      D             LINE-NO            OF  PARM-SCZY5060-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":MESSAGE-ID=["
+      D             MESSAGE-ID         OF  PARM-SCZY5060-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":TIKAN-MOJI=["
+      D             TIKAN-MOJI         OF  PARM-SCZY5060-ARG1"]"
+      D    DISPLAY  CNS-PGM-ID":CALL SCZY5060 START"
+      *-----------------------------------------------------------------
+           CALL  "SCZY5060"            USING  PARM-SCZY5060-INOUT
+           INITIALIZE  WK-ERR-MSG-ID
+                       WK-TK-MOJI-G
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":CALL SCZY5060 END"
+      D    DISPLAY  CNS-PGM-ID":PARM-SCZY5060-ARG2    =["
+      D             PARM-SCZY5060-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":JYOHOU-AREA    =["
+      D             JYOHOU-AREA OF PARM-SCZY5060-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":ERR-AREA    =["
+      D             ERR-AREA OF PARM-SCZY5060-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":WARN-AREA    =["
+      D             WARN-AREA OF PARM-SCZY5060-ARG2"]"
+      D    DISPLAY  CNS-PGM-ID":***  SCZY5060  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZY5060-EXT.
+           EXIT.
+      ******************************************************************
+      *    3.3.1 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID": ***   後処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ": リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"            USING  PARM-SCZY1170-IN
+                                               PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-RTNPKG  TO  PARM-SMZJ0101-ARG7
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY1170-RTNPKG = ["
+      D             PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZJ0101-ARG7 = ["
+      D             PARM-SMZJ0101-ARG7"]"
+      D    DISPLAY  CNS-PGM-ID":COUNT = ["
+      D                       COUNTER  OF PARM-SMZJ0101-ARG7"]"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 = ["
+      D       ERR-PGM-ID
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション = ["
+      D       ERR-POS
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード = ["
+      D       RTN-CD
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード = ["
+      D       DETAIL-RTN-CD
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ = ["
+      D       DETAIL-RTN-CD-FLG
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ = ["
+      D       FREE-MSG
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D           ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  CNS-PGM-ID": ***   後処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       END-EXT.
+           GOBACK.
+      ******************************************************************
+      *    3.4.1 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY CNS-PGM-ID": ***  エラー処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID
+      D             ": リターンパッケージセットルーチンSCZY1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"            USING  PARM-SCZY1170-IN
+                                               PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-RTNPKG  TO  PARM-SMZJ0101-ARG7
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  CNS-PGM-ID":  PARM-SCZY1170-RTNPKG   = ["
+      D             PARM-SCZY1170-RTNPKG"]"
+      D    DISPLAY  CNS-PGM-ID":PARM-SMZJ0101-ARG7 = ["
+      D             PARM-SMZJ0101-ARG7"]"
+      D    DISPLAY  CNS-PGM-ID":COUNT = ["
+      D                       COUNTER  OF PARM-SMZJ0101-ARG7"]"
+      D    DISPLAY  CNS-PGM-ID":エラー検知プログラム名 = ["
+      D       ERR-PGM-ID
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":ポジション = ["
+      D       ERR-POS
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":リターンコード = ["
+      D       RTN-CD
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコード = ["
+      D       DETAIL-RTN-CD
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":詳細リターンコードデコードフラグ = ["
+      D       DETAIL-RTN-CD-FLG
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID":フリーメッセージ = ["
+      D       FREE-MSG
+      D          OF PARM-SMZJ0101-ARG7(COUNTER OF PARM-SMZJ0101-ARG7)"]"
+      D    DISPLAY  CNS-PGM-ID
+      D           ": リターンパッケージセットルーチンSCZY1170終了"
+      D    DISPLAY  CNS-PGM-ID": ***  エラー処理  END  ***"
+      D    DISPLAY  CNS-PGM-ID": ***  SMZJ0101処理  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.

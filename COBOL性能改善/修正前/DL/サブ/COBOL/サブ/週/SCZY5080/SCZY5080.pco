@@ -1,0 +1,1062 @@
+      ******************************************************************
+      *$Header:$
+      ******************************************************************
+      *
+      * システムＩＤ   : TSTAR
+      * システム名称   : 次期TSTARシステム
+      * プログラム名称 : 汎用パラメータ取得ルーチン
+      * 処理概要       : 電文保持データを、
+      *                  電文項目マスタにより、
+      *                  項目を切り分けて、
+      *                  項目の汎用パラメータ属性と値を取得して、返す。
+      * 参照ＤＢ       : 電文項目マスタ(TKDYAA14)
+      *                : 汎用パラメータ属性(TKDYAA50)
+      * 引数           : IN  業務タスクID
+      *                :     入力電文
+      *                : OUT DB接続情報
+      *                : OUT RTNパッケージ
+      *
+      * 改訂履歴
+      * 年月日   区分 所属     担当者  内容
+      * -------- ---- -------- ------- --------------------------------
+      * 20080401 新規 SCS      薛銀峰  新規作成
+      * 20081210 新規 SCS      駱昕    更新
+      * 20090408 修正 SCS      王向華  連結障害1639対応
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY5080.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-04-01.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      * SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+           ENVIRONMENT-NAME               ENV-NAME
+           ENVIRONMENT-VALUE              ENV-VALUE.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                        DIVISION.
+       WORKING-STORAGE             SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PGM-ID            PIC  X(08)  VALUE  "SCZY5080".
+      *----------  リターンコード: システムエラー（Oracle以外）
+         05  CNS-RET-CD-SYSERR     PIC  X(03)  VALUE  "901".
+      *----------  システムエラー（Oracle）
+         05  CNS-RET-900           PIC  X(03)  VALUE  "900".
+         05  CNS-RTN-CD-NORMAL     PIC  X(03)  VALUE  "000".
+      *----------  リターンコード(正常終了)
+         05  CNS-RET-000           PIC  X(03)  VALUE  "000".
+         05  CNS-ON                PIC  X(01)  VALUE  "1".
+         05  CNS-OFF               PIC  X(01)  VALUE  "0".
+      *----------  SQLCODE＝0（正常）
+         05  CNS-SQL-NORMAL        PIC  S9(04)  COMP-3 VALUE +0000.
+         05  CNS-SQL-NOTFOUND      PIC  S9(04)  COMP-3 VALUE +1403.
+      ******************************************************************
+      *                添字  エリア
+      ******************************************************************
+       01  INDEX-AREA.
+         05  I                     PIC  9(03)  COMP-5.
+         05  J                     PIC  9(03)  COMP-5.
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  件数カウンター
+         05  WK-COUNTER            PIC  9(04).
+         05  WK-DENBUN-KOMOKU-LEN  PIC  9(02).
+         05  WK-LEN                PIC  9(02).
+         05  WK-DENBUN-KOMOKU      PIC  X(30).
+         05  WK-PARA-VALUE         PIC  X(30).
+         05  WK-SHOSU-KOMOKU-LEN   PIC  9(02).
+         05  WK-FUGOU-LEN          PIC  9(01).
+      *----------  項目開始位置保存用ワーク
+         05  WK-BEGIN-POS          PIC  9(07).
+         05  WK-BEGIN-POS1         PIC  9(07).
+         05  WK-BEGIN-POS2         PIC  9(07).
+         05  WK-END-POS            PIC  9(03).
+         05  WK-END-POS1           PIC  9(03).
+      *----------  TBL
+         05  WK-TAB-TKDYAA14       PIC  X(13).
+         05  WK-TAB-TKDYAA50       PIC  X(13).
+         05  WK-FREE-MSG           PIC  X(700).
+         05  WK-TBL-OPEN           PIC  X(01).
+      *----------  ワークカーソルデータ終了フラグ
+         05  WK-FETCH-END-FLG      PIC  X(01).
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1160
+       01  PARM-SCZY1160-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+           COPY  "SCZY1160.cpy".
+       01  PARM-SCZY1160-RTNPKG.
+         05  PARM-SCZY1160-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZY1040
+       01  PARM-SCZY1040-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+           COPY  "SCZY1040.cpy".
+       01  PARM-SCZY1040-RTNPKG.
+         05  PARM-SCZY1040-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+         COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           10  RTN-PAKEGE.
+             COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                ＳＱＬ通信領域
+      ******************************************************************
+           EXEC  SQL  INCLUDE  SQLCA  END-EXEC.
+           EXEC  SQL  BEGIN    DECLARE  SECTION  END-EXEC.
+       01  SQL-LANGUAGE.
+         05  SQLSTMT               PIC  X(500)  VARYING.
+         05  H-GYOMU-TASK-ID       PIC  X(07).
+      *----------  DBレイアウト
+         05  HBL.
+      *----------  汎用パラメータID
+           10  H-PARA-ID           PIC  X(20).
+      *----------  電文項目ID
+           10  H-DENBUN-KOMOKU-ID  PIC  X(40).
+      *----------  電文項目名
+           10  H-DENBUN-KOMOKU-MEI PIC  X(40).
+      *----------  符号長
+           10  H-FUGOU-LEN         PIC  9(01).
+      *----------  電文項目長
+           10  H-DENBUN-KOMOKU-LEN PIC  9(06).
+      *----------  小数項目長
+           10  H-SHOSU-KOMOKU-LEN  PIC  9(02).
+      *----------  入力必須区分
+           10  H-HISU-KBN          PIC  X(01).
+      *----------  チェック属性・タイプ
+           10  H-CHK-TYPE          PIC  X(01).
+      *----------  初期値
+           10  H-INIT-VALUE        PIC  X(30).
+      *----------  DY必須区分
+           10  H-DY-HISU-KBN       PIC  X(01).
+           EXEC  SQL  END      DECLARE  SECTION  END-EXEC.
+      ******************************************************************
+      *                連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY5080-INOUT.
+      *----------  バッチＤＢ接続情報取得ルーチンのコピー句
+         COPY  "SCZY5080.cpy".
+       01  PARM-SCZY5080-RTNPKG.
+         05  PARM-SCZY5080-ARG4.
+      *----------  RTNパッケージ
+           10  RTN-PAKEGE.
+             COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *                PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY5080-INOUT
+                  PARM-SCZY5080-RTNPKG.
+      ******************************************************************
+      *           SCZY5080処理
+      ******************************************************************
+       SCZY5080-RTN            SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  SCZY5080-RTN  START  ****"
+      *-----------------------------------------------------------------
+      *----------  前処理
+           PERFORM  INIT-RTN
+      *----------  メイン処理
+           PERFORM  MAIN-RTN
+      *----------  終了処理
+           PERFORM  END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  SCZY5080-RTN  END  ****".
+      *-----------------------------------------------------------------
+       SCZY5080-EXT.
+           GOBACK.
+      ******************************************************************
+      *           前処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  前処理  START  ****"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           PERFORM  INIT1-RTN
+      *----------  テーブルID取得処理
+           PERFORM  SCZY1160-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  前処理  END  ****".
+      *-----------------------------------------------------------------
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *           初期処理
+      ******************************************************************
+       INIT1-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  INIT-RTN  START  ****"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE  WORK-AREA
+                       INDEX-AREA
+                       SQL-LANGUAGE
+                       PARM-SCZY5080-ARG2
+                       PARM-SCZY5080-ARG3
+                       PARM-SCZY5080-ARG4
+                       PARM-SCZY1160-INOUT
+                       PARM-SCZY1160-RTNPKG
+                       PARM-SCZY1040-INOUT
+                       PARM-SCZY1040-RTNPKG
+                       PARM-SCZY1170-INOUT
+                       PARM-SCZY1170-RTNPKG
+           MOVE  1                              TO  WK-BEGIN-POS.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WORK-AREA           :[" WORK-AREA              "]"
+      D    DISPLAY  "INDEX-AREA          :[" INDEX-AREA             "]"
+      D    DISPLAY  "SQL-LANGUAGE        :[" SQL-LANGUAGE           "]"
+      *    DISPLAY  "PARM-SCZY5080-ARG2  :[" PARM-SCZY5080-ARG2     "]"
+      D    DISPLAY  "PARM-SCZY5080-ARG3  :[" PARM-SCZY5080-ARG3     "]"
+      D    DISPLAY  "PARM-SCZY1160-INOUT :[" PARM-SCZY1160-INOUT    "]"
+      D    DISPLAY  "PARM-SCZY1160-RTNPKG:[" PARM-SCZY1160-RTNPKG   "]"
+      D    DISPLAY  "PARM-SCZY1040-INOUT :[" PARM-SCZY1040-INOUT    "]"
+      D    DISPLAY  "PARM-SCZY1040-RTNPKG:[" PARM-SCZY1040-RTNPKG   "]"
+      D    DISPLAY  "PARM-SCZY1170-INOUT :[" PARM-SCZY1170-INOUT    "]"
+      D    DISPLAY  "PARM-SCZY1170-RTNPKG:[" PARM-SCZY1170-RTNPKG   "]"
+      D    DISPLAY  "項目開始位置保存用ワーク:[" WK-BEGIN-POS   "]"
+      D    DISPLAY  "業務タスクID=[" GYOMU-TASK-ID
+      D                                     OF PARM-SCZY5080-ARG1   "]"
+      D    DISPLAY  "入力電文    =[" INPUT-DENBUN
+      D                                     OF PARM-SCZY5080-ARG1   "]"
+      D    DISPLAY  "****  INIT-RTN  END  ****".
+      *-----------------------------------------------------------------
+       INIT1-EXT.
+           EXIT.
+      ******************************************************************
+      *                 テーブルID取得処理
+      ******************************************************************
+       SCZY1160-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "テーブルID取得ルーチンSCZY1160 START"
+      *-----------------------------------------------------------------
+      *----------  利用会社コード
+           MOVE  "C000"
+             TO  RIYO-CMP-CD                 OF  PARM-SCZY1160-ARG1
+      *----------  テーブルID
+           MOVE  "TKDYAA14"
+             TO  TBL-ID                      OF  PARM-SCZY1160-ARG1(1)
+           MOVE  "TKDYAA50"
+             TO  TBL-ID                      OF  PARM-SCZY1160-ARG1(2)
+           CALL  "SCZY1160"                  USING  PARM-SCZY1160-INOUT
+                                                    PARM-SCZY1160-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD("  COUNTER       OF  PARM-SCZY1160-RTNPKG
+      D      ") OF SCZY1160=["  RTN-CD       OF
+      D      PARM-SCZY1160-RTNPKG(COUNTER    OF PARM-SCZY1160-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD
+             OF  PARM-SCZY1160-RTNPKG(COUNTER  OF  PARM-SCZY1160-RTNPKG)
+                                             NOT =  "000"
+           THEN
+               MOVE  CNS-PGM-ID              TO  ERR-PGM-ID
+                                             OF PARM-SCZY1170-INOUT
+               MOVE  "0001"                  TO  ERR-POS
+                                             OF PARM-SCZY1170-INOUT
+               MOVE  CNS-RET-CD-SYSERR       TO  RTN-CD
+                                             OF PARM-SCZY1170-INOUT
+               MOVE  "0"                     TO  DETAIL-RTN-CD-FLG
+                                             OF PARM-SCZY1170-INOUT
+               MOVE  PARM-SCZY1160-RTNPKG    TO  PARM-SCZY1170-RTNPKG
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  HENSYUGO-TBL-ID         OF PARM-SCZY1160-ARG2(1)
+                 TO  WK-TAB-TKDYAA14
+               MOVE  HENSYUGO-TBL-ID         OF PARM-SCZY1160-ARG2(2)
+                 TO  WK-TAB-TKDYAA50
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-TAB-TKDYAA14 =["WK-TAB-TKDYAA14"]"
+      D    DISPLAY  "WK-TAB-TKDYAA50 =["WK-TAB-TKDYAA50"]"
+      D    DISPLAY  "テーブルID取得ルーチンSCZY1160 END".
+      *-----------------------------------------------------------------
+       SCZY1160-EXT.
+           EXIT.
+      ******************************************************************
+      *           メイン処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  MAIN-RTN  START  ****"
+      *-----------------------------------------------------------------
+      *----------  カーソルのOPEN
+           PERFORM  CUR-OPEN-RTN
+      *----------  カーソルのFETCH
+           PERFORM  CUR-FETCH-RTN
+      *----------  カーソルのCLOSE
+           PERFORM  CUR-CLOSE-RTN
+              MOVE  WK-COUNTER
+                TO  PARA-COUNT                   OF PARM-SCZY5080-ARG2.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "汎用パラメータ件数 =["PARA-COUNT
+      D                          OF PARM-SCZY5080-ARG2"]"
+      D    DISPLAY  "****  MAIN-RTN  END  ****".
+      *-----------------------------------------------------------------
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *           カーソルのOPEN
+      ******************************************************************
+       CUR-OPEN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  カーソルのOPEN  START  ****"
+      *-----------------------------------------------------------------
+           MOVE  1                  TO  SQLSTMT-LEN
+           MOVE  GYOMU-TASK-ID      OF PARM-SCZY5080-ARG1
+             TO  H-GYOMU-TASK-ID
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT-LEN          =["  SQLSTMT-LEN          "]"
+      D    DISPLAY  "H-GYOMU-TASK-ID      =["  H-GYOMU-TASK-ID      "]"
+      *-----------------------------------------------------------------
+           STRING  "SELECT "
+                   "A.PARA_ID, "
+                   "A.DENBUN_KOMOKU_ID, "
+                   "A.DENBUN_KOMOKU_MEI, "
+                   "A.FUGOU_LEN, "
+                   "A.DENBUN_KOMOKU_LEN, "
+                   "A.SHOSU_KOMOKU_LEN, "
+                   "A.HISU_KBN, "
+                   "NVL(B.CHK_TYPE,' '), "
+                   "NVL(B.INIT_VALUE,' '), "
+                   "NVL(B.HISU_KBN,' ') AS DY_HISU_KBN "
+                   " FROM "
+                   WK-TAB-TKDYAA14 " A, "
+                   WK-TAB-TKDYAA50 " B "
+                   "WHERE A.GYOMU_TASK_ID = :V1 "
+                   "AND A.PARA_ID = B.PARA_ID(+) "
+                   "ORDER BY A.DENBUN_KOMOKU_NO "
+           DELIMITED BY SIZE INTO  SQLSTMT-ARR
+           WITH  POINTER  SQLSTMT-LEN
+           STRING  SQLSTMT-ARR
+                  "[V1:"  H-GYOMU-TASK-ID  "]"
+           DELIMITED BY SIZE INTO  WK-FREE-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT-ARR        =["  SQLSTMT-ARR           "]"
+      D    DISPLAY  "SQLSTMT-LEN        =["  SQLSTMT-LEN           "]"
+      D    DISPLAY  "WK-FREE-MSG        =["  WK-FREE-MSG           "]"
+      D    DISPLAY  "***** SQL文 PREPARE処理 *****"
+      *-----------------------------------------------------------------
+           EXEC SQL
+               PREPARE S01  FROM :SQLSTMT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE PREPARE  =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-PGM-ID              TO  ERR-PGM-ID
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RET-900             TO  RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  "1"                     TO  DETAIL-RTN-CD-FLG
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  "0002"                  TO  ERR-POS
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE                 TO  DETAIL-RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  WK-FREE-MSG             TO  FREE-MSG
+                                             OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** SQL文 PREPARE ERROR *****"
+      D    DISPLAY  "ERR-PGM-ID              OF  PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1:["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1:["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+              PERFORM  ERR-RTN
+           END-IF
+      *---------- カーソル宣言
+           EXEC  SQL
+             DECLARE  CR01  CURSOR  FOR  S01
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE DECLARE  =["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-PGM-ID              TO  ERR-PGM-ID
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RET-900             TO  RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  "1"                     TO  DETAIL-RTN-CD-FLG
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  "0003"                  TO  ERR-POS
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE                 TO  DETAIL-RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  WK-FREE-MSG             TO  FREE-MSG
+                                             OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** SQL文 DECLARE ERROR *****"
+      D    DISPLAY  "ERR-PGM-ID              OF  PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1:["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1:["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+              PERFORM  ERR-RTN
+           END-IF
+      *---------- カーソルCUR1 OPEN
+           EXEC  SQL
+             OPEN  CR01  USING   :H-GYOMU-TASK-ID
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE  OPEN=["SQLCODE"]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-PGM-ID              TO  ERR-PGM-ID
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RET-900             TO  RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  "1"                     TO  DETAIL-RTN-CD-FLG
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  "0004"                  TO  ERR-POS
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE                 TO  DETAIL-RTN-CD
+                                             OF PARM-SCZY1170-ARG1
+               MOVE  WK-FREE-MSG             TO  FREE-MSG
+                                             OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** SQL文 OPEN ERROR *****"
+      D    DISPLAY  "ERR-PGM-ID              OF  PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1:["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1:["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  CNS-ON                  TO  WK-TBL-OPEN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  カーソルのOPEN  END  ****".
+      *-----------------------------------------------------------------
+       CUR-OPEN-EXT.
+           EXIT.
+      ******************************************************************
+      *           カーソルのFETCH
+      ******************************************************************
+       CUR-FETCH-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  カーソルのFETCH  START  ****"
+      D    DISPLAY  "WK-FETCH-END-FLG =["WK-FETCH-END-FLG"]"
+      *-----------------------------------------------------------------
+           PERFORM  UNTIL  WK-FETCH-END-FLG  NOT =  SPACE
+      *----------  カーソル FETCH
+               EXEC SQL
+                   FETCH  CR01
+                    INTO :HBL
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D        DISPLAY  "SQLCODE(FETCH) =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+               EVALUATE  SQLCODE
+                   WHEN  CNS-SQL-NOTFOUND
+                         MOVE  "1"               TO  WK-FETCH-END-FLG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FETCH-END-FLG  =["WK-FETCH-END-FLG"]"
+      *-----------------------------------------------------------------
+                   WHEN  CNS-SQL-NORMAL
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-INIT-VALUE  =["H-INIT-VALUE"]"
+      D    DISPLAY  "H-PARA-ID     =["H-PARA-ID"]"
+      D    DISPLAY  "H-DY-HISU-KBN =["H-DY-HISU-KBN"]"
+      D    DISPLAY  "WK-COUNTER    =["WK-COUNTER"]"
+      D    DISPLAY  "WK-BEGIN-POS  =["WK-BEGIN-POS"]"
+      *-----------------------------------------------------------------
+                     IF  H-PARA-ID            OF HBL  NOT = SPACE
+                     THEN
+                         MOVE  SPACE      TO  WK-PARA-VALUE
+                         PERFORM  GET-DATE-EDIT-RTN
+                     ELSE
+                       IF  H-DENBUN-KOMOKU-MEI =
+                           "呼出先メニューID              "
+                       THEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-DENBUN-KOMOKU-MEI  =["H-DENBUN-KOMOKU-MEI"]"
+      *-----------------------------------------------------------------
+                         MOVE  H-DENBUN-KOMOKU-LEN
+                           TO  MENU-ID-LEN
+                         MOVE  WK-BEGIN-POS
+                           TO  MENU-ID-BEGPOS
+                         MOVE  INPUT-DENBUN(MENU-ID-BEGPOS:MENU-ID-LEN)
+                           TO  MENU-ID
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "MENU-ID-LEN  =["MENU-ID-LEN"]"
+      D    DISPLAY  "MENU-ID-BEGPOS  =["MENU-ID-BEGPOS"]"
+      D    DISPLAY  "MENU-ID  =["MENU-ID"]"
+      *-----------------------------------------------------------------
+                       END-IF
+                     END-IF
+      *----------  開始位置 ← 項目開始位置保存用ワーク
+                     COMPUTE  WK-BEGIN-POS = WK-BEGIN-POS
+                                           + H-FUGOU-LEN
+                                           + H-DENBUN-KOMOKU-LEN
+                                           + H-SHOSU-KOMOKU-LEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-BEGIN-POS  =["WK-BEGIN-POS  "]"
+      *-----------------------------------------------------------------
+                     IF  WK-COUNTER >= 1000
+                     THEN
+                         MOVE  "1"              TO  WK-FETCH-END-FLG
+                     END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FETCH-END-FLG  =["WK-FETCH-END-FLG"]"
+      *-----------------------------------------------------------------
+                   WHEN  OTHER
+                         MOVE  CNS-PGM-ID         TO  ERR-PGM-ID
+                                                  OF PARM-SCZY1170-ARG1
+                         MOVE  CNS-RET-900        TO  RTN-CD
+                                                  OF PARM-SCZY1170-ARG1
+                         MOVE  "1"                TO  DETAIL-RTN-CD-FLG
+                                                  OF PARM-SCZY1170-ARG1
+                         MOVE  "0005"             TO  ERR-POS
+                                                  OF PARM-SCZY1170-ARG1
+                         MOVE  SQLCODE            TO  DETAIL-RTN-CD
+                                                  OF PARM-SCZY1170-ARG1
+                         MOVE  WK-FREE-MSG        TO  FREE-MSG
+                                                  OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** SQL文 FETCH ERROR *****"
+      D    DISPLAY  "ERR-PGM-ID              OF  PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1:["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1:["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+                        PERFORM  ERR-RTN
+               END-EVALUATE
+           END-PERFORM.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  カーソルのFETCH  END  ****".
+      *-----------------------------------------------------------------
+       CUR-FETCH-EXT.
+           EXIT.
+      ******************************************************************
+      *           取得したデータをARG2にセットする
+      ******************************************************************
+       GET-DATE-EDIT-RTN           SECTION.
+      ******************************************************************
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  取得したデータをARG2にセットする START  ****"
+      *-----------------------------------------------------------------
+           COMPUTE  WK-COUNTER = WK-COUNTER + 1
+           COMPUTE WK-END-POS = H-DENBUN-KOMOKU-LEN
+                              + H-SHOSU-KOMOKU-LEN
+                              + H-FUGOU-LEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-DENBUN-KOMOKU-LEN  =["H-DENBUN-KOMOKU-LEN     "]"
+      D    DISPLAY  "H-SHOSU-KOMOKU-LEN   =["H-SHOSU-KOMOKU-LEN      "]"
+      D    DISPLAY  "WK-END-POS           =["WK-END-POS              "]"
+      *-----------------------------------------------------------------
+      *----------  汎用パラメータID
+           MOVE  H-PARA-ID                       OF HBL
+             TO  PARA-ID                         OF PARA(WK-COUNTER)
+      *----------  電文項目ID
+           MOVE  H-DENBUN-KOMOKU-ID              OF HBL
+             TO  DENBUN-KOMOKU-ID                OF PARA(WK-COUNTER)
+      *----------  電文項目名
+           MOVE  H-DENBUN-KOMOKU-MEI             OF HBL
+             TO  DENBUN-KOMOKU-MEI               OF PARA(WK-COUNTER)
+      *----------  符号長
+           MOVE  H-FUGOU-LEN                     OF HBL
+             TO  FUGOU-LEN                       OF PARA(WK-COUNTER)
+      *----------  電文項目長
+           MOVE  H-DENBUN-KOMOKU-LEN
+             TO  DENBUN-KOMOKU-LEN               OF PARA(WK-COUNTER)
+      *----------  小数項目長
+           MOVE  H-SHOSU-KOMOKU-LEN              OF HBL
+             TO  SHOSU-KOMOKU-LEN                OF PARA(WK-COUNTER)
+      *----------  入力必須区分
+           MOVE  H-HISU-KBN                      OF HBL
+             TO  HISU-KBN                        OF PARA(WK-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "H-DY-HISU-KBN = ["H-DY-HISU-KBN"]"
+      *-----------------------------------------------------------------
+           IF  H-DY-HISU-KBN  OF HBL  = "1"
+           THEN
+               MOVE  H-DY-HISU-KBN               OF HBL
+                 TO  HISU-KBN                    OF PARA(WK-COUNTER)
+           END-IF
+      *----------  チェック属性・タイプ
+           MOVE  H-CHK-TYPE                      OF HBL
+             TO  CHK-TYPE                        OF PARA(WK-COUNTER)
+           COMPUTE WK-END-POS1 = DENBUN-KOMOKU-LEN
+           OF PARA(WK-COUNTER) + H-SHOSU-KOMOKU-LEN + H-FUGOU-LEN
+      *----------  開始位置
+           MOVE  WK-BEGIN-POS
+             TO  BEGIN-POS                       OF PARA(WK-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "入力電文前 =["
+      D                       INPUT-DENBUN(WK-BEGIN-POS:WK-END-POS1)"]"
+      D    DISPLAY  "チェック属性 = ["CHK-TYPE  OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "入力必須区分 = ["HISU-KBN  OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "INPUT-DENBUN(WK-BEGIN-POS:WK-END-POS) =["
+      D                       INPUT-DENBUN(WK-BEGIN-POS:WK-END-POS)"]"
+      *-----------------------------------------------------------------
+           IF  INPUT-DENBUN(WK-BEGIN-POS:WK-END-POS) = SPACE
+           THEN
+             MOVE  H-INIT-VALUE    TO  PARA-VALUE OF PARA(WK-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARA-VALUE OF PARA(WK-COUNTER) =["
+      D                              PARA-VALUE OF PARA(WK-COUNTER)"]"
+      *-----------------------------------------------------------------
+           ELSE
+             IF  CHK-TYPE  OF PARA(WK-COUNTER)   = "1"
+             THEN
+      *----------  電文項目長のデータ
+               PERFORM  DENBUN-KOMOKU-RTN
+      *----------  小数項目長の長さのデータ
+               MOVE  SHOSU-KOMOKU-LEN          OF PARA(WK-COUNTER)
+                 TO  WK-SHOSU-KOMOKU-LEN
+               COMPUTE WK-BEGIN-POS1 = WK-BEGIN-POS
+                                     + WK-FUGOU-LEN
+                                     + WK-DENBUN-KOMOKU-LEN
+               COMPUTE WK-BEGIN-POS2 = WK-BEGIN-POS1
+                                     + WK-SHOSU-KOMOKU-LEN - 1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "小数項目長の長さのデータ  =["
+      D              INPUT-DENBUN(WK-BEGIN-POS1:WK-SHOSU-KOMOKU-LEN) "]"
+      D    DISPLAY  "WK-BEGIN-POS1     =["WK-BEGIN-POS1     "]"
+      D    DISPLAY  "WK-BEGIN-POS2前   =["WK-BEGIN-POS2     "]"
+      *-----------------------------------------------------------------
+               PERFORM
+                 VARYING I  FROM  1  BY  1
+                 UNTIL  ( I > WK-SHOSU-KOMOKU-LEN )
+                 IF  INPUT-DENBUN(WK-BEGIN-POS2:1)  = "0"
+                 OR  INPUT-DENBUN(WK-BEGIN-POS2:1)  = SPACE
+                 THEN
+                 COMPUTE  WK-BEGIN-POS2 = WK-BEGIN-POS2 - 1
+                 END-IF
+               END-PERFORM
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-BEGIN-POS1     =["WK-BEGIN-POS1     "]"
+      D    DISPLAY  "WK-BEGIN-POS2後   =["WK-BEGIN-POS2     "]"
+      *-----------------------------------------------------------------
+      *----------  汎用パラメータ値に'.'(小数点)を追加する
+               COMPUTE WK-BEGIN-POS2 = WK-BEGIN-POS2 + 1
+               IF  WK-BEGIN-POS1 NOT = WK-BEGIN-POS2
+               THEN
+                   COMPUTE WK-LEN = WK-LEN + 1
+                   MOVE  "."
+                     TO  WK-PARA-VALUE(WK-LEN:1)
+                   COMPUTE WK-BEGIN-POS2 = WK-BEGIN-POS2 - WK-BEGIN-POS1
+                   COMPUTE WK-LEN = WK-LEN + 1
+                   MOVE  INPUT-DENBUN(WK-BEGIN-POS1:WK-BEGIN-POS2)
+                     TO  WK-PARA-VALUE(WK-LEN:WK-BEGIN-POS2)
+               ELSE
+                   COMPUTE WK-BEGIN-POS2 = WK-BEGIN-POS2 - WK-BEGIN-POS1
+               END-IF
+               MOVE  WK-PARA-VALUE
+                 TO  PARA-VALUE          OF PARA(WK-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "小数項目長の長さのデータ =["
+      D                  INPUT-DENBUN(WK-BEGIN-POS1:WK-BEGIN-POS2) "]"
+      D    DISPLAY  "汎用パラメータ値  =["PARA-VALUE
+      D                                     OF PARA(WK-COUNTER)"]"
+      *-----------------------------------------------------------------
+             ELSE
+      *----------  電文項目長＋符号長＋小数項目長＞30の場合
+               IF WK-END-POS > 30
+               THEN
+                 PERFORM SCZY1040-RTN
+                 MOVE  HENSYU-MOZI-RETU      OF PARM-SCZY1040-ARG2(1:30)
+                   TO  PARA-VALUE            OF PARA(WK-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "編集後文字列 =["
+      D                       HENSYU-MOZI-RETU OF PARM-SCZY1040-ARG2"]"
+      D    DISPLAY  "汎用パラメータ値 =["
+      D                               PARA-VALUE OF PARA(WK-COUNTER)"]"
+      *-----------------------------------------------------------------
+               ELSE
+      *----------  汎用パラメータ値
+                 MOVE INPUT-DENBUN(WK-BEGIN-POS:WK-END-POS)
+                   TO  PARA-VALUE            OF PARA(WK-COUNTER)
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "汎用パラメータ値 =["
+      D                              PARA-VALUE   OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "H-INIT-VALUE =["H-INIT-VALUE"]"
+      *-----------------------------------------------------------------
+               END-IF
+             END-IF
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "汎用パラメータID =["PARA-ID  OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "電文項目名  =["
+      D                         DENBUN-KOMOKU-MEI OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "電文項目長  =["
+      D                         DENBUN-KOMOKU-LEN OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "小数項目長  =["
+      D                          SHOSU-KOMOKU-LEN OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "入力必須区分 =[" HISU-KBN    OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "チェック属性 =[" CHK-TYPE    OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "汎用パラメータ値 =["
+      D                              PARA-VALUE   OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "開始位置    =["BEGIN-POS     OF PARA(WK-COUNTER)"]"
+      D    DISPLAY  "****  取得したデータをARG2にセットする END  ****".
+      *-----------------------------------------------------------------
+       GET-DATE-EDIT-EXT.
+           EXIT.
+      ******************************************************************
+      *           電文項目長のデータ
+      ******************************************************************
+       DENBUN-KOMOKU-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  符号長&電文項目長のデータ  START  ****"
+      *-----------------------------------------------------------------
+           MOVE  FUGOU-LEN                   OF PARA(WK-COUNTER)
+             TO  WK-FUGOU-LEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-FUGOU-LEN  =["WK-FUGOU-LEN"]"
+      D    DISPLAY  "WK-BEGIN-POS  =["WK-BEGIN-POS"]"
+      *-----------------------------------------------------------------
+           IF  WK-FUGOU-LEN  = 1
+           THEN
+               MOVE  INPUT-DENBUN(WK-BEGIN-POS:WK-FUGOU-LEN)
+                 TO  WK-PARA-VALUE(1:WK-FUGOU-LEN)
+           END-IF
+           MOVE  DENBUN-KOMOKU-LEN           OF PARA(WK-COUNTER)
+             TO  WK-DENBUN-KOMOKU-LEN
+           MOVE  INPUT-DENBUN
+                 (WK-BEGIN-POS + WK-FUGOU-LEN:WK-DENBUN-KOMOKU-LEN)
+             TO  WK-DENBUN-KOMOKU
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-BEGIN-POS  =["WK-BEGIN-POS"]"
+      D    DISPLAY  "WK-DENBUN-KOMOKU  =["WK-DENBUN-KOMOKU     "]"
+      *-----------------------------------------------------------------
+           IF  WK-PARA-VALUE(1:1) = "-"
+           THEN
+               MOVE  "-" TO  WK-PARA-VALUE(1:1)
+               MOVE  1  TO  J
+      *----------  電文項目長の先頭の0を除く
+               PERFORM
+                 VARYING I  FROM  1  BY  1
+                 UNTIL  ( I > WK-DENBUN-KOMOKU-LEN )
+                 IF  WK-DENBUN-KOMOKU(I:1) = "0"
+                 THEN
+                     COMPUTE J = J + 1
+                 ELSE
+                     MOVE 99   TO  I
+                 END-IF
+               END-PERFORM
+               IF  I > J
+               THEN
+                   COMPUTE WK-LEN = WK-DENBUN-KOMOKU-LEN - J + 1
+                   MOVE  WK-DENBUN-KOMOKU(J:WK-LEN)
+                     TO  WK-PARA-VALUE(2:WK-LEN)
+                   COMPUTE WK-LEN = WK-LEN + 1
+               ELSE
+                    MOVE  1    TO  WK-LEN
+                    MOVE  "0"  TO  WK-PARA-VALUE(2:1)
+               END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "I1       =["I     "]"
+      D    DISPLAY  "J1       =["J     "]"
+      D    DISPLAY  "WK-LEN1  =["WK-LEN     "]"
+      D    DISPLAY  "PARA-VALUE1  =["WK-PARA-VALUE "]"
+      *-----------------------------------------------------------------
+           ELSE
+               IF  WK-PARA-VALUE(1:1) = "+"
+               THEN
+                   MOVE  1  TO  J
+      *----------  電文項目長の先頭の0を除く
+                   PERFORM
+                   VARYING I  FROM  1  BY  1
+                   UNTIL  ( I > WK-DENBUN-KOMOKU-LEN )
+                   IF  WK-DENBUN-KOMOKU(I:1) = "0"
+                   THEN
+                       COMPUTE J = J + 1
+                   ELSE
+                       MOVE 99   TO  I
+                   END-IF
+                   END-PERFORM
+                   IF  I > J
+                   THEN
+                       COMPUTE WK-LEN = WK-DENBUN-KOMOKU-LEN - J + 1
+                       MOVE  WK-DENBUN-KOMOKU(J:WK-LEN)
+                         TO  WK-PARA-VALUE(2:WK-LEN)
+                       COMPUTE WK-LEN = WK-LEN + 1
+                   ELSE
+                       MOVE  1    TO  WK-LEN
+                       MOVE  "0"  TO  WK-PARA-VALUE(2:1)
+                   END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "I2       =["I     "]"
+      D    DISPLAY  "J2       =["J     "]"
+      D    DISPLAY  "WK-LEN2  =["WK-LEN     "]"
+      D    DISPLAY  "PARA-VALUE2  =["WK-PARA-VALUE "]"
+      *-----------------------------------------------------------------
+               ELSE
+                   MOVE  1  TO  J
+      *----------  電文項目長の先頭の0を除く
+                   PERFORM
+                   VARYING I  FROM  1  BY  1
+                   UNTIL  ( I > WK-DENBUN-KOMOKU-LEN )
+                   IF  WK-DENBUN-KOMOKU(I:1) = "0"
+      *            OR  WK-DENBUN-KOMOKU(I:1) = SPACE
+                   THEN
+                       COMPUTE J = J + 1
+                   ELSE
+                       MOVE 99   TO  I
+                   END-IF
+                   END-PERFORM
+                   IF  I > J
+                   THEN
+                       COMPUTE WK-LEN = WK-DENBUN-KOMOKU-LEN - J + 1
+                       MOVE  WK-DENBUN-KOMOKU(J:WK-LEN)
+                         TO  WK-PARA-VALUE(1:WK-LEN)
+                   ELSE
+                       MOVE  1    TO  WK-LEN
+                       MOVE  "0"  TO  WK-PARA-VALUE(1:1)
+                   END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "I3       =["I     "]"
+      D    DISPLAY  "J3       =["J     "]"
+      D    DISPLAY  "WK-LEN3  =["WK-LEN     "]"
+      D    DISPLAY  "PARA-VALUE3  =["WK-PARA-VALUE "]"
+      *-----------------------------------------------------------------
+               END-IF
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  符号長&電文項目長のデータ  END  ****".
+      *-----------------------------------------------------------------
+       DENBUN-KOMOKU-EXT.
+           EXIT.
+      ******************************************************************
+      *           指定バイト数文字列切り取り
+      ******************************************************************
+       SCZY1040-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  SCZY1040-RTN  START  ****"
+      *-----------------------------------------------------------------
+       INITIALIZE  PARM-SCZY1040-INOUT
+                   PARM-SCZY1040-RTNPKG
+      *----------  元文字列
+           MOVE  INPUT-DENBUN(WK-BEGIN-POS:WK-END-POS)
+             TO  MOZI-RETU       OF PARM-SCZY1040-ARG1
+      *----------  必要バイト数
+           MOVE  30
+             TO  HITUYO-BYTE-SUU OF PARM-SCZY1040-ARG1
+      *----------  コード種類
+           MOVE  "0"
+             TO  CD-SYURUI       OF PARM-SCZY1040-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "元文字列     = ["MOZI-RETU OF PARM-SCZY1040-ARG1"]"
+      D    DISPLAY  "必要バイト数 = ["HITUYO-BYTE-SUU
+      D                                     OF PARM-SCZY1040-ARG1"]"
+      D    DISPLAY  "コード種類   = ["CD-SYURUI OF PARM-SCZY1040-ARG1"]"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1040"        USING PARM-SCZY1040-INOUT
+                                         PARM-SCZY1040-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD("  COUNTER       OF  PARM-SCZY1040-RTNPKG
+      D      ") OF SCZY1040=["  RTN-CD       OF
+      D      PARM-SCZY1040-RTNPKG(COUNTER    OF PARM-SCZY1040-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD
+             OF PARM-SCZY1040-RTNPKG(COUNTER OF  PARM-SCZY1040-RTNPKG)
+                                             NOT =  "000"
+           THEN
+               MOVE  CNS-PGM-ID              TO  ERR-PGM-ID
+                                             OF  PARM-SCZY1170-INOUT
+               MOVE  "0007"                  TO  ERR-POS
+                                             OF  PARM-SCZY1170-INOUT
+               MOVE  CNS-RET-CD-SYSERR       TO  RTN-CD
+                                             OF  PARM-SCZY1170-INOUT
+               MOVE  0                       TO  DETAIL-RTN-CD
+                                             OF  PARM-SCZY1170-INOUT
+               MOVE  "0"                     TO  DETAIL-RTN-CD-FLG
+                                             OF  PARM-SCZY1170-INOUT
+               MOVE  PARM-SCZY1040-RTNPKG    TO  PARM-SCZY1170-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** SCZY1040-RTN ERROR *****"
+      D    DISPLAY  "ERR-PGM-ID              OF  PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1:["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1:["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  SCZY1040-RTN   END   ****".
+      *-----------------------------------------------------------------
+       SCZY1040-EXT.
+           EXIT.
+      ******************************************************************
+      *           カーソルのCLOSE
+      ******************************************************************
+       CUR-CLOSE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  カーソルのCLOSE  START  ****"
+      *-----------------------------------------------------------------
+      *----------  カーソル CLOSE
+           EXEC SQL
+               CLOSE CR01
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE)     =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-PGM-ID                   TO  ERR-PGM-ID
+                                                  OF PARM-SCZY1170-ARG1
+               MOVE  CNS-RET-900                  TO  RTN-CD
+                                                  OF PARM-SCZY1170-ARG1
+               MOVE  "1"                          TO  DETAIL-RTN-CD-FLG
+                                                  OF PARM-SCZY1170-ARG1
+               MOVE  "0006"                       TO  ERR-POS
+                                                  OF PARM-SCZY1170-ARG1
+               MOVE  SQLCODE                      TO  DETAIL-RTN-CD
+                                                  OF PARM-SCZY1170-ARG1
+               MOVE  WK-FREE-MSG                  TO  FREE-MSG
+                                                  OF PARM-SCZY1170-ARG1
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** SQL文 FETCH ERROR *****"
+      D    DISPLAY  "ERR-PGM-ID              OF  PARM-SCZY1170-ARG1:["
+      D              ERR-PGM-ID              OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "RTN-CD                  OF  PARM-SCZY1170-ARG1=["
+      D              RTN-CD                  OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD-FLG       OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "ERR-POS                 OF  PARM-SCZY1170-ARG1:["
+      D              ERR-POS                 OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1:["
+      D              DETAIL-RTN-CD           OF  PARM-SCZY1170-ARG1"]"
+      D    DISPLAY  "FREE-MSG                OF  PARM-SCZY1170-ARG1:["
+      D              FREE-MSG                OF  PARM-SCZY1170-ARG1"]"
+      *-----------------------------------------------------------------
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  CNS-OFF                     TO  WK-TBL-OPEN
+           END-IF.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  カーソルのCLOSE  END  ****".
+      *-----------------------------------------------------------------
+       CUR-CLOSE-EXT.
+           EXIT.
+      ******************************************************************
+      *           後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  END-RTN  START  ****"
+      D    DISPLAY  "リターンコード =["CNS-RTN-CD-NORMAL"]"
+      D    DISPLAY  "CALL END SCZY1170  START  ****"
+      *-----------------------------------------------------------------
+      *----------  リターンコード
+           MOVE  CNS-RTN-CD-NORMAL           TO  RTN-CD
+                                             OF  PARM-SCZY1170-ARG1
+           CALL  "SCZY1170"   USING  PARM-SCZY1170-INOUT
+                                     PARM-SCZY1170-RTNPKG
+           MOVE  RTN-PAKEGE                  OF  PARM-SCZY1170-ARG2
+             TO  RTN-PAKEGE                  OF  PARM-SCZY5080-ARG4.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CALL END SCZY1170  END  ****"
+      D    DISPLAY  "汎用パラメータ件数          :["
+      D              PARA-COUNT  OF  PARM-SCZY5080-ARG2 "]"
+      D    DISPLAY  "RTN-PAKEGE          :["
+      D              RTN-PAKEGE  OF  PARM-SCZY5080-ARG4 "]"
+      D    DISPLAY  "****  END-RTN  END  ****".
+      *-----------------------------------------------------------------
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *           エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "****  ERR-RTN  START  ****"
+      D    DISPLAY  "WK-TBL-OPEN =["WK-TBL-OPEN"]"
+      *-----------------------------------------------------------------
+           IF  WK-TBL-OPEN = CNS-ON
+           THEN
+               EXEC SQL
+                   CLOSE CR01
+               END-EXEC
+               MOVE  CNS-OFF              TO  WK-TBL-OPEN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CALL ERR SCZY1170  START  ****"
+      *-----------------------------------------------------------------
+           CALL  "SCZY1170"   USING  PARM-SCZY1170-INOUT
+                                     PARM-SCZY1170-RTNPKG
+           MOVE  RTN-PAKEGE                  OF  PARM-SCZY1170-ARG2
+             TO  RTN-PAKEGE                  OF  PARM-SCZY5080-ARG4.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "CALL ERR SCZY1170  END  ****"
+      D    DISPLAY  "RTN-PAKEGE          :["
+      D              RTN-PAKEGE  OF  PARM-SCZY5080-ARG4 "]"
+      D    DISPLAY  "****  ERR-RTN  END  ****".
+      *-----------------------------------------------------------------
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************
