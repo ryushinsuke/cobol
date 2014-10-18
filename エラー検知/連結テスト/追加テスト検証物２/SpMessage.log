@@ -1,0 +1,15 @@
+I RLSJV076 千手サーバ_RXクラウド環境A面      RLSJV076:sjANM_daily.com 13-01-23 00:07:00 !ANM450 千手日替わり処理を開始しました。
+I RLSJV076 千手サーバ_RXクラウド環境A面     RLSJV076:sjRBA_GEN_delete 13-01-23 00:08:10 !RBA414 オペレーション  [実行ブック削除[開始]]
+I RLSJV076 千手サーバ_RXクラウド環境A面     RLSJV076:sjRBA_GEN_delete 13-01-23 00:08:10 !RBA418 オペレーション  [実行ブック削除[終了]](削除対象実行ブックはありません。)
+I RLSJV076 千手サーバ_RXクラウド環境A面      RLSJV076:sjANM_daily.com 13-01-23 00:08:10 !ANM451 千手日替わり処理を終了しました。
+I RLSJV076 千手サーバ_RXクラウド環境A面        RLSJV076:sjANM_vmstatd 13-01-23 04:00:01 !ANMV02 マネージャ情報の格納が終了しました。(sj_mgrInfoStore)
+I RLSJV076 千手サーバ_RXクラウド環境A面        RLSJV076:sjPEX_GEN_all 13-01-23 10:50:33 !PEX432 オペレーション  [フレーム登録[システム登録開始]]([システム名:td_RXDR切替])
+I RLSJV076 千手サーバ_RXクラウド環境A面        RLSJV076:sjPEX_GEN_all 13-01-23 10:50:35 !PEX434 オペレーション  [フレーム登録[フレーム登録開始]]([フレーム名:apfxC000_801RX])
+I RLSJV076 千手サーバ_RXクラウド環境A面        RLSJV076:sjPEX_GEN_all 13-01-23 10:50:36 !PEX434 オペレーション  [フレーム登録[フレーム登録開始]]([フレーム名:apfxC000_802RX])
+I RLSJV076 千手サーバ_RXクラウド環境A面        RLSJV076:sjPEX_GEN_all 13-01-23 10:50:36 !PEX434 オペレーション  [フレーム登録[フレーム登録開始]]([フレーム名:apfxC000_803RX])
+I RLSJV076 千手サーバ_RXクラウド環境A面        RLSJV076:sjPEX_GEN_all 13-01-23 10:50:37 !PEX433 オペレーション  [フレーム登録[システム登録終了]]([システム名:td_RXDR切替])
+E RLBLV031 BLサーバ_RXクラウド環境A面               RLBLV031:MDYJ2001 13-01-23 11:44:32 RXAP002 <L1>2013/01/23 11:44:32 エラー通知 利用会社=1088 処理実行日=20111126 起動ID=0051 検知ID=CHK0001
+E RLBLV031 BLサーバ_RXクラウド環境A面               RLBLV031:MDYJ2001 13-01-23 11:44:32 RXAP002 <L2>利用会社=1088 終了していないタスク=DELTST1-001-T4210MZ,DELTST1-002-T4220MH,DELTST1-003-T6210US,DELTST1-006-T6220US,DELTST1-007-T6220US,DELTST2-003-T4220MH,DELTST2-004-T4220MH,DELTST2-005-T6210US,DELTST2-006-T6210US,DELTST2-007-T6220US 
+E RLBLV031 BLサーバ_RXクラウド環境A面               RLBLV031:MDYJ2001 13-01-23 11:44:32 RXAP002 <L3>利用会社=1088 終了していないタスク=DELTST2-008-T6220US                                                                                                                                                                                     
+E RLBLV031 BLサーバ_RXクラウド環境A面               RLBLV031:MDYJ2001 13-01-23 11:44:32 RXAP002 <L4>利用会社=1088 ファイル未到着タスク=DELTST1-005-T6230US                                                                                                                                                                                     
+E RLBLV031 BLサーバ_RXクラウド環境A面               RLBLV031:MDYJ2001 13-01-23 11:44:32 RXAP002 <L5>利用会社=1088 エラータスク　　　　=DELTST1-004-T6220US,DELTST2-001-T4210MZ,DELTST2-002-T4210MZ                                                                                                                                             

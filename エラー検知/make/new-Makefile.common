@@ -1,0 +1,146 @@
+#********************************************************************************
+#    プロジェクト  :次期T-STAR
+#    サブシステム  :
+#    モジュール名  :Makefile.common
+#    名称          :メイクファイル共通
+#                   
+#
+#    使用方法      :メイクファイルに直接include
+#    備考          :なし
+#
+#================================================================================
+#  Copyright (C) 2006 by Nomura Research Institute,Ltd.
+#  All rights reserved.
+#********************************************************************************
+
+# ------------------------------------------------------------------------------
+# Directory definition
+# ------------------------------------------------------------------------------
+
+# APLディレクトリ
+
+#BASEDIRMK = $(BASEDIR)/MAKE
+
+#BASEDIRCMN = /home/apl/debug/CMN
+BASEDIRREF	=	/eLIBSYS/T21/reference_space/develop/dev_240721_hirayama
+CPYDIR		= 	$(BASEDIRREF)/make_inc
+OBJDIR		=	$(BASEDIRREF)/make_obj
+LIBDIR		=	$(BASEDIRREF)/make_obj
+
+EXEDIR		=	$(BASEDIRBL)/exe
+APLIBDIR	=	$(BASEDIRBL)/aplib
+SLIBDIR		=	$(BASEDIRBL)/lib
+
+#MKLOGDIR = $(BASEDIRMK)/src/mklog
+
+TRUNKDIR	=	/eLIBSYS/T21/reference_space/ncc
+TRUNKCPYDIR	=	$(TRUNKDIR)/make_inc
+TRUNKOBJDIR	=	$(TRUNKDIR)/make_obj
+TRUNKLIBDIR	=	$(TRUNKDIR)/make_obj
+# P.P
+COBOLDIR	=	/opt/microfocus/cobol
+TP1DIR		=	/opt/betran01
+ORACLEDIR	=	/opt/app/oracle/product/10.2.0/client_1
+
+# 基盤ミドル
+WOMDIR		=	/opt/wom
+WOUDIR		=	/opt/wou
+WOULIBDIR	= $(WOUDIR)/lib
+COBCPY		=	$(WOMDIR)/copy:$(CPYDIR):$(WOUDIR)/copy:$(TRUNKCPYDIR)
+
+VPATH		=	$(WOMDIR)/include:$(TP1DIR)/include \
+				$(WOMDIR)/copy:$(TP1DIR)/include/COBOL \
+				$(OBJDIR):$(TRUNKOBJDIR)
+
+RM		=	rm -f
+
+# ------------------------------------------------------------------------------
+# Libraly definition
+# ------------------------------------------------------------------------------
+LIBPATH		=	-L$(LIBDIR) -L$(TRUNKLIBDIR) \
+				-L$(ORACLEDIR)/lib \
+				-L$(TP1DIR)/lib \
+				-L$(WOMDIR)/lib
+
+CLIB		=	-lc -ldl
+TP1LIB		=	-lbetran -ltactk
+ORALIB		=	$(ORACLEDIR)/precomp/lib/cobsqlintf.o \
+				`cat $(ORACLEDIR)/lib/sysliblist` \
+				-lclntsh -lm -lpthread
+WOMLIB		=	-lwommd
+WOULIB	=	-L$(WOULIBDIR) -lwoubs
+
+USERLIB		=	
+
+ifeq ($(PGMTYPE),SPP)
+  LIB		=	$(LIBPATH) $(CLIB) $(ORALIB) $(TP1LIB) $(WOMLIB) $(WOULIB) $(APLIB) $(USERLIB)
+endif
+ifeq ($(PGMTYPE),SLIB)
+  LIB		=	$(LIBPATH) $(CLIB) $(ORALIB) $(APLIB) $(USERLIB)
+endif
+ifeq ($(PGMTYPE),BATCH)
+  LIB		=	$(LIBPATH) $(CLIB) $(ORALIB) $(APLIB) $(USERLIB)
+endif
+ifeq ($(PGMTYPE),SUB)
+  LIB		=	$(LIBPATH) $(CLIB) $(ORALIB) $(APLIB) $(USERLIB)
+endif
+
+# ------------------------------------------------------------------------------
+# Compiler & Compile / Linkage flags definition
+# ------------------------------------------------------------------------------
+CC		=	gcc
+CINC		=	-I$(WOMDIR)/include \
+				-I$(WOUDIR)/include \
+				-I$(TP1DIR)/include
+
+ifeq ($(PGMTYPE),SPP)
+  CFLAGS	=	-c -Wall -O2 -g -D_LINUX
+  LINKFLAGS	=	
+endif
+ifeq ($(PGMTYPE),SLIB)
+  CFLAGS	=	-c -Wall -O2 -g -D_LINUX -fPIC
+  LINKFLAGS	=	-Z
+endif
+ifeq ($(PGMTYPE),BATCH)
+  CFLAGS	=	
+  LINKFLAGS	=	-x
+endif
+ifeq ($(PGMTYPE),SUB)
+  CFLAGS	=	
+  LINKFLAGS	=	-x
+endif
+
+COB		=	$(COBOLDIR)/bin/cob
+
+# 数値の18桁以上対応
+COBFLAGS	=	-z -c -P -C"INTLEVEL(4)" COPYEXT"(copy,cpy,CPY,cbl)"
+
+PROCOB		=	$(ORACLEDIR)/bin/procob
+LD		=	/usr/bin/ld
+MV		=	/bin/mv
+CP		=	/bin/cp
+INSTALL		=	/usr/bin/install
+# 必要なCOPY句があれば追加してください
+PROCOBINC	=	include=$(CPYDIR) include=$(TRUNKCPYDIR) \
+				include=$(ORACLEDIR)/precomp/public \
+				include=$(WOMDIR)/copy \
+				include=$(TP1DIR)/include/COBOL
+
+#Pro*Cobolのフラグ
+PROCOBFLAGS     =       dbms=v8 ireclen=500 \
+                        maxliteral=132 oreclen=500
+
+.SUFFIXES: .pco .cbl .cob .def _sstb.c
+
+.c.o:
+	$(CC) $(CFLAGS) $(CINC)  $*.c > $*.lst 2>&1
+
+.pco.o:
+	$(PROCOB) $(PROCOBFLAGS) $(PROCOBINC) iname=$< oname=$(<:.pco=.cob)
+	$(COB) $(COBFLAGS) $*.cob -o $*.o
+
+.cbl.o:
+	$(COB) $(COBFLAGS)  $*.cbl -o $*.o
+
+.def_sstb.c:
+	$(TP1DIR)/bin/stbmake -s $*_sstb.c $*.def

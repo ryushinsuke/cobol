@@ -1,0 +1,763 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      * システムＩＤ   : T-STAR
+      * システム名称   : 新有価証券バックオフィスシステム
+      * プログラム名称 : 監視ＳＵＰ
+      * 処理概要       : 日中シェル起動ルーチンSCZK6000をコールする
+      * 参照ＤＢ       : なし
+      * 引数           : IN  メッセージディスクリプタ
+      *                : IN  GETキュー名称
+      *                : IN  AQメッセージデータ長
+      *                : OUT 戻り値
+      *                : OUT 理由コード
+      *                : IN  メッセージ
+      * 改訂履歴
+      * 年月日     区分  所属    担当者  内容
+      * ---------- ----  ------  ------  ------------------------
+      * 2007/05/31 新規  SJC     曹躍華  新規作成
+      * 2007/08/11 変更  GUT     温雪東  委託会社コードを追加する
+      * 2007/08/24 変更  GUT     温雪東  IF項目（委託会社コード）を削除する
+      * 2008/01/30 変更  GUT     温雪東  異常メッセージ出力を追加する
+      * 2008/03/25 変更  GUT     李  淵  異常メッセージ出力を変更する
+      * 2008/06/30 変更  GUT     王  超  不備修正:CNS-RTN-ERROR(999)→CNS-RET-CD-ORAERR(900)
+      * 2008/11/04 変更  GUT     徐楽群  不備修正:ﾒｯｾｰｼﾞに利用会社ｺｰﾄﾞとﾛｸﾞｲﾝ会社ｺｰﾄﾞが逆になる
+      ******************************************************************
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID.    SCZK1000.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  07-05-31.
+      ******************************************************************
+      *
+      *        環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *        デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *        コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+      *----------  プログラムＩＤ
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE  "SCZK1000".
+      *----------  リターンコード: 正常終了
+         05  CNS-RET-CD-NORMAL     PIC  X(03)  VALUE  "000".
+      *----------  リターンコード: システムエラー（Oracle）
+         05  CNS-RET-CD-ORAERR     PIC  X(03)  VALUE  "900".
+      *----------  リターンコード: システムエラー（シェル）
+         05  CNS-SHL-ERR           PIC  X(03)  VALUE  "700".
+      *----------  リターンコード: システムエラー（Oracle以外）
+         05  CNS-RET-CD-SYSERR     PIC  X(03)  VALUE  "901".
+         05  CNS-NUM-0             PIC  X(01)  VALUE  "0".
+             COPY  "SUKECNS01.cpy".
+      ******************************************************************
+      *        サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZC1170
+       01  PARM-SCZC1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZC1170.cpy".
+       01  PARM-SCZC1170-RTNPKG.
+         05  PARM-SCZC1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZK6000
+       01  PARM-SCZK6000-INOUT.
+           COPY  "SCZK6000.cpy".
+       01  PARM-SCZK6000-RTNPKG.
+      *----------  RTNパッケージ
+         05  PARM-SCZK6000-ARG2.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WORK-AREA.
+      *----------  フリーメッセージ出力の変数
+         05  WK-FREE-MSG-LEN       PIC  9(04).
+         05  WK-L5-SU              PIC  9(02).
+         05  WK-LAST-LEN           PIC  9(04).
+         05  IDX1                  PIC  9(02).
+         05  IDX2                  PIC  9(04).
+         05  WK-TEMP               PIC  X(100).
+         05  WK-SHL-FLG            PIC  X(01).
+         05  WK-IJYOU-MSG-OUT.
+      *---------- 詳細リターンコードデコードフラグ
+           10  WK-DETAIL-RTN-CD-FLG
+                                   PIC  X(01).
+      *----------  BLのマシン日付時刻
+           10  WK-MAC-DATE-TIME    PIC  X(14).
+           10  WK-COUNTER          PIC  9(02).
+           10  WK-MSG-S.
+      *----------  メッセージ1行目
+             15  WK-MSG-S-1.
+               20  FILLER          PIC  X(04)  VALUE  "<L1>".
+               20 WK-MAC-DATE-TIME-S.
+                 25  WK-YY-S       PIC  X(04).
+                 25  FILLER        PIC  X(01)
+                   VALUE  "/".
+                 25  WK-MM-S       PIC  X(02).
+                 25  FILLER        PIC  X(01)
+                   VALUE  "/".
+                 25  WK-DD-S       PIC  X(02).
+                 25  FILLER        PIC  X(01)
+                   VALUE  " ".
+                 25  WK-HH-S       PIC  X(02).
+                 25  FILLER        PIC  X(01)
+                   VALUE  ":".
+                 25  WK-MI-S       PIC  X(02).
+                 25  FILLER        PIC  X(01)
+                   VALUE  ":".
+                 25  WK-SS-S       PIC  X(02).
+               20  FILLER          PIC  X(02)
+                 VALUE  " <".
+               20  WK-PGM-ID-S     PIC  X(08).
+               20  FILLER          PIC  X(01)
+                 VALUE  "-".
+               20  WK-KYU-NAME     PIC  X(16).
+               20  FILLER          PIC  X(30)
+                 VALUE  "> Is Ended Abnormally(System).".
+      *----------  メッセージ2行目
+             15  WK-MSG-S-2.
+               20  FILLER          PIC  X(04)  VALUE  "<L2>".
+               20  FILLER          PIC  X(12)
+                 VALUE  "LOGIN_CMPCD=".
+      ***         20  WK-RIYO-CMP-CD-S                                  081104
+               20  WK-LOGIN-CMPCD-S                                     081104
+                                   PIC  X(04).
+               20  FILLER          PIC  X(12)
+                 VALUE  " RIYO_CMPCD=".
+               20  WK-RIYO-CMPCD-S
+                                   PIC  X(04).
+               20  FILLER          PIC  X(12)
+                 VALUE  " KIJYUN_YMD=".
+               20  WK-KJN-YMD-S    PIC  X(08).
+               20  FILLER          PIC  X(09)
+                 VALUE  " KIDO_ID=".
+               20  WK-KIDOU-ID-S   PIC  X(04).
+      *----------  メッセージ3行目
+             15  WK-MSG-S-3.
+               20  FILLER          PIC  X(04)  VALUE  "<L3>".
+               20  FILLER          PIC  X(04)
+                 VALUE  "PGM=".
+               20  WK-PGM-ID       PIC  X(16).
+               20  FILLER          PIC  X(06)
+                 VALUE  " PSTN=".
+               20  WK-ERR-POS      PIC  X(04).
+               20  FILLER          PIC  X(07)
+                 VALUE  " RTNCD=".
+               20  WK-RTN-CD       PIC  X(03).
+      *----------  メッセージ4行目
+             15  WK-MSG-S-4.
+      *----------  詳細リターンコードデコードフラグ＝"1"の場合
+               20  WK-MSG-S-4-1.
+                 25  FILLER        PIC  X(04)  VALUE  "<L4>".
+                 25  FILLER        PIC  X(10)
+                   VALUE  "DTL_RTNCD=".
+                 25  WK-DTL-RTNCD-1
+                                   PIC  -9(09).
+                 25  WK-FREE-MSG-1
+                                   PIC  X(100).
+      *----------  詳細リターンコードデコードフラグが"1"以外の場合
+               20  WK-MSG-S-4-2.
+                 25  FILLER        PIC  X(04)  VALUE  "<L4>".
+                 25  FILLER        PIC  X(10)
+                   VALUE  "DTL_RTNCD=".
+                 25  WK-DTL-RTNCD-2
+                                   PIC  -9(09).
+      *----------  メッセージ5行目
+             15  WK-MSG-S-5.
+               20  FILLER          PIC  X(04)  VALUE  "<L5>".
+               20  WK-FREE-MSG     PIC  X(107).
+         05  WK-SHLERR-MSG-OUT.
+      *----------  BLのマシン日付時刻
+           10  WK-SHLERR-TIME      PIC  X(14).
+           10  WK-SHLERR-MSG.
+      *----------  メッセージ1行目
+             15  WK-SHLERR-MSG-1.
+               20  FILLER          PIC  X(04)  VALUE  "<L1>".
+               20  WK-SHLERR-YY    PIC  X(04).
+               20  FILLER          PIC  X(01)
+                   VALUE  "/".
+               20  WK-SHLERR-MM    PIC  X(02).
+               20  FILLER          PIC  X(01)
+                   VALUE  "/".
+               20  WK-SHLERR-DD    PIC  X(02).
+               20  FILLER          PIC  X(01)
+                   VALUE  " ".
+               20  WK-SHLERR-HH    PIC  X(02).
+               20  FILLER          PIC  X(01)
+                   VALUE  ":".
+               20  WK-SHLERR-MI    PIC  X(02).
+               20  FILLER          PIC  X(01)
+                   VALUE  ":".
+               20  WK-SHLERR-SS    PIC  X(02).
+               20  FILLER          PIC  X(01)
+                   VALUE  " ".
+      *----------  シェルエラーメッセージ
+               20  WK-SHL-ERR-MSG  PIC  X(87).
+      *----------  メッセージ2行目
+             15  WK-SHLERR-MSG-2.
+               20  FILLER          PIC  X(04)  VALUE  "<L2>".
+               20  FILLER          PIC  X(12)
+                 VALUE  "LOGIN_CMPCD=".
+               20  WK-SHLERR-LOGIN-CMPCD
+                                   PIC  X(04).
+               20  FILLER          PIC  X(12)
+                 VALUE  " RIYO_CMPCD=".
+               20  WK-SHLERR-RIYO-CMPCD
+                                   PIC  X(04).
+               20  FILLER          PIC  X(12)
+                 VALUE  " KIJYUN_YMD=".
+               20  WK-SHLERR-KJN-YMD
+                                   PIC  X(08).
+               20  FILLER          PIC  X(09)
+                 VALUE  " KIDO_ID=".
+               20  WK-SHLERR-KIDOU-ID
+                                   PIC  X(04).
+               20  FILLER          PIC  X(42)  VALUE  SPACE.
+      ******************************************************************
+      *        サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  【WOQCONS】コンソールログ出力構造体
+       01  PARM-WOQCONS-ARG1.
+           COPY  "WOQSDCNS.CPY".
+       01  PARM-WOQCONS-ARG2.
+         05  CONS-MSG-AREA         PIC  X(111).
+       01  PARM-WOQCONS-ARG3.
+         05  CONS-MSG-LENGTH       PIC  S9(09)  USAGE COMP-5.
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01 MESSAGE-DESC.
+          COPY WOQMQMDL.CPY.
+       01 GET-QNAME                PIC  X(16).
+       01 DATA-LEN                 PIC  S9(9) COMP-5.
+       01 COMP-CODE                PIC  S9(9) COMP-5.
+       01 REASON-CODE              PIC  S9(9) COMP-5.
+       01 DATA-BUF.                    
+          COPY WOUMQHD.CPY.
+          10 TENSOU-TR-HEADER.
+      *----------  利用会社コード
+             20 LINK-RIYO-CMP-CD   PIC  X(04).
+      *----------  ログインユーザ会社コード
+             20 LINK-LOGIN-CMP-CD  PIC  X(04).
+      *----------  基準日
+             20 LINK-KJN-YMD       PIC  X(08).
+      *----------  起動ID
+             20 LINK-KIDOU-ID      PIC  X(04).
+      *----------  実行処理ID
+             20 LINK-JIKOU-SYORI-ID
+                                   PIC  X(07).
+      *----------  ＡＱメッセージ
+             20 LINK-AQ-MSG        PIC  X(2000).
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  MESSAGE-DESC, GET-QNAME, DATA-LEN,
+                  COMP-CODE, REASON-CODE, DATA-BUF.
+      ******************************************************************
+      *        SCZK1000処理
+      ******************************************************************
+       SCZK1000-RTN           SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  SCZK1000処理  START  *****"
+      *-----------------------------------------------------------------
+      *----------  初期処理
+           PERFORM  INIT-RTN
+      *----------  メイン処理
+           PERFORM  MAIN-RTN
+      *----------  終了処理
+           PERFORM  END-RTN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  SCZK1000処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SCZK1000-EXT.
+           EXIT PROGRAM.
+      ******************************************************************
+      *        初期処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  INIT-RTN  START  ***"
+      D    DISPLAY  " START TIME :"  FUNCTION CURRENT-DATE
+      D    DISPLAY  "MESSAGE-DESC    =  ["  MESSAGE-DESC     "]"
+      D    DISPLAY  "GET-QNAME       =  ["  GET-QNAME        "]"
+      D    DISPLAY  "DATA-LEN        =  ["  DATA-LEN         "]"
+      D    DISPLAY  "COMP-CODE       =  ["  COMP-CODE        "]"
+      D    DISPLAY  "REASON-CODE     =  ["  REASON-CODE      "]"
+      D    DISPLAY  "利用会社コード  =  ["  LINK-RIYO-CMP-CD "]"
+      D    DISPLAY  "ログインユーザ会社コード = ["LINK-LOGIN-CMP-CD"]"
+      D    DISPLAY  "基準日           = [" LINK-KJN-YMD "]"
+      D    DISPLAY  "起動ID           = [" LINK-KIDOU-ID "]"
+      D    DISPLAY  "実行処理ID       = [" LINK-JIKOU-SYORI-ID "]"
+      D    DISPLAY  "ＡＱメッセージ   = [" LINK-AQ-MSG "]"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE     WORK-AREA
+                          PARM-SCZC1170-INOUT
+                          PARM-SCZC1170-RTNPKG
+                          PARM-SCZK6000-INOUT
+                          PARM-SCZK6000-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZC1170-INOUT  = [" PARM-SCZC1170-INOUT  "]"
+      D    DISPLAY  "PARM-SCZC1170-RTNPKG = [" PARM-SCZC1170-RTNPKG "]"
+      D    DISPLAY  "PARM-SCZK6000-INOUT  = [" PARM-SCZK6000-INOUT  "]"
+      D    DISPLAY  "PARM-SCZK6000-RTNPKG = [" PARM-SCZK6000-RTNPKG "]"
+      D    DISPLAY  "***  INIT-RTN  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *        メイン処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  START  *****"
+      *-----------------------------------------------------------------
+           MOVE    0                  TO  COMP-CODE
+           MOVE    0                  TO  REASON-CODE
+      *----------  利用会社コード
+           MOVE   LINK-RIYO-CMP-CD    TO  RIYO-CMP-CD
+      *----------  ログインユーザ会社コード
+           MOVE   LINK-LOGIN-CMP-CD   TO  LOGIN-CMP-CD
+      *----------  基準日
+           MOVE   LINK-KJN-YMD        TO  KJN-YMD
+      *----------  起動ID
+           MOVE   LINK-KIDOU-ID       TO  KIDOU-ID
+      *----------  実行処理ID
+           MOVE   LINK-JIKOU-SYORI-ID TO  JIKOU-SYORI-ID
+      *----------  ＡＱメッセージ
+           MOVE   LINK-AQ-MSG         TO  AQ-MSG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "PARM-SCZK6000-INOUT =["  PARM-SCZK6000-INOUT  "]"
+      D    DISPLAY  " SCZK6000コール"
+      *-----------------------------------------------------------------
+           CALL     "SCZK6000"        USING  PARM-SCZK6000-INOUT
+                                             PARM-SCZK6000-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD OF SCZK6000 = ["RTN-CD
+      D    OF  PARM-SCZK6000-RTNPKG(COUNTER  OF PARM-SCZK6000-RTNPKG)"]"
+      *-----------------------------------------------------------------
+           EVALUATE  RTN-CD      OF  PARM-SCZK6000-RTNPKG
+                     (COUNTER     OF  PARM-SCZK6000-RTNPKG)
+               WHEN  CNS-RET-CD-NORMAL
+                   CONTINUE
+               WHEN  CNS-RET-CD-ORAERR
+                   MOVE  CNS-POS-1    TO  ERR-POS
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  CNS-RET-CD-ORAERR
+                                      TO  RTN-CD
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  CNS-NUM-0    TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  PARM-SCZK6000-RTNPKG
+                                      TO  PARM-SCZC1170-RTNPKG
+                   PERFORM  ERR-RTN
+               WHEN  CNS-SHL-ERR
+                   MOVE  CNS-POS-3    TO  ERR-POS
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  CNS-SHL-ERR  TO  RTN-CD
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  CNS-NUM-0    TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  PARM-SCZK6000-RTNPKG
+                                      TO  PARM-SCZC1170-RTNPKG
+                   MOVE  "1"          TO  WK-SHL-FLG
+                   MOVE  FREE-MSG     OF  PARM-SCZK6000-RTNPKG
+                         (COUNTER     OF  PARM-SCZK6000-RTNPKG)
+                     TO  WK-SHL-ERR-MSG
+                   PERFORM  ERR-RTN
+               WHEN  OTHER
+                   MOVE  CNS-POS-2    TO  ERR-POS
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  CNS-RET-CD-SYSERR
+                                      TO  RTN-CD
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  CNS-NUM-0    TO  DETAIL-RTN-CD-FLG
+                                      OF  PARM-SCZC1170-INOUT
+                   MOVE  PARM-SCZK6000-RTNPKG
+                                      TO  PARM-SCZC1170-RTNPKG
+                   PERFORM  ERR-RTN
+           END-EVALUATE
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  主処理  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *     後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  END-RTN  START  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  END-RTN  END  *****".
+      *-----------------------------------------------------------------
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *     エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  ERR-RTN  START  *****"
+      *-----------------------------------------------------------------
+           MOVE  CNS-PROGRAM-ID       TO  ERR-PGM-ID
+                                      OF  PARM-SCZC1170-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "COMP-CODE          :[" COMP-CODE"]"
+      D    DISPLAY  "REASON-CODE        :[" REASON-CODE"]"
+      D    DISPLAY  "ERR-POS            OF  PARM-SCZC1170-INOUT:["
+      D              ERR-POS            OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "ERR-PGM-ID         OF  PARM-SCZC1170-INOUT:["
+      D              ERR-PGM-ID         OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "ERR-POS            OF  PARM-SCZC1170-INOUT:["
+      D              ERR-POS            OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "RTN-CD             OF  PARM-SCZC1170-INOUT:["
+      D              RTN-CD             OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "DETAIL-RTN-CD      OF  PARM-SCZC1170-INOUT:["
+      D              DETAIL-RTN-CD      OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "DETAIL-RTN-CD-FLG  OF  PARM-SCZC1170-INOUT:["
+      D              DETAIL-RTN-CD-FLG  OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "FREE-MSG           OF  PARM-SCZC1170-INOUT:["
+      D              FREE-MSG           OF  PARM-SCZC1170-INOUT"]"
+      D    DISPLAY  "*****  CALL  SCZC1170  START  *****"
+      *-----------------------------------------------------------------
+           CALL   "SCZC1170"          USING  PARM-SCZC1170-INOUT
+                                             PARM-SCZC1170-RTNPKG
+           IF  WK-SHL-FLG  =  "1"  THEN
+               PERFORM  SHLERR-MSG-OUT-RTN
+           ELSE
+               PERFORM  IJYOU-MSG-OUT-RTN
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "RTN-CD OF SCZC1170 = ["RTN-CD
+      D    OF  PARM-SCZC1170-RTNPKG(COUNTER OF PARM-SCZC1170-RTNPKG)"]"
+      D    DISPLAY  "*****  CALL  SCZC1170  END  *****"
+      D    DISPLAY  "*****  ERR-RTN  END  *****"
+      D    DISPLAY  " END TIME :"  FUNCTION CURRENT-DATE
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************
+      *        異常メッセージ出力
+      ******************************************************************
+       IJYOU-MSG-OUT-RTN      SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****   異常メッセージ出力  START  *****"
+      *-----------------------------------------------------------------
+           MOVE  "MCZK1000"           TO  CON-PGM-NAME
+           MOVE  "WCZ001E"            TO  CON-MSG-CODE
+           MOVE  GET-QNAME            TO  CON-GETQ-NAME
+           MOVE  111                  TO  CONS-MSG-LENGTH
+           MOVE  FUNCTION CURRENT-DATE(1:14)
+                                      TO  WK-MAC-DATE-TIME
+      *----------  １行目
+           INITIALIZE                 CONS-MSG-AREA
+           MOVE  WK-MAC-DATE-TIME(1:4)
+                                      TO  WK-YY-S
+           MOVE  WK-MAC-DATE-TIME(5:2)
+                                      TO  WK-MM-S
+           MOVE  WK-MAC-DATE-TIME(7:2)
+                                      TO  WK-DD-S
+           MOVE  WK-MAC-DATE-TIME(9:2)
+                                      TO  WK-HH-S
+           MOVE  WK-MAC-DATE-TIME(11:2)
+                                      TO  WK-MI-S
+           MOVE  WK-MAC-DATE-TIME(13:2)
+                                      TO  WK-SS-S
+           MOVE  CNS-PROGRAM-ID       TO  WK-PGM-ID-S
+           MOVE  GET-QNAME            TO  WK-KYU-NAME
+           MOVE  WK-MSG-S-1           TO  CONS-MSG-AREA
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "1行目: "
+      D    DISPLAY  "WK-MAC-DATE-TIME=["WK-MAC-DATE-TIME"]"
+      D    DISPLAY  "WK-MAC-DATE-TIME-S=["WK-MAC-DATE-TIME-S"]"
+      D    DISPLAY  "WK-KYU-NAME=["WK-KYU-NAME"]"
+      D    DISPLAY  "WK-MSG-S-1=["CONS-MSG-AREA"]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+           CALL  "WOQCONS"            USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+      *----------  ２行目
+           INITIALIZE                 CONS-MSG-AREA
+      ***     MOVE  LINK-LOGIN-CMP-CD    TO  WK-RIYO-CMPCD-S            081104
+      ***     MOVE  LINK-RIYO-CMP-CD     TO  WK-RIYO-CMP-CD-S           081104
+           MOVE  LINK-LOGIN-CMP-CD    TO  WK-LOGIN-CMPCD-S              081104
+           MOVE  LINK-RIYO-CMP-CD     TO  WK-RIYO-CMPCD-S               081104
+           MOVE  LINK-KJN-YMD         TO  WK-KJN-YMD-S
+           MOVE  LINK-KIDOU-ID        TO  WK-KIDOU-ID-S
+           MOVE  WK-MSG-S-2           TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "2行目: "
+      D    DISPLAY  "ログインユーザ会社コード=[" WK-LOGIN-CMPCD-S "]"
+      D    DISPLAY  "利用会社コード=[" WK-RIYO-CMPCD-S "]"
+      D    DISPLAY  "基準日=[" WK-KJN-YMD-S "]"
+      D    DISPLAY  "起動ID=[" WK-KIDOU-ID-S "]"
+      D    DISPLAY  "WK-MSG-S-2=[" CONS-MSG-AREA "]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+           CALL  "WOQCONS"            USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+      *----------  RTNパッケージを出力する
+           MOVE  COUNTER  OF PARM-SCZC1170-RTNPKG
+                                      TO  WK-COUNTER
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  " "
+      D    DISPLAY  "カウンター         :[" WK-COUNTER "]"
+      *-----------------------------------------------------------------
+           PERFORM  UNTIL  WK-COUNTER = ZERO
+      *----------  ３行目
+             INITIALIZE               CONS-MSG-AREA
+             MOVE  ERR-PGM-ID
+               OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)
+               TO  WK-PGM-ID
+             MOVE  ERR-POS
+               OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)
+               TO  WK-ERR-POS
+             MOVE  RTN-CD
+               OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)
+               TO  WK-RTN-CD
+             MOVE  WK-MSG-S-3         TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "3行目:"
+      D    DISPLAY  "エラー検知ﾌﾟﾛｸﾞﾗﾑ名=[" WK-PGM-ID     "]"
+      D    DISPLAY  "ポジション         =[" WK-ERR-POS    "]"
+      D    DISPLAY  "リターンコード     =[" WK-RTN-CD     "]"
+      D    DISPLAY  "WK-MSG-S-3         =[" WK-MSG-S-3 "]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+             CALL  "WOQCONS"          USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+      *----------  ４行目
+      *----------  詳細リターンコード≠ZEROの場合、4行目を出力する
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  " "
+      D    DISPLAY  "詳細リターンコード :[" 
+      D              DETAIL-RTN-CD
+      D                         OF  PARM-SCZC1170-RTNPKG(WK-COUNTER) "]"
+      D    DISPLAY  "詳細リターンコードデコードフラグ:["
+      D              DETAIL-RTN-CD-FLG
+      D                         OF PARM-SCZC1170-RTNPKG(WK-COUNTER) "]"
+      *-----------------------------------------------------------------
+             IF  DETAIL-RTN-CD
+                 OF PARM-SCZC1170-RTNPKG(WK-COUNTER) NOT = ZERO
+             THEN
+               IF  DETAIL-RTN-CD-FLG
+                   OF PARM-SCZC1170-RTNPKG(WK-COUNTER) = 1
+               THEN
+                 INITIALIZE           CONS-MSG-AREA
+                 MOVE  DETAIL-RTN-CD
+                   OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)
+                   TO  WK-DTL-RTNCD-1
+                 IF  FREE-MSG
+                     OF PARM-SCZC1170-RTNPKG(WK-COUNTER)(1901:100)
+                     NOT = SPACE
+                 THEN
+                   MOVE  FREE-MSG
+                     OF PARM-SCZC1170-RTNPKG(WK-COUNTER)(1901:100)
+                     TO  WK-TEMP
+                   MOVE  99           TO  IDX2
+                   PERFORM  UNTIL  WK-TEMP(IDX2:1) NOT = SPACE
+                       COMPUTE     IDX2 = IDX2 - 1
+                   END-PERFORM
+                   STRING  "("
+                           WK-TEMP(1:IDX2)
+                           ")"
+                   DELIMITED  BY  SIZE  INTO  WK-FREE-MSG-1
+                 END-IF
+                 MOVE  WK-MSG-S-4-1   TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "4行目"
+      D    DISPLAY  "詳細リターンコード :[" WK-DTL-RTNCD-1 "]"
+      D    DISPLAY  "エラーメッセージ   :[" WK-FREE-MSG-1 "]"
+      D    DISPLAY  "WK-MSG-S-4-1       :[" CONS-MSG-AREA "]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+                 CALL  "WOQCONS"      USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+               ELSE
+                   INITIALIZE         CONS-MSG-AREA
+                   MOVE  DETAIL-RTN-CD
+                     OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)
+                     TO  WK-DTL-RTNCD-2
+                   MOVE  WK-MSG-S-4-2 TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "4行目:"
+      D    DISPLAY  "詳細リターンコード :[" WK-DTL-RTNCD-2 "]"
+      D    DISPLAY  "WK-MSG-S-4-2       :[" CONS-MSG-AREA  "]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+                   CALL  "WOQCONS"    USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+               END-IF
+             END-IF
+      *----------  ５行目
+      *----------  フリーメッセージ≠SPACEの場合、5行目を出力する
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "5行目:"
+      D    DISPLAY  "フリーメッセージ   :["
+      D             FREE-MSG  OF PARM-SCZC1170-RTNPKG(WK-COUNTER) "]"
+      *-----------------------------------------------------------------
+             INITIALIZE               IDX2
+             COMPUTE  WK-FREE-MSG-LEN
+             =  FUNCTION LENGTH(FREE-MSG
+                OF PARM-SCZC1170-RTNPKG(WK-COUNTER))
+             -  100
+             END-COMPUTE
+             COMPUTE  WK-L5-SU = WK-FREE-MSG-LEN/107
+             IF  FREE-MSG  OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)(1:1900)
+                 NOT = SPACE
+             THEN
+               PERFORM  VARYING IDX1 FROM 1 BY 1
+                        UNTIL   IDX1 > WK-L5-SU
+                 INITIALIZE                 CONS-MSG-AREA
+                 COMPUTE  IDX2 = ((IDX1 - 1)*107) + 1
+                 IF  FREE-MSG
+                     OF PARM-SCZC1170-RTNPKG(WK-COUNTER)(IDX2:107)
+                     NOT = SPACE
+                 THEN
+                   MOVE  FREE-MSG
+                     OF  PARM-SCZC1170-RTNPKG(WK-COUNTER)(IDX2:107)
+                     TO  WK-FREE-MSG
+                   MOVE  WK-MSG-S-5    TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "WK-MSG-S-3("IDX1")  :[" CONS-MSG-AREA "]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+                   CALL  "WOQCONS"    USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+                 END-IF
+               END-PERFORM
+      *----------  LAST OF フリーメッセージ
+               INITIALIZE             IDX2
+               COMPUTE  IDX2 = (WK-L5-SU*107) + 1
+               COMPUTE  WK-LAST-LEN
+                        = WK-FREE-MSG-LEN - (WK-L5-SU*107)
+               IF  FREE-MSG
+                 OF PARM-SCZC1170-RTNPKG(WK-COUNTER)(IDX2:WK-LAST-LEN)
+                 NOT = SPACE
+               THEN
+                 MOVE  FREE-MSG
+                 OF PARM-SCZC1170-RTNPKG(WK-COUNTER)(IDX2:WK-LAST-LEN)
+                 TO  WK-FREE-MSG
+                 MOVE  WK-MSG-S-5     TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "WK-MSG-S-5(LAST):[" CONS-MSG-AREA "]"
+      D    DISPLAY  " "
+      *-----------------------------------------------------------------
+                 CALL  "WOQCONS"      USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+               END-IF
+             END-IF
+             COMPUTE  WK-COUNTER = WK-COUNTER - 1
+           END-PERFORM.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****   異常メッセージ出力  END  *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       IJYOU-MSG-OUT-EXT.
+           EXIT.
+      ******************************************************************
+      *        シェルエラーのメッセージ出力
+      ******************************************************************
+       SHLERR-MSG-OUT-RTN     SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** シェルエラーのメッセージ出力  START *****"
+      *-----------------------------------------------------------------
+           MOVE  "MCZK1000"           TO  CON-PGM-NAME
+           MOVE  "WCZ001E"            TO  CON-MSG-CODE
+           MOVE  GET-QNAME            TO  CON-GETQ-NAME
+           MOVE  111                  TO  CONS-MSG-LENGTH
+           MOVE  FUNCTION CURRENT-DATE(1:14)
+                                      TO  WK-SHLERR-TIME
+      *----------  シェルエラーのメッセージ１行目
+           INITIALIZE                 CONS-MSG-AREA
+           MOVE  WK-SHLERR-TIME(1:4)  TO  WK-SHLERR-YY
+           MOVE  WK-SHLERR-TIME(5:2)  TO  WK-SHLERR-MM
+           MOVE  WK-SHLERR-TIME(7:2)  TO  WK-SHLERR-DD
+           MOVE  WK-SHLERR-TIME(9:2)  TO  WK-SHLERR-HH
+           MOVE  WK-SHLERR-TIME(11:2) TO  WK-SHLERR-MI
+           MOVE  WK-SHLERR-TIME(13:2) TO  WK-SHLERR-SS
+           MOVE  WK-SHLERR-MSG-1      TO  CONS-MSG-AREA
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "シェルエラーのメッセージ1行目: "
+      D    DISPLAY  "WK-SHLERR-MSG-1=["WK-SHLERR-MSG-1"]"
+      *-----------------------------------------------------------------
+           CALL  "WOQCONS"            USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+      *----------  シェルエラーのメッセージ２行目
+           INITIALIZE                 CONS-MSG-AREA
+           MOVE  LINK-LOGIN-CMP-CD    TO  WK-SHLERR-LOGIN-CMPCD
+           MOVE  LINK-RIYO-CMP-CD     TO  WK-SHLERR-RIYO-CMPCD
+           MOVE  LINK-KJN-YMD         TO  WK-SHLERR-KJN-YMD
+           MOVE  LINK-KIDOU-ID        TO  WK-SHLERR-KIDOU-ID
+           MOVE  WK-SHLERR-MSG-2      TO  CONS-MSG-AREA
+      *----------------------<DEBUG>------------------------------------
+      D    DISPLAY  "シェルエラーのメッセージ2行目: "
+      D    DISPLAY  "ログインユーザ会社コード=["WK-SHLERR-LOGIN-CMPCD"]"
+      D    DISPLAY  "利用会社コード=["WK-SHLERR-RIYO-CMPCD"]"
+      D    DISPLAY  "基準日=["WK-SHLERR-KJN-YMD"]"
+      D    DISPLAY  "起動ID=["WK-SHLERR-KIDOU-ID"]"
+      D    DISPLAY  "WK-SHLERR-MSG-2=["WK-SHLERR-MSG-2"]"
+      *-----------------------------------------------------------------
+           CALL  "WOQCONS"            USING  BY VALUE 0,
+                                             BY REFERENCE
+                                             PARM-WOQCONS-ARG1
+                                             PARM-WOQCONS-ARG2
+                                             PARM-WOQCONS-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***** シェルエラーのメッセージ出力  END *****"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       SHLERR-MSG-OUT-EXT.
+           EXIT.

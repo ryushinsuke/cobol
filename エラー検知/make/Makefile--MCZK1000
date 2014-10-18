@@ -1,0 +1,213 @@
+#*******************************************************************************
+#　　プロジェクト　:次期Ｔ-ＳＴＡＲ
+#　　サブシステム　:ＡＱ-ＡＰ制御
+#　　モジュール名　:Makefile
+#　　名称　　　　　:
+#　　処理概要　　　:
+#　　使用方法　　　:make
+#　　備考　　　　　:なし
+#
+#　　改訂履歴
+#　　 年月日　 区分　案件番号　内容
+#　　 -------- ----　--------　-----------------
+#　　 YYYYMMDD 新規
+#===============================================================================
+#　Copyright (C) 2007 by Nomura Research Institute,Ltd.
+#　All rights reserved.
+#*******************************************************************************
+
+LOADNAME	=	MCZK1000
+
+#-------------------------------------------------------------------------------
+# Directory definition
+#-------------------------------------------------------------------------------
+BASEDIR  = /home/apl/debug/CZX
+BASEDIRBL = /home/apl/BL
+APLIBDIR	=	$(BASEDIRBL)/aplib
+INCDIR	=	./include/c
+SRCDIR	=	./src
+OBJDIR	=	./module/obj
+BINDIR	=	./module/bin
+
+COBOLDIR	=	/opt/microfocus/cobol
+
+#-------------------------------------------------------------------------------
+# TSTAR
+#-------------------------------------------------------------------------------
+#BASEDIRCMN	=	/home/apl/debug/CMN
+BASEDIRREF	=	/eLIBSYS/T21/reference_space/develop/dev_RELSVNROOT
+LIBDIR		=	$(BASEDIRREF)/make_obj
+OBJDIRCMN	=	$(BASEDIRREF)/make_obj
+TRUNKDIRREF	=	/eLIBSYS/T21/reference_space/ncc
+TRUNKOBJDIRCMN	=	$(TRUNKDIRREF)/make_obj
+#-------------------------------------------------------------------------------
+# ＭＱ共通ルーチン
+#-------------------------------------------------------------------------------
+WOULIBHOME	=	/opt/wou
+WOUINCDIR	= $(WOULIBHOME)/include
+WOULIBDIR	= $(WOULIBHOME)/lib
+
+COBAPLDIR	=	./samp
+
+TP1DIR	=	$(DCDIR)
+ORACLEDIR	=	$(ORACLE_HOME)
+
+VPATH	=	$(OBJDIRCMN):$(TRUNKOBJDIRCMN)
+#-------------------------------------------------------------------------------
+# Load module difinition
+#-------------------------------------------------------------------------------
+LOAD	=	$(LOADNAME)
+
+#-------------------------------------------------------------------------------
+# Object module definition
+#-------------------------------------------------------------------------------
+OBJS	=\
+		$(OBJDIR)/WOU0110.o     \
+		$(OBJDIR)/WOU0100.o     \
+		$(OBJDIR)/WOU0202.o     \
+		$(OBJDIR)/WOU9990.o     \
+		$(OBJDIR)/WOUEXIT.o     \
+		$(OBJDIR)/WOUSDCNS.o    \
+		$(OBJDIR)/WOQTBIGN.o    \
+		$(OBJDIR)/WOQTROLB.o    \
+		$(OBJDIR)/WOQTCOMT.o    \
+		$(OBJDIR)/WOUTBIGN.o    \
+		$(OBJDIR)/WOUTROLB.o    \
+		$(OBJDIR)/WOUTCOMT.o    \
+		$(OBJDIR)/WOUCOMMON.o   \
+		$(OBJDIR)/apluoc.o   \
+		SCZK1000.o    \
+		SCZK6000.o    \
+		SCZK1160.o    \
+		SCZC1170.o    \
+		$(OBJDIR)/wouaq_access_oci.o
+
+DBGOBJ	=	$(OBJDIR)/wou_dbg_com.o \
+			$(OBJDIR)/wou_dbg_sysliberrno.o \
+			$(OBJDIR)/wou_dbg_tp1liberrno.o
+
+#-------------------------------------------------------------------------------
+# Linkage Library definition
+#-------------------------------------------------------------------------------
+#####ORALIB	=	-L$(ORACLEDIR)/lib -lclntsh -lcore10
+ORALIB		=	-L$(ORACLEDIR)/lib \
+			$(ORACLEDIR)/precomp/lib/cobsqlintf.o \
+			`cat $(ORACLEDIR)/lib/sysliblist` \
+			-lclntsh -lm -lpthread -lcore10
+TP1LIB	=	-L$(TP1DIR)/lib -lbetran -ltactk  
+
+#-------------------------------------------------------------------------------
+# ＭＱ共通ルーチンを使用する場合はオプションにWOULIBを有効にする
+#-------------------------------------------------------------------------------
+WOULIB	=	-L$(WOULIBDIR) -lwoubs
+
+APLLIB	=	
+
+#
+#----- XA Resource Manager
+#
+#----- ORACLE
+RM_OBJ	=	$(TP1DIR)/spool/trnrmcmd/userobj/dc_trn_orcl.o
+
+LIBS	=	$(TP1LIB) $(RM_OBJ) $(ORALIB) $(APLLIB) $(WOULIB) -lcobscreen
+
+
+#-------------------------------------------------------------------------------
+# Compiler & Compile / Linkage flags definition
+#-------------------------------------------------------------------------------
+CC		=	/usr/bin/gcc
+COB		=	$(COBOLDIR)/bin/cob32
+
+LFLG	=	-x
+#LFLG	=	-x -Q +s,-a,default
+LC		= -lc
+#LC		= -lc -lacc -locb
+
+#-------------------------------------------------------------------------------
+# ＭＱ共通ルーチンを使用する場合はオプションに-DWOUAPIを付与する
+#-------------------------------------------------------------------------------
+#MQAPI	= -DWOUAPI
+MQAPI	= 
+
+#-------------------------------------------------------------------------------
+
+CC_OPTION	=	$(MQAPI)
+CFLAGS		=	-c -ansi -D_LINUX
+CINC		=	-I$(INCDIR) \
+                -I$(TP1DIR)/include \
+                -I$(WOUINCDIR) \
+                -I$(ORACLE_HOME)/precomp/public \
+                -I$(ORACLE_HOME)/rdbms/public
+
+#-------------------------------------------------------------------------------
+# Load Module Making
+#-------------------------------------------------------------------------------
+TERTGET	:	$(LOAD)
+
+$(LOAD)	:	$(OBJS)
+	$(COB) -o $(LOAD) $(LFLG) $+ $(LC) $(LIBS) $(LIBS2)
+
+#-------------------------------------------------------------------------------
+# Objects Making
+#-------------------------------------------------------------------------------
+$(OBJDIR)/WOU0110.o: $(SRCDIR)/WOU0110.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOU0110.c
+		mv WOU0110.o $(OBJDIR)
+
+$(OBJDIR)/WOU0100.o: $(SRCDIR)/WOU0100.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOU0100.c
+		mv WOU0100.o $(OBJDIR)
+
+$(OBJDIR)/WOU0202.o: $(SRCDIR)/WOU0202.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOU0202.c
+		mv WOU0202.o $(OBJDIR)
+
+$(OBJDIR)/WOU9990.o: $(SRCDIR)/WOU9990.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOU9990.c
+		mv WOU9990.o $(OBJDIR)
+
+$(OBJDIR)/WOUEXIT.o: $(SRCDIR)/WOUEXIT.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOUEXIT.c
+		mv WOUEXIT.o $(OBJDIR)
+
+$(OBJDIR)/WOUSDCNS.o: $(SRCDIR)/WOUSDCNS.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOUSDCNS.c
+		mv WOUSDCNS.o $(OBJDIR)
+
+$(OBJDIR)/WOQTBIGN.o: $(SRCDIR)/WOQTBIGN.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOQTBIGN.c
+		mv WOQTBIGN.o $(OBJDIR)
+
+$(OBJDIR)/WOQTROLB.o: $(SRCDIR)/WOQTROLB.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOQTROLB.c
+		mv WOQTROLB.o $(OBJDIR)
+
+$(OBJDIR)/WOQTCOMT.o: $(SRCDIR)/WOQTCOMT.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOQTCOMT.c
+		mv WOQTCOMT.o $(OBJDIR)
+
+$(OBJDIR)/WOUTBIGN.o: $(SRCDIR)/WOUTBIGN.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOUTBIGN.c
+		mv WOUTBIGN.o $(OBJDIR)
+
+$(OBJDIR)/WOUTROLB.o: $(SRCDIR)/WOUTROLB.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOUTROLB.c
+		mv WOUTROLB.o $(OBJDIR)
+
+$(OBJDIR)/WOUTCOMT.o: $(SRCDIR)/WOUTCOMT.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOUTCOMT.c
+		mv WOUTCOMT.o $(OBJDIR)
+
+$(OBJDIR)/WOUCOMMON.o: $(SRCDIR)/WOUCOMMON.c $(INCDIR)/*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/WOUCOMMON.c
+		mv WOUCOMMON.o $(OBJDIR)
+
+$(OBJDIR)/wouaq_access_oci.o: $(SRCDIR)/wouaq_access_oci.c $(INCDIR)/wouaq*.h
+		$(CC) $(CFLAGS) $(CC_OPTION) $(CINC) $(SRCDIR)/wouaq_access_oci.c
+		mv wouaq_access_oci.o $(OBJDIR)
+
+clean :
+		rm -f $(OBJDIR)/W*.o
+
+install:
+		/usr/bin/install -p -m 755 $(LOAD) $(APLIBDIR)/.

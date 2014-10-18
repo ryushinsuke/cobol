@@ -1,0 +1,656 @@
+      ******************************************************************
+      *$Header: $
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 新有価証券バックオフィスシステム
+      *     プログラム名称 : 業務タスクマスタアクセスルーチン(SELECT)
+      *     処理概要       : 業務タスクマスタアクセスルーチン(SELECT)
+      *     参照ＤＢ       : 業務タスクマスタ(TOC0DA21)
+      *     引数           : IN  利用会社コード
+      *                    : IN  SELECT条件
+      *                    : OUT DBレイアウトコピー句
+      *                    : OUT RTNパッケージ
+      *     改訂履歴
+      *     年月日     区分  所属       担当者  内容
+      *     ---------- ----  ---------  ------  ------------------------
+      *     20081203   新規  SCS                新規作成
+      ******************************************************************
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    TSC0DA21.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-12-03.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                 環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      * SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE "TSC0DA21".
+         05  CNS-TBL-TOC0DA21      PIC  X(08)  VALUE "TOC0DA21".
+         05  CNS-RET-CD-NORMAL     PIC  X(03)  VALUE "000".
+         05  CNS-RET-CD-NODATA     PIC  X(03)  VALUE "110".
+         05  CNS-RET-CD-NOTONE     PIC  X(03)  VALUE "002".
+         05  CNS-RET-CD-ORAERR     PIC  X(03)  VALUE "900".
+         05  CNS-RET-CD-SYSERR     PIC  X(03)  VALUE "901".
+         05  CNS-RET-CD-HIKANLOG   PIC  X(03)  VALUE "320".
+         05  CNS-SQL-NORMAL        PIC S9(04)  COMP-3 VALUE +0000.
+         05  CNS-SQL-NOTFOUND      PIC S9(04)  COMP-3 VALUE +1403.
+         05  CNS-SQL-RISOSU-BIZI   PIC S9(04)  COMP-3 VALUE -0054.
+         05  CNS-ERR-01            PIC  X(03)  VALUE "E01".
+         05  CNS-ERR-02            PIC  X(03)  VALUE "E02".
+         05  CNS-ERR-03            PIC  X(03)  VALUE "E03".
+         05  CNS-ERR-04            PIC  X(03)  VALUE "E04".
+         05  CNS-ERR-05            PIC  X(03)  VALUE "E05".
+         05  CNS-0                 PIC  X(01)  VALUE "0".
+         05  CNS-1                 PIC  X(01)  VALUE "1".
+      ******************************************************************
+      *                フラグエリア
+      ******************************************************************
+       01  FLAG-AREA.
+      *----------  ｶｰｿﾙﾃﾞｰﾀ終了フラグ
+         05  FLG-FETCH-END         PIC  X(01).
+      *----------  ｶｰｿﾙCLOSE判定フラグ
+         05  FLG-CR-CLS            PIC  X(01).
+      ******************************************************************
+      *                ワ－クエリア
+      ******************************************************************
+       01  WK-AREA.
+      *---------- ワークSPACE
+         05  WK-SPACE              PIC  9(05).
+      *---------- ワ－クポインター
+         05  WK-SQL-POINTER        PIC  9(09)  COMP.
+      *---------- ワ－クCOUNT
+         05  WK-COUNT              PIC  9(02).
+      *---------- ワ－クテーブルID
+         05  WK-TBL-ID             PIC  X(13).
+      *---------- ワ－クエラーID
+         05  WK-ERR-ID             PIC  X(03).
+      *---------- ワ－ク詳細リターンコード
+         05  WK-DETAIL-RTN-CD      PIC S9(09).
+      *---------- ワ－クポジション
+         05  WK-ERR-POS            PIC  X(04).
+      *---------- ワ－クフリーメッセージ
+         05  WK-FREE-MSG           PIC  X(2000).
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZC1160 テーブルID取得ルーチン
+       01  PARM-SCZC1160-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+         COPY  "SCZC1160.cpy".
+       01  PARM-SCZC1160-RTNPKG.
+         05  PARM-SCZC1160-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZC1170 リターンパッケージセットルーチン
+       01  PARM-SCZC1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+         COPY  "SCZC1170.cpy".
+       01  PARM-SCZC1170-RTNPKG.
+         05  PARM-SCZC1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      *----------  SCZC1180 SQL文エスケープ編集処理ルーチン
+       01  PARM-SCZC1180-INOUT.
+      *----------  SCZC1180 SQL文エスケープ編集処理ルーチンコピー句
+         COPY  "SCZC1180.cpy".
+      ******************************************************************
+      *                ＳＱＬ通信領域
+      ******************************************************************
+           EXEC  SQL  INCLUDE  SQLCA  END-EXEC.
+           EXEC  SQL  BEGIN    DECLARE  SECTION  END-EXEC.
+       01  ORA-WORKING-AREA.
+      *----------  SQL条件ワーク
+         05  SQLSTMT                         PIC  X(15000) VARYING.
+      *----------  DBレイアウト
+         05  H-TBL.
+      *----------  業務タスクID
+           10  GYOMU-TASK-ID                 PIC  X(07).
+      *----------  業務タスク名称
+           10  GYOMU-TASK-NAME               PIC  X(40).
+      *----------  機能分類
+           10  KINOU-BUNRUI                  PIC  X(02).
+      *----------  千手ネット名
+           10  NET-NAME                      PIC  X(100).
+      *----------  帳票リクエスト区分
+           10  REP-REQ-KBN                   PIC  X(01).
+      *----------  業務タスク起動指示対象区分
+           10  KIDO-TAISYO-KBN               PIC  X(01).
+      *----------  画面表示区分
+           10  GAMEN-HYOJI-KBN               PIC  X(01).
+      *----------  EXCEL/ILF区分
+           10  EXCEL-ILF-KBN                 PIC  X(01).
+      *----------  業種別マスタ所属利用区分
+           10  GYOSYU-RIYO-KBN               PIC  X(02).
+      *----------  更新日時
+           10  UPD-DATE                      PIC  X(14).
+      *----------  更新ログインユーザ会社コード
+           10  UPD-LOGIN-CMP-CD              PIC  X(04).
+      *----------  更新ユーザID
+           10  UPD-SID                       PIC  X(20).
+      *----------  更新プログラムID
+           10  UPD-PGMID                     PIC  X(16).
+      *----------  TXRX利用区分
+           10  TXRX-KBN                      PIC  X(01).
+      *----------  RX明細作成区分
+           10  RX-CREATE-KBN                 PIC  X(01).
+      *----------  シェル名
+           10  SHELL-NAME                    PIC  X(14).
+      *----------  並行稼動チェック区分
+           10  HEIKO-CHK-KBN                 PIC  X(01).
+      *----------  書式ファイル名称
+           10  CFGFILE                       PIC  X(08).
+           EXEC  SQL  END      DECLARE  SECTION  END-EXEC.
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SELECT-INOUT.
+         05  PARM-SELECT-ARG1.
+      *----------  利用会社コード
+           10  RIYO-CMP-CD         PIC  X(04).
+      *----------  SELECT条件
+           10  SEL-WHERE           PIC  X(1000).
+         05  PARM-SELECT-ARG2.
+      *----------  DBレイアウトコピー句
+           10  TBL-LAYOUT.
+             COPY  "TOC0DA21.cpy".
+       01  PARM-SELECT-RTNPKG.
+         05  PARM-SELECT-ARG3.
+      *----------  RTNパッケージ
+           10  TBL-RTNPKG.
+             COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SELECT-INOUT
+                  PARM-SELECT-RTNPKG.
+      ******************************************************************
+      *                 SELECT処理
+      ******************************************************************
+       BASE-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  TSC0DA21処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期処理
+           PERFORM  INIT-RTN
+      *----------  メイン処理
+           PERFORM  MAIN-RTN
+      *----------  終了処理
+           PERFORM  END-RTN.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  TSC0DA21処理  END  ***".
+      *-----------------------------------------------------------------
+       BASE-EXT.
+           GOBACK.
+      ******************************************************************
+      *                 初期処理
+      ******************************************************************
+       INIT-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  INIT-RTN  START  ***"
+      *-----------------------------------------------------------------
+      *----------  初期化
+           INITIALIZE     WK-AREA
+                          FLAG-AREA
+                          ORA-WORKING-AREA
+                          PARM-SCZC1160-INOUT
+                          PARM-SCZC1160-RTNPKG
+                          PARM-SCZC1170-INOUT
+                          PARM-SCZC1170-RTNPKG
+                          PARM-SCZC1180-INOUT
+                          PARM-SELECT-ARG2   OF  PARM-SELECT-INOUT
+                          PARM-SELECT-ARG3   OF  PARM-SELECT-RTNPKG.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-AREA            =["  WK-AREA             "]"
+      D    DISPLAY  "FLAG-AREA          =["  FLAG-AREA           "]"
+      D    DISPLAY  "ORA-WORKING-AREA   =["  ORA-WORKING-AREA    "]"
+      D    DISPLAY  "PARM-SCZC1160-INOUT=["  PARM-SCZC1160-INOUT "]"
+      D    DISPLAY  "PARM-SCZC1160-RTNPKG=[" PARM-SCZC1160-RTNPKG"]"
+      D    DISPLAY  "PARM-SCZC1170-INOUT=["  PARM-SCZC1170-INOUT "]"
+      D    DISPLAY  "PARM-SCZC1170-RTNPKG=[" PARM-SCZC1170-RTNPKG"]"
+      D    DISPLAY  "PARM-SCZC1180-INOUT=["  PARM-SCZC1180-INOUT "]"
+      D    DISPLAY  "PARM-SELECT-ARG2   =["  PARM-SELECT-ARG2    "]"
+      D    DISPLAY  "PARM-SELECT-ARG3   =["  PARM-SELECT-ARG3    "]"
+      D    DISPLAY  "***  INIT-RTN  END  ***".
+      *-----------------------------------------------------------------
+       INIT-EXT.
+           EXIT.
+      ******************************************************************
+      *                 メイン処理
+      ******************************************************************
+       MAIN-RTN               SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  START  *****"
+      D    DISPLAY  "テーブルID取得ルーチンSCZC1160開始"
+      *-----------------------------------------------------------------
+      *----------  テーブルID取得ルーチンをコールする
+      *----------  利用会社コード
+           MOVE  RIYO-CMP-CD                 OF  PARM-SELECT-ARG1
+             TO  RIYO-CMP-CD                 OF  PARM-SCZC1160-ARG1
+      *----------  テーブルID
+           MOVE  CNS-TBL-TOC0DA21
+             TO  TBL-ID                      OF  PARM-SCZC1160-ARG1(1)
+           CALL  "SCZC1160"                  USING  PARM-SCZC1160-INOUT
+                                                    PARM-SCZC1160-RTNPKG
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "テーブルID取得ルーチンSCZC1160終了"
+      D    DISPLAY  "RTN-CD("  COUNTER  OF  PARM-SCZC1160-ARG3
+      D      ") OF SCZC1160=["  RTN-CD  OF
+      D      PARM-SCZC1160-ARG3(COUNTER  OF  PARM-SCZC1160-ARG3)  "]"
+      *-----------------------------------------------------------------
+           IF  RTN-CD
+             OF  PARM-SCZC1160-ARG3(COUNTER  OF  PARM-SCZC1160-ARG3)
+                                             NOT =  CNS-RET-CD-NORMAL
+           THEN
+               MOVE  CNS-ERR-04              TO  WK-ERR-ID
+               MOVE  "0001"                  TO  WK-ERR-POS
+               PERFORM  ERR-RTN
+           ELSE
+               MOVE  HENSYUGO-TBL-ID         OF  PARM-SCZC1160-ARG2(1)
+                 TO  WK-TBL-ID
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "WK-TBL-ID          =["  WK-TBL-ID "]"
+      *-----------------------------------------------------------------
+      *----------  ＳＱＬ文作成
+           MOVE  1                           TO  SQLSTMT-LEN
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT-LEN        =["  SQLSTMT-LEN "]"
+      *-----------------------------------------------------------------
+           STRING  "SELECT "
+      *----------  業務タスクID
+                          "GYOMU_TASK_ID,"
+      *----------  業務タスク名称
+                          "GYOMU_TASK_NAME,"
+      *----------  機能分類
+                          "KINOU_BUNRUI,"
+      *----------  千手ネット名
+                          "NET_NAME,"
+      *----------  帳票リクエスト区分
+                          "REP_REQ_KBN,"
+      *----------  業務タスク起動指示対象区分
+                          "KIDO_TAISYO_KBN,"
+      *----------  画面表示区分
+                          "GAMEN_HYOJI_KBN,"
+      *----------  EXCEL/ILF区分
+                          "EXCEL_ILF_KBN,"
+      *----------  業種別マスタ所属利用区分
+                          "GYOSYU_RIYO_KBN,"
+      *----------  更新日時
+                          "TO_CHAR(UPD_DATE,'YYYYMMDDHH24MISS'),"
+      *----------  更新ログインユーザ会社コード
+                          "UPD_LOGIN_CMP_CD,"
+      *----------  更新ユーザID
+                          "UPD_SID,"
+      *----------  更新プログラムID
+                          "UPD_PGMID,"
+      *----------  TXRX利用区分
+                          "TXRX_KBN,"
+      *----------  RX明細作成区分
+                          "RX_CREATE_KBN,"
+      *----------  シェル名
+                          "SHELL_NAME,"
+      *----------  並行稼動チェック区分
+                          "HEIKO_CHK_KBN,"
+      *----------  書式ファイル名称
+                          "CFGFILE"
+                          " FROM "  WK-TBL-ID  " "
+               DELIMITED BY SIZE
+               INTO  SQLSTMT-ARR
+               WITH  POINTER  SQLSTMT-LEN
+           IF  SEL-WHERE                     OF  PARM-SELECT-ARG1
+                                             NOT  =  SPACE
+           THEN
+      *----------  SCZC1180 SQL文エスケープ編集処理ルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL文エスケープ編集処理ルーチンSCZC1180開始"
+      *-----------------------------------------------------------------
+               MOVE  SEL-WHERE               OF  PARM-SELECT-ARG1
+                 TO  PARM-SCZC1180-ARG1
+               CALL  "SCZC1180"              USING  PARM-SCZC1180-INOUT
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQL文エスケープ編集処理ルーチンSCZC1180終了"
+      D    DISPLAY  "PARM-SCZC1180-ARG1 =["  PARM-SCZC1180-ARG1  "]"
+      D    DISPLAY  "PARM-SCZC1180-ARG2 =["  PARM-SCZC1180-ARG2  "]"
+      *-----------------------------------------------------------------
+               STRING  PARM-SCZC1180-ARG2
+                   DELIMITED BY SIZE
+                   INTO  SQLSTMT-ARR
+                   WITH  POINTER  SQLSTMT-LEN
+               INSPECT  FUNCTION REVERSE(SQLSTMT-ARR)
+                        TALLYING WK-SPACE FOR LEADING SPACES
+               COMPUTE  SQLSTMT-LEN = 15000 - WK-SPACE
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLSTMT-LEN        =["  SQLSTMT-LEN  "]"
+      D    DISPLAY  "SQLSTMT-ARR        =["  SQLSTMT-ARR  "]"
+      *-----------------------------------------------------------------
+      *----------  ＳＱＬ文 PREPARE
+           EXEC SQL
+               PREPARE S01  FROM :SQLSTMT
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(PREPARE)   =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-ERR-03              TO  WK-ERR-ID
+               MOVE  "0002"                  TO  WK-ERR-POS
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+               PERFORM  ERR-RTN
+           END-IF
+      *----------  カーソル DECLARE
+           EXEC SQL
+               DECLARE CR01 CURSOR  FOR S01
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(DECLARE)   =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-ERR-03              TO  WK-ERR-ID
+               MOVE  "0003"                  TO  WK-ERR-POS
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+               PERFORM  ERR-RTN
+           END-IF
+      *----------  カーソル OPEN
+           EXEC SQL
+               OPEN  CR01
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(OPEN)      =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               IF  SQLCODE                   = CNS-SQL-RISOSU-BIZI
+               THEN
+                 MOVE  CNS-ERR-05            TO  WK-ERR-ID
+                 MOVE  "0009"                TO  WK-ERR-POS
+                 MOVE  SQLCODE               TO  WK-DETAIL-RTN-CD
+                 PERFORM  ERR-RTN
+               ELSE
+                 MOVE  CNS-ERR-03            TO  WK-ERR-ID
+                 MOVE  "0004"                TO  WK-ERR-POS
+                 MOVE  SQLCODE               TO  WK-DETAIL-RTN-CD
+                 PERFORM  ERR-RTN
+               END-IF
+           ELSE
+               MOVE  CNS-1                   TO  FLG-CR-CLS
+           END-IF
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "FLG-FETCH-END      =[" FLG-FETCH-END  "]"
+      *-----------------------------------------------------------------
+           PERFORM  UNTIL  FLG-FETCH-END     <>  SPACE
+      *----------  カーソル FETCH
+               EXEC SQL
+                   FETCH  CR01
+                    INTO :H-TBL.GYOMU-TASK-ID,
+                         :H-TBL.GYOMU-TASK-NAME,
+                         :H-TBL.KINOU-BUNRUI,
+                         :H-TBL.NET-NAME,
+                         :H-TBL.REP-REQ-KBN,
+                         :H-TBL.KIDO-TAISYO-KBN,
+                         :H-TBL.GAMEN-HYOJI-KBN,
+                         :H-TBL.EXCEL-ILF-KBN,
+                         :H-TBL.GYOSYU-RIYO-KBN,
+                         :H-TBL.UPD-DATE,
+                         :H-TBL.UPD-LOGIN-CMP-CD,
+                         :H-TBL.UPD-SID,
+                         :H-TBL.UPD-PGMID,
+                         :H-TBL.TXRX-KBN,
+                         :H-TBL.RX-CREATE-KBN,
+                         :H-TBL.SHELL-NAME,
+                         :H-TBL.HEIKO-CHK-KBN,
+                         :H-TBL.CFGFILE
+               END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D        DISPLAY  "SQLCODE(FETCH) =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+               EVALUATE  SQLCODE
+                   WHEN  CNS-SQL-NORMAL
+                       COMPUTE  WK-COUNT     =  WK-COUNT + 1
+      *-------------------<DEBUG>---------------------------------------
+      D                DISPLAY  "WK-COUNT    =["WK-COUNT  "]"
+      *-----------------------------------------------------------------
+                       IF  WK-COUNT  >  1
+                       THEN
+                           MOVE  CNS-1       TO  FLG-FETCH-END
+                           MOVE  CNS-ERR-02  TO  WK-ERR-ID
+                           MOVE  "0005"      TO  WK-ERR-POS
+                           MOVE  SQLCODE     TO  WK-DETAIL-RTN-CD
+                           PERFORM  ERR-RTN
+                       END-IF
+                   WHEN  CNS-SQL-NOTFOUND
+                       MOVE  CNS-1           TO  FLG-FETCH-END
+                       IF  WK-COUNT          =   ZERO
+                       THEN
+      *-------------------<DEBUG>---------------------------------------
+      D                    DISPLAY  "WK-COUNT=["WK-COUNT  "]"
+      *-----------------------------------------------------------------
+                           MOVE  CNS-ERR-01  TO  WK-ERR-ID
+                           MOVE  "0006"      TO  WK-ERR-POS
+                           MOVE  SQLCODE     TO  WK-DETAIL-RTN-CD
+                           PERFORM  ERR-RTN
+                       END-IF
+                   WHEN  OTHER
+                       MOVE  CNS-1           TO  FLG-FETCH-END
+                       MOVE  CNS-ERR-03      TO  WK-ERR-ID
+                       MOVE  "0007"          TO  WK-ERR-POS
+                       MOVE  SQLCODE         TO  WK-DETAIL-RTN-CD
+                       PERFORM  ERR-RTN
+               END-EVALUATE
+           END-PERFORM.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "*****  メイン処理  END  *****".
+      *-----------------------------------------------------------------
+       MAIN-EXT.
+           EXIT.
+      ******************************************************************
+      *                 後処理
+      ******************************************************************
+       END-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***   後処理  START  ***"
+      *-----------------------------------------------------------------
+      *----------  カーソル CLOSE
+           EXEC SQL
+               CLOSE CR01
+           END-EXEC
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "SQLCODE(CLOSE)     =["  SQLCODE  "]"
+      *-----------------------------------------------------------------
+           IF  SQLCODE                       NOT = CNS-SQL-NORMAL
+           THEN
+               MOVE  CNS-ERR-03              TO  WK-ERR-ID
+               MOVE  "0008"                  TO  WK-ERR-POS
+               MOVE  SQLCODE                 TO  WK-DETAIL-RTN-CD
+               PERFORM  ERR-RTN
+           END-IF
+           MOVE  CORR  H-TBL
+             TO  TBL-LAYOUT                  OF  PARM-SELECT-ARG2
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZC1170開始"
+      *-----------------------------------------------------------------
+           MOVE  CNS-RET-CD-NORMAL
+             TO  RTN-CD                      OF  PARM-SCZC1170-ARG1
+           CALL  "SCZC1170"                  USING  PARM-SCZC1170-INOUT
+                                                    PARM-SCZC1170-RTNPKG
+           MOVE  PARM-SCZC1170-ARG2          TO  PARM-SELECT-ARG3.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZC1170終了"
+      D    DISPLAY  "***   後処理  END  ***".
+      *-----------------------------------------------------------------
+       END-EXT.
+           EXIT.
+      ******************************************************************
+      *                 エラー処理
+      ******************************************************************
+       ERR-RTN                SECTION.
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "***  ERR-RTN  START  ***"
+      *-----------------------------------------------------------------
+           IF  FLG-CR-CLS  =  CNS-1
+           THEN
+      *-------------------<DEBUG>---------------------------------------
+      D        DISPLAY  "ERROR処理 CLOSE CR01"
+      *-----------------------------------------------------------------
+               EXEC SQL
+                   CLOSE CR01
+               END-EXEC
+           END-IF
+      *----------  ワ－クフリーメッセージ
+           MOVE  1                           TO  WK-SQL-POINTER
+           STRING  "SELECT  *  FROM "  WK-TBL-ID  " "
+               DELIMITED BY SIZE
+               INTO  WK-FREE-MSG
+               POINTER  WK-SQL-POINTER
+           IF  SEL-WHERE                     OF  PARM-SELECT-ARG1
+                                             NOT  =  SPACE
+           THEN
+               STRING  SEL-WHERE             OF  PARM-SELECT-ARG1
+                   DELIMITED BY SIZE
+                   INTO  WK-FREE-MSG
+                   POINTER  WK-SQL-POINTER
+           END-IF
+           EVALUATE  WK-ERR-ID
+      *----------  該当データなし
+               WHEN  CNS-ERR-01
+      *----------  検知プログラムID
+                   MOVE  CNS-PROGRAM-ID
+                     TO  ERR-PGM-ID          OF  PARM-SCZC1170-ARG1
+      *----------  ポジション
+                   MOVE  WK-ERR-POS
+                     TO  ERR-POS             OF  PARM-SCZC1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-NODATA
+                     TO  RTN-CD              OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  WK-DETAIL-RTN-CD
+                     TO  DETAIL-RTN-CD       OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  CNS-1
+                     TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZC1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  WK-FREE-MSG
+                     TO  FREE-MSG            OF  PARM-SCZC1170-ARG1
+      *----------  抽出件数超過警告
+               WHEN  CNS-ERR-02
+      *----------  検知プログラムID
+                   MOVE  CNS-PROGRAM-ID
+                     TO  ERR-PGM-ID          OF  PARM-SCZC1170-ARG1
+      *----------  ポジション
+                   MOVE  WK-ERR-POS
+                     TO  ERR-POS             OF  PARM-SCZC1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-NOTONE
+                     TO  RTN-CD              OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  WK-DETAIL-RTN-CD
+                     TO  DETAIL-RTN-CD       OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  CNS-1
+                     TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZC1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  WK-FREE-MSG
+                     TO  FREE-MSG            OF  PARM-SCZC1170-ARG1
+      *----------  システムエラー（Oracle）
+               WHEN  CNS-ERR-03
+      *----------  検知プログラムID
+                   MOVE  CNS-PROGRAM-ID
+                     TO  ERR-PGM-ID          OF  PARM-SCZC1170-ARG1
+      *----------  ポジション
+                   MOVE  WK-ERR-POS
+                     TO  ERR-POS             OF  PARM-SCZC1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-ORAERR
+                     TO  RTN-CD              OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  WK-DETAIL-RTN-CD
+                     TO  DETAIL-RTN-CD       OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  CNS-1
+                     TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZC1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  WK-FREE-MSG
+                     TO  FREE-MSG            OF  PARM-SCZC1170-ARG1
+      *----------  システムエラー（Oracle以外）
+               WHEN  CNS-ERR-04
+      *----------  検知プログラムID
+                   MOVE  CNS-PROGRAM-ID
+                     TO  ERR-PGM-ID          OF  PARM-SCZC1170-ARG1
+      *----------  ポジション
+                   MOVE  WK-ERR-POS
+                     TO  ERR-POS             OF  PARM-SCZC1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-SYSERR
+                     TO  RTN-CD              OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  CNS-0
+                     TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZC1170-ARG1
+      *----------  SCZC1160エラーの場合、戻したRTNパッケージをセットする
+                   MOVE  PARM-SCZC1160-ARG3  TO  PARM-SCZC1170-ARG2
+      *----------  悲観ロックエラー
+               WHEN  CNS-ERR-05
+      *----------  検知プログラムID
+                   MOVE  CNS-PROGRAM-ID
+                     TO  ERR-PGM-ID          OF  PARM-SCZC1170-ARG1
+      *----------  ポジション
+                   MOVE  WK-ERR-POS
+                     TO  ERR-POS             OF  PARM-SCZC1170-ARG1
+      *----------  リターンコード
+                   MOVE  CNS-RET-CD-HIKANLOG
+                     TO  RTN-CD              OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコード
+                   MOVE  WK-DETAIL-RTN-CD
+                     TO  DETAIL-RTN-CD       OF  PARM-SCZC1170-ARG1
+      *----------  詳細リターンコードデコードフラグ
+                   MOVE  CNS-1
+                     TO  DETAIL-RTN-CD-FLG   OF  PARM-SCZC1170-ARG1
+      *----------  フリーメッセージ
+                   MOVE  WK-FREE-MSG
+                     TO  FREE-MSG            OF  PARM-SCZC1170-ARG1
+               WHEN  OTHER
+                   CONTINUE
+           END-EVALUATE
+      *----------  リターンパッケージセットルーチンをコールする
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZC1170開始"
+      *-----------------------------------------------------------------
+           CALL  "SCZC1170"                  USING  PARM-SCZC1170-INOUT
+                                                    PARM-SCZC1170-RTNPKG
+           MOVE  PARM-SCZC1170-ARG2          TO  PARM-SELECT-ARG3
+      *-------------------<DEBUG>---------------------------------------
+      D    DISPLAY  "リターンパッケージセットルーチンSCZC1170終了"
+      D    DISPLAY  "***  ERR-RTN  END  ***"
+      *-----------------------------------------------------------------
+           CONTINUE.
+       ERR-EXT.
+           GOBACK.
+      ******************************************************************
