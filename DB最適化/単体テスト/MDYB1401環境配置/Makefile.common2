@@ -1,0 +1,63 @@
+#********************************************************************************
+#    プロジェクト  :次期T-STAR
+#    サブシステム  :
+#    モジュール名  :Makefile.common2
+#    名称          :メイクファイル共通2
+#                   
+#
+#    使用方法      :メイクファイルに直接include
+#    備考          :なし
+#
+#================================================================================
+#  Copyright (C) 2006 by Nomura Research Institute,Ltd.
+#  All rights reserved.
+#********************************************************************************
+
+# 生成モジュールにCOBOLが含まれる場合は次を使用する
+ifeq ($(PGMTYPE),SLIB)
+all: $(LOAD)
+$(LOAD): $(OBJS) $(XA_OBJ) $(STUBOBJS)
+	$(COB) $(LINKFLAGS) -o $(LOAD) $+ $(LIB)
+#$(INSTALL) -p -m 775 $(LOAD) $(LIBDIR)/.
+clean:
+	$(RM) $(LOAD) *.o *.int *.lst *.idy *.lst *.lis *.cob
+endif
+
+ifeq ($(PGMTYPE),SUB)
+all: $(LOAD)
+#$(INSTALL) -p -m 775 *.o $(OBJDIR)/.
+#$(INSTALL) -p -m 644 *.int $(MKLOGDIR)/.
+#$(INSTALL) -p -m 644 *.lst $(MKLOGDIR)/.
+#$(INSTALL) -p -m 644 *.idy $(MKLOGDIR)/.
+clean:
+	$(RM) $(LOAD) *.o *.int *.lst *.idy *.lst *.lis *.cob
+endif
+
+#ifeq ($(PGMTYPE),CPY)
+#all:
+#$(INSTALL) -p -m 775 $(LOAD) $(CPYDIR)/.
+#clean:
+# echo > /dev/null
+#endif
+
+ifeq ($(PGMTYPE),SPP)
+all: $(LOAD)
+$(LOAD): $(OBJS) $(XA_OBJ) $(STUBOBJS)
+	$(COB) $(LINKFLAGS) -o $(LOAD) $+ $(LIB)
+#$(INSTALL) -p -m 644 *.int $(MKLOGDIR)/.
+#$(INSTALL) -p -m 644 *.lst $(MKLOGDIR)/.
+#$(INSTALL) -p -m 644 *.idy $(MKLOGDIR)/.
+clean:
+	$(RM) $(LOAD) *.o *.int *.lst *.idy *.lst *.lis *.cob
+endif
+
+ifeq ($(PGMTYPE),BATCH)
+all: $(LOAD)
+$(LOAD): $(OBJS) $(XA_OBJ) $(STUBOBJS)
+	$(COB) $(LINKFLAGS) -o $(LOAD) $(OBJS) $(XA_OBJ) $(STUBOBJS) $(LIB)
+#$(INSTALL) -p -m 644 *.int $(MKLOGDIR)/.
+#$(INSTALL) -p -m 644 *.lst $(MKLOGDIR)/.
+#$(INSTALL) -p -m 644 *.idy $(MKLOGDIR)/.
+clean:
+	$(RM) $(LOAD) *.o *.int *.lst *.idy *.lst *.lis *.cob
+endif

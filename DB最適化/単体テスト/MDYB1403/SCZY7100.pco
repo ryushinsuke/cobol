@@ -1,0 +1,109 @@
+      ******************************************************************
+      *$Header:$
+      ******************************************************************
+      *
+      * システムＩＤ   : TSTAR
+      * システム名称   : 次期TSTARシステム
+      * プログラム名称 : バッチＤＢ接続情報取得ルーチン
+      * 処理概要       : 環境変数より、バッチにおけるDB接続のユｰザｰID、
+      *                  パスワード、インスタンスIDを取得する
+      * 引数           : IN  利用会社コード
+      *                : OUT DB接続情報
+      *                : OUT RTNパッケージ
+      *
+      * 改訂履歴
+      * 年月日   区分 所属     担当者  内容
+      * -------- ---- -------- ------- --------------------------------
+      * 20070920 新規 SCS      薛銀峰  新規作成
+      * 20080201 修正 SCS      薛銀峰  修正
+      ******************************************************************
+       IDENTIFICATION         DIVISION.
+       PROGRAM-ID.    SCZY7100.
+       AUTHOR.        Nomura.
+       DATE-WRITTEN.  08-02-01.
+       DATE-COMPILED.
+      ******************************************************************
+      *
+      *                環  境  部
+      *
+      ******************************************************************
+       ENVIRONMENT            DIVISION.
+       CONFIGURATION          SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      * SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+       SPECIAL-NAMES.
+           ENVIRONMENT-NAME               ENV-NAME
+           ENVIRONMENT-VALUE              ENV-VALUE.
+       INPUT-OUTPUT           SECTION.
+       FILE-CONTROL.
+      ******************************************************************
+      *
+      *                デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                        DIVISION.
+       WORKING-STORAGE             SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PROGRAM-ID        PIC  X(16)  VALUE  "SCZY7100".
+      ******************************************************************
+      *                   ワーク  エリア
+      ******************************************************************
+      *----------  ワークRTNパッケージ
+       01  WK-KYOUTUU-RTNPKG.
+         05  WK-PARM-RTNPKG.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           10  RTN-PAKEGE.
+             COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY7100-INOUT.
+      *----------  バッチＤＢ接続情報取得ルーチンのコピー句
+         COPY  "SCZY7100.cpy".
+       01  PARM-SCZY7100-RTNPKG.
+         05  PARM-SCZY7100-ARG3.
+      *----------  RTNパッケージ
+           10  RTN-PAKEGE.
+             COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *                PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY7100-INOUT
+                  PARM-SCZY7100-RTNPKG.
+       BASE-RTN               SECTION.
+      *----------  エラー検知プログラム名
+           MOVE  CNS-PROGRAM-ID
+             TO  ERR-PGM-ID           OF  PARM-SCZY1170-ARG1
+      *----------  ポジション
+           MOVE  "0002"
+             TO  ERR-POS              OF  PARM-SCZY1170-ARG1
+      *----------  リターンコード
+           MOVE  901
+             TO  RTN-CD               OF  PARM-SCZY1170-ARG1
+           MOVE  WK-KYOUTUU-RTNPKG    TO  PARM-SCZY1170-RTNPKG
+      *----------  リターンパッケージセットルーチンをコールする
+           CALL  "SCZY1170"           USING  PARM-SCZY1170-INOUT
+                                             PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-RTNPKG TO  PARM-SCZY7100-ARG3
+           CONTINUE.
+       BASE-EXT.
+           GOBACK.

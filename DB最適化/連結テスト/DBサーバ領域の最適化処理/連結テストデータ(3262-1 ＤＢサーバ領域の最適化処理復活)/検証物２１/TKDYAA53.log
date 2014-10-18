@@ -1,0 +1,59 @@
+
+SQL*Loader: Release 10.2.0.2.0 - Production on 水 3月 27 20:10:06 2013
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+制御ファイル:    /home/apl01/BL/ctl/TKDYAA53.ctl
+データファイル/home/apl01/BL/mdat/TKDYAA53.dat
+  不良ファイル:  /home/apl01/BL/log/C000/TKDYAA53.bad
+  廃棄ファイル:  指定なし
+
+ (すべて廃棄できます)
+
+ロード数: ALL
+スキップ数: 0
+許容エラー数: 50
+バインド配列:    64行、最大256000バイト
+継続文字:    指定なし
+使用パス:      従来型
+
+表TKDYAA53、 ロード済 すべての論理レコードから
+この表に対する有効な挿入オプション: APPEND
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+TBL_ID                             FIRST    * WHT    CHARACTER            
+    列のSQL文字列 : "NVL(:TBL_ID,' ')"
+PRIO                                NEXT    * WHT    CHARACTER            
+    列のSQL文字列 : "NVL(:PRIO,0)"
+TABLE_KBN                           NEXT    * WHT    CHARACTER            
+    列のSQL文字列 : "NVL(:TABLE_KBN,' ')"
+UPD_DATE                            NEXT    * WHT    DATE YYYY/MM/DD HH24:MI:SS
+    列のSQL文字列 : "NVL(:UPD_DATE,'20070101000000')"
+UPD_LOGIN_CMP_CD                    NEXT    * WHT    CHARACTER            
+    列のSQL文字列 : "NVL(:UPD_LOGIN_CMP_CD,' ')"
+UPD_SID                             NEXT    * WHT    CHARACTER            
+    列のSQL文字列 : "NVL(:UPD_SID,' ')"
+UPD_PGMID                           NEXT    * WHT    CHARACTER            
+    列のSQL文字列 : "NVL(:UPD_PGMID,' ')"
+
+
+表TKDYAA53:
+  6行のロードに成功しました。
+  0行はデータ・エラーのためロードされませんでした。
+  0行はWHEN句のエラーのためロードされませんでした。
+  0行はすべてのフィールドがNULLのためロードされませんでした。
+
+バインド配列に割り当てられた領域:   115584バイト(64行)
+読取りバッファのバイト数:  1048576
+
+スキップされた論理レコードの合計:           0
+読み込まれた論理レコードの合計:             6
+拒否された論理レコードの合計:               0
+廃棄された論理レコードの合計:        0
+
+実行開始水 3月  27 20:10:06 2013
+実行終了水 3月  27 20:10:06 2013
+
+実行時間:        00: 00: 00.11
+CPU時間 :        00: 00: 00.01

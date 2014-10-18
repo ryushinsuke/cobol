@@ -1,0 +1,113 @@
+      ******************************************************************
+      * $Header$
+      ******************************************************************
+      *
+      *     システムＩＤ   : T-STAR
+      *     システム名称   : 次期TSTARシステム
+      *     プログラム名称 : カレンダールーチン
+      *     処理概要       : カレンダールーチン
+      *     参照ＤＢ       : 
+      *     引数           : IN  カレンダールーチンコピー句
+      *                    : OUT カレンダールーチンコピー句
+      *                    : OUT RTNパッケージ
+      *     改訂履歴
+      *     年月日     所属       担当者  内容
+      *     ---------- ---------- ------  ----------------------------
+      *     20070926   SCS        厳偉偉  新規
+      ******************************************************************
+      *                     IDENTIFICATION DIVISION                    *
+      *                       << IXCALDS >>                            *
+      *                       ｶﾚﾝﾀﾞ- ﾙ-ﾁﾝ                              *
+      *                                    NSS                         *
+      *                                                                *T2KY0020
+      *  T2KY0020 :共通系 委託 マルチカ 対応、桁数 拡大、コード 見直し *T2KY0020
+      *            ( + 業務統合 )                                      *T2KY0020
+      *            ( ﾍﾞ-ｽ PGM  KX )                                    *T2KY0020
+      *  990730   :HAPPY MONDAY 対応                                   *T2KY0020
+      *  010223   :KASAN-RTN 不正 対応                                 *020223TS
+      *  020412   :HAPPY MONDAY 対応                                   *02041220
+      ******************************************************************
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID.  SCZY1020.
+      *  AUTHOR.
+      *    \CASP)   COMPUTER AIDED STRUCTURED PROGRAMMING FACTORY.
+       AUTHOR.        SCS.
+       DATE-WRITTEN.  07-09-26.
+       DATE-COMPILED.
+      ******************************************************************
+      *                       ENVIRONMENT DIVISION                     *
+      ******************************************************************
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SOURCE-COMPUTER.       L1000V.
+      *SOURCE-COMPUTER.       L1000V   WITH DEBUGGING MODE.
+       OBJECT-COMPUTER.       RP5470.
+      ******************************************************************
+      *
+      *                 デ  ー  タ  部
+      *
+      ******************************************************************
+       DATA                   DIVISION.
+       WORKING-STORAGE        SECTION.
+       01  IDNAME                  PIC  X(80)  VALUE
+       "$Id: $".
+      ******************************************************************
+      *                コンスタント  エリア
+      ******************************************************************
+       01  CONSTANT-AREA.
+         05  CNS-PROGRAM-ID        PIC  X(08)  VALUE "SCZY1020".
+      ******************************************************************
+      *                   ワーク  エリア
+      ******************************************************************
+      *----------  ワークRTNパッケージ
+       01  WK-KYOUTUU-RTNPKG.
+         05  WK-PARM-RTNPKG.
+           COPY "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                サブプログラム  パラメ－タ  エリア
+      ******************************************************************
+      *----------  SCZY1170 リターンパッケージセットルーチン
+       01  PARM-SCZY1170-INOUT.
+      *----------  リターンパッケージセットルーチンコピー句
+           COPY  "SCZY1170.cpy".
+       01  PARM-SCZY1170-RTNPKG.
+         05  PARM-SCZY1170-ARG2.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *                 連絡節
+      ******************************************************************
+       LINKAGE                SECTION.
+       01  PARM-SCZY1020-INOUT.
+      *----------  テーブルID取得ルーチンコピー句
+           COPY  "SCZY1020.cpy".
+       01  PARM-SCZY1020-RTNPKG.
+         05  PARM-SCZY1020-ARG3.
+      *----------  RTNパッケージ
+           COPY  "CZRTNPACKAGE.cpy".
+      ******************************************************************
+      *
+      *        PROCEDURE      DIVISION
+      *
+      ******************************************************************
+       PROCEDURE              DIVISION
+           USING  PARM-SCZY1020-INOUT
+                  PARM-SCZY1020-RTNPKG.
+       SCZY1020-RTN           SECTION.
+      *----------  エラー検知プログラム名
+           MOVE  CNS-PROGRAM-ID
+             TO  ERR-PGM-ID              OF PARM-SCZY1170-ARG1
+      *----------  ポジション
+           MOVE  "0005"
+             TO  ERR-POS                 OF PARM-SCZY1170-ARG1
+      *----------  リターンコード
+           MOVE  901
+             TO  RTN-CD                  OF PARM-SCZY1170-ARG1
+           MOVE  WK-KYOUTUU-RTNPKG       TO PARM-SCZY1170-RTNPKG
+      *----------  リターンパッケージセットルーチンをコールする
+           CALL  "SCZY1170"              USING  PARM-SCZY1170-INOUT
+                                                PARM-SCZY1170-RTNPKG
+           MOVE  PARM-SCZY1170-RTNPKG    TO PARM-SCZY1020-ARG3
+           CONTINUE.
+       SCZY1020-EXT.
+           GOBACK.

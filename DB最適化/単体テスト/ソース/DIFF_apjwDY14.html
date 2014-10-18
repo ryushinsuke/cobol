@@ -1,0 +1,1984 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=shift_jis">
+<style>
+.AlignLeft { text-align: left; }
+.AlignCenter { text-align: center; }
+.AlignRight { text-align: right; }
+.Wrap { white-space: nowrap; }
+body { font-family: sans-serif; font-size: 11pt; }
+td { vertical-align: top; padding-left: 4px; padding-right: 4px; }
+
+tr.SectionGap td { font-size: 4px; border-left: none; border-top: none; border-bottom: 1px solid Black; border-right: 1px solid Black; }
+tr.SectionAll td { border-left: none; border-top: none; border-bottom: 1px solid Black; border-right: 1px solid Black; }
+tr.SectionBegin td { border-left: none; border-top: none; border-right: 1px solid Black; }
+tr.SectionEnd td { border-left: none; border-top: none; border-bottom: 1px solid Black; border-right: 1px solid Black; }
+tr.SectionMiddle td { border-left: none; border-top: none; border-right: 1px solid Black; }
+tr.SubsectionAll td { border-left: none; border-top: none; border-bottom: 1px solid Gray; border-right: 1px solid Black; }
+tr.SubsectionEnd td { border-left: none; border-top: none; border-bottom: 1px solid Gray; border-right: 1px solid Black; }
+table.fc { border-top: 1px solid Black; border-left: 1px solid Black; width: 100%; font-family: monospace; font-size: 10pt; }
+td.TextItemInsigAdd { color: #000000; background-color: #EFEFFF; }
+td.TextItemInsigDel { color: #000000; background-color: #EFEFFF; text-decoration: line-through; }
+td.TextItemInsigDiffMod { color: #000000; background-color: #EFEFFF; }
+td.TextItemInsigLeftMod { color: #000000; background-color: #EFEFFF; }
+td.TextItemInsigRightMod { color: #000000; background-color: #EFEFFF; }
+td.TextItemNum { color: #827357; background-color: #F2F2F2; }
+td.TextItemSame { color: #000000; background-color: #FFFFFF; }
+td.TextItemSigAdd { color: #000000; background-color: #FFE3E3; }
+td.TextItemSigDel { color: #000000; background-color: #FFE3E3; text-decoration: line-through; }
+td.TextItemSigDiffMod { color: #000000; background-color: #FFE3E3; }
+td.TextItemSigLeftMod { color: #000000; background-color: #FFE3E3; }
+td.TextItemSigRightMod { color: #000000; background-color: #FFE3E3; }
+.TextSegInsigDiff { color: #0000FF; }
+.TextSegReplacedDiff { color: #0000FF; font-style: italic; }
+.TextSegSigDiff { color: #FF0000; }
+</style>
+<title>Text Compare</title>
+</head>
+<body>
+Text Compare<br/>
+Produced: 2013/04/04 10:29:01<br/>
+&nbsp; &nbsp;
+<br/>
+Mode:&nbsp; All &nbsp;
+<br/>
+Left file: D:\修正前\apjwDY14.sh&nbsp; &nbsp;&nbsp; Right file: D:\修正後\apjwDY14.sh &nbsp;
+<br/>
+<table class="fc" cellspacing="0" cellpadding="0">
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">1</td>
+<td class="TextItemSame Wrap">#! /bin/sh</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">1</td>
+<td class="TextItemSame Wrap">#! /bin/sh</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">2</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">2</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">3</td>
+<td class="TextItemSame Wrap"># システムＩＤ&nbsp; &nbsp; &nbsp; ：&nbsp; TSTAR</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">3</td>
+<td class="TextItemSame Wrap"># システムＩＤ&nbsp; &nbsp; &nbsp; ：&nbsp; TSTAR</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">4</td>
+<td class="TextItemSame Wrap"># システム名称&nbsp; &nbsp; &nbsp; ：&nbsp; 次期TSTARシステム</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">4</td>
+<td class="TextItemSame Wrap"># システム名称&nbsp; &nbsp; &nbsp; ：&nbsp; 次期TSTARシステム</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">5</td>
+<td class="TextItemSame Wrap"># モジュールＩＤ&nbsp; &nbsp; ：&nbsp; apjwDY14</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">5</td>
+<td class="TextItemSame Wrap"># モジュールＩＤ&nbsp; &nbsp; ：&nbsp; apjwDY14</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">6</td>
+<td class="TextItemSame Wrap"># モジュール名称&nbsp; &nbsp; ：&nbsp; DBサーバ領域の最適化処理</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">6</td>
+<td class="TextItemSame Wrap"># モジュール名称&nbsp; &nbsp; ：&nbsp; DBサーバ領域の最適化処理</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">7</td>
+<td class="TextItemSame Wrap"># 処理概要&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ：&nbsp; DBサーバ領域の最適化処理</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">7</td>
+<td class="TextItemSame Wrap"># 処理概要&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ：&nbsp; DBサーバ領域の最適化処理</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">8</td>
+<td class="TextItemSame Wrap"># 引数&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ：&nbsp; ARG1: go</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">8</td>
+<td class="TextItemSame Wrap"># 引数&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ：&nbsp; ARG1: go</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">9</td>
+<td class="TextItemSame Wrap"># リターンコード&nbsp; &nbsp; ：&nbsp; 0：正常終了</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">9</td>
+<td class="TextItemSame Wrap"># リターンコード&nbsp; &nbsp; ：&nbsp; 0：正常終了</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">10</td>
+<td class="TextItemSame Wrap">#&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; 1：異常終了</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">10</td>
+<td class="TextItemSame Wrap">#&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; 1：異常終了</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">11</td>
+<td class="TextItemSame Wrap">#</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">11</td>
+<td class="TextItemSame Wrap">#</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">12</td>
+<td class="TextItemSame Wrap"># 改訂履歴</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">12</td>
+<td class="TextItemSame Wrap"># 改訂履歴</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">13</td>
+<td class="TextItemSame Wrap"># 年月日&nbsp; &nbsp; 区分&nbsp; &nbsp; 所属&nbsp; &nbsp; 内容</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">13</td>
+<td class="TextItemSame Wrap"># 年月日&nbsp; &nbsp; 区分&nbsp; &nbsp; 所属&nbsp; &nbsp; 内容</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">14</td>
+<td class="TextItemSame Wrap"># --------&nbsp; ----&nbsp; &nbsp; ------&nbsp; --------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">14</td>
+<td class="TextItemSame Wrap"># --------&nbsp; ----&nbsp; &nbsp; ------&nbsp; --------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">15</td>
+<td class="TextItemSame Wrap"># 20090306&nbsp; 新規&nbsp; &nbsp; SCS</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">15</td>
+<td class="TextItemSame Wrap"># 20090306&nbsp; 新規&nbsp; &nbsp; SCS</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">16</td>
+<td class="TextItemSame Wrap"># 20090605&nbsp; 更新&nbsp; &nbsp; SCS&nbsp; &nbsp;&nbsp; INMPORTした後、DUMPファイルを削除する</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">16</td>
+<td class="TextItemSame Wrap"># 20090605&nbsp; 更新&nbsp; &nbsp; SCS&nbsp; &nbsp;&nbsp; INMPORTした後、DUMPファイルを削除する</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">17</td>
+<td class="TextItemSame Wrap"># 20091029&nbsp; 更新&nbsp; &nbsp; SCS&nbsp; &nbsp;&nbsp; INMPORTのオプションにBUFFER=80000を追加する</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">17</td>
+<td class="TextItemSame Wrap"># 20091029&nbsp; 更新&nbsp; &nbsp; SCS&nbsp; &nbsp;&nbsp; INMPORTのオプションにBUFFER=80000を追加する</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">-+</td>
+<td class="TextItemNum AlignRight Wrap">18</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">20130226</span><span class="TextSegInsigDiff">&nbsp; </span><span class="TextSegSigDiff">更新</span><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">GUT</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">テーマ3262-1:ＤＢサーバ領域の最適化処理復活</span></td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">18</td>
+<td class="TextItemSame Wrap">#</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">19</td>
+<td class="TextItemSame Wrap">#</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">19</td>
+<td class="TextItemSame Wrap"># Copyright (C) 2006 by Nomura Research Institute,Ltd.</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">20</td>
+<td class="TextItemSame Wrap"># Copyright (C) 2006 by Nomura Research Institute,Ltd.</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">20</td>
+<td class="TextItemSame Wrap"># All rights reserved.</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">21</td>
+<td class="TextItemSame Wrap"># All rights reserved.</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">21</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">22</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">22</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">23</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">23</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">24</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">24</td>
+<td class="TextItemSame Wrap"># ローカル変数設定</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">25</td>
+<td class="TextItemSame Wrap"># ローカル変数設定</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">25</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">26</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">26</td>
+<td class="TextItemSame Wrap">#利用会社コード</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">27</td>
+<td class="TextItemSame Wrap">#利用会社コード</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">27</td>
+<td class="TextItemSame Wrap">TS_RIYO_CMPCD=`echo ${SJ_PEX_FRAME}|awk '{print substr($1,5,4)}'`</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">28</td>
+<td class="TextItemSame Wrap">TS_RIYO_CMPCD=`echo ${SJ_PEX_FRAME}|awk '{print substr($1,5,4)}'`</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">28</td>
+<td class="TextItemSame Wrap">#バッチログファイル</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">29</td>
+<td class="TextItemSame Wrap">#バッチログファイル</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">29</td>
+<td class="TextItemSame Wrap">TS_LOGFILE=${APL_LOG_DIR}/${TS_RIYO_CMPCD}/${SJ_PEX_JOB}.log</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">30</td>
+<td class="TextItemSame Wrap">TS_LOGFILE=${APL_LOG_DIR}/${TS_RIYO_CMPCD}/${SJ_PEX_JOB}.log</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">30</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">31</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">31</td>
+<td class="TextItemSame Wrap">#シェルのリターンコード</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">32</td>
+<td class="TextItemSame Wrap">#シェルのリターンコード</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">32</td>
+<td class="TextItemSame Wrap">TS_RCODE=0</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">33</td>
+<td class="TextItemSame Wrap">TS_RCODE=0</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">33</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">34</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">34</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">35</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">35</td>
+<td class="TextItemSame Wrap">#DBサーバ領域の最適化処理 START</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">36</td>
+<td class="TextItemSame Wrap">#DBサーバ領域の最適化処理 START</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">36</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">37</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">37</td>
+<td class="TextItemSame Wrap">BCZC0001.sh</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">38</td>
+<td class="TextItemSame Wrap">BCZC0001.sh</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">38</td>
+<td class="TextItemSame Wrap">BCZC0000.sh&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">39</td>
+<td class="TextItemSame Wrap">BCZC0000.sh&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">39</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">40</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">40</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">41</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">41</td>
+<td class="TextItemSame Wrap"># 引数確認</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">42</td>
+<td class="TextItemSame Wrap"># 引数確認</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">42</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">43</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">43</td>
+<td class="TextItemSame Wrap">if [ &quot;$1&quot; != &quot;go&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">44</td>
+<td class="TextItemSame Wrap">if [ &quot;$1&quot; != &quot;go&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">44</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; echo &quot;Argument Error&quot;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">45</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; echo &quot;Argument Error&quot;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">45</td>
+<td class="TextItemSame Wrap">&nbsp;&nbsp; TS_RCODE=1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">46</td>
+<td class="TextItemSame Wrap">&nbsp;&nbsp; TS_RCODE=1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">46</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">47</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">47</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">48</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">48</td>
+<td class="TextItemSame Wrap">fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">49</td>
+<td class="TextItemSame Wrap">fi</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">49</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">50</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">50</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">51</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">51</td>
+<td class="TextItemSigDiffMod Wrap">#ステップ-0010 <span class="TextSegSigDiff">MDYB1401</span>最適化<span class="TextSegSigDiff">対象</span>ファイル<span class="TextSegSigDiff">作成処理</span></td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">52</td>
+<td class="TextItemSigDiffMod Wrap">#<span class="TextSegInsigDiff"> </span>ステップ-0010 最適化<span class="TextSegSigDiff">停止</span>ファイル<span class="TextSegSigDiff">の存在チェック</span></td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">52</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">53</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">53</td>
+<td class="TextItemSame Wrap">TS_STEPID=0010</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">54</td>
+<td class="TextItemSame Wrap">TS_STEPID=0010</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">-+</td>
+<td class="TextItemNum AlignRight Wrap">55</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">BCZC1100.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEPID}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">56</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">57</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#最適化停止ファイル</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">58</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_STOPFILE=${NAS_APL_DIR}/C000/stop/OPTTABLE_STOP_FILE.TXT</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">59</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">60</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">if</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">[</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-f</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STOPFILE}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">];</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">then</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">61</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">echo</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&quot;最適化停止ファイルの設置により処理をスキップしました&quot;</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">62</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_STEP_RCODE=0</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">63</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">BCZC1199.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEPID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEP_RCODE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">64</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_RCODE=0</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">65</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">BCZC9999.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_RCODE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">66</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">exit</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_RCODE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">67</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">fi</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">68</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">69</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_STEP_RCODE=0</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">70</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">BCZC1199.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEPID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEP_RCODE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">71</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">72</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#-----------------------------------------------------------------------------------------</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">73</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">ステップ-0020</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">最適化管理明細テーブル更新処理</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">74</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#-----------------------------------------------------------------------------------------</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">75</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_STEPID=0020</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">76</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">BCZC1100.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEPID}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">77</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">78</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#基準日</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">79</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_KJN_YMD=${SJ_PEX_DATE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">80</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">81</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#MDYB1403最適化管理明細テーブル更新処理</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">82</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">MDYB1403</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_KJN_YMD}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">2&gt;&amp;1</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">83</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">84</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_STATUS=$?</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">85</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">86</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_STEP_RCODE=${TS_STATUS}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">87</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">BCZC1199.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEPID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STEP_RCODE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">88</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">89</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">if</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">[</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&quot;${TS_STATUS}&quot;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">!=</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&quot;0&quot;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">];then</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">90</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_RCODE=1</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">91</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">sjANM_sendmsg</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-cTBAP001</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-n${SJ_PEX_JOB}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-lE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]</span><span class="TextSegInsigDiff">&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">2&gt;&amp;1</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">92</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">BCZC9999.sh</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_RCODE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">93</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; </span><span class="TextSegSigDiff">exit</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_RCODE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">94</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">fi</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">95</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">96</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#-----------------------------------------------------------------------------------------</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">97</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#ステップ-0030</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MDYB1401最適化対象ファイル作成処理</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">98</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#-----------------------------------------------------------------------------------------</span></td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">99</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">TS_STEPID=0030</span></td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">54</td>
+<td class="TextItemSame Wrap">BCZC1100.sh ${TS_STEPID}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">100</td>
+<td class="TextItemSame Wrap">BCZC1100.sh ${TS_STEPID}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">55</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">101</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">56</td>
+<td class="TextItemSame Wrap">#最適化MAX容量</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">102</td>
+<td class="TextItemSame Wrap">#最適化MAX容量</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">57</td>
+<td class="TextItemSame Wrap">let TS_MAX_YOURYOU=${BL_OPT_MAX}*1024</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">103</td>
+<td class="TextItemSame Wrap">let TS_MAX_YOURYOU=${BL_OPT_MAX}*1024</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">58</td>
+<td class="TextItemSame Wrap">#基準日</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">104</td>
+<td class="TextItemSame Wrap">#基準日</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">59</td>
+<td class="TextItemSame Wrap">TS_KJN_YMD=${SJ_PEX_DATE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">105</td>
+<td class="TextItemSame Wrap">TS_KJN_YMD=${SJ_PEX_DATE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">60</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">106</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">61</td>
+<td class="TextItemSame Wrap">#MDYB1401最適化対象ファイル作成処理</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">107</td>
+<td class="TextItemSame Wrap">#MDYB1401最適化対象ファイル作成処理</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">62</td>
+<td class="TextItemSame Wrap">MDYB1401&nbsp; ${TS_MAX_YOURYOU} ${TS_KJN_YMD}&nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">108</td>
+<td class="TextItemSame Wrap">MDYB1401&nbsp; ${TS_MAX_YOURYOU} ${TS_KJN_YMD}&nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">63</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">109</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">64</td>
+<td class="TextItemSame Wrap">TS_STATUS=$?</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">110</td>
+<td class="TextItemSame Wrap">TS_STATUS=$?</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">65</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">111</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">66</td>
+<td class="TextItemSame Wrap">TS_STEP_RCODE=${TS_STATUS}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">112</td>
+<td class="TextItemSame Wrap">TS_STEP_RCODE=${TS_STATUS}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">67</td>
+<td class="TextItemSame Wrap">BCZC1199.sh ${TS_STEPID} ${TS_STEP_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">113</td>
+<td class="TextItemSame Wrap">BCZC1199.sh ${TS_STEPID} ${TS_STEP_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">68</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">114</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">69</td>
+<td class="TextItemSame Wrap">if [ &quot;${TS_STATUS}&quot; != &quot;0&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">115</td>
+<td class="TextItemSame Wrap">if [ &quot;${TS_STATUS}&quot; != &quot;0&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">70</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; TS_RCODE=1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">116</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; TS_RCODE=1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">71</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; sjANM_sendmsg -cTBAP001 -n${SJ_PEX_JOB} -lE -mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">117</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; sjANM_sendmsg -cTBAP001 -n${SJ_PEX_JOB} -lE -mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">72</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">118</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">73</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">119</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">74</td>
+<td class="TextItemSame Wrap">fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">120</td>
+<td class="TextItemSame Wrap">fi</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">75</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">121</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">76</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">122</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">77</td>
+<td class="TextItemSigDiffMod Wrap">#ステップ-00<span class="TextSegSigDiff">2</span>0 DBサーバ領域の最適化処理</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">123</td>
+<td class="TextItemSigDiffMod Wrap">#ステップ-00<span class="TextSegSigDiff">4</span>0 DBサーバ領域の最適化処理</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">78</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">124</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">79</td>
+<td class="TextItemSigDiffMod Wrap">TS_STEPID=00<span class="TextSegSigDiff">2</span>0</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">125</td>
+<td class="TextItemSigDiffMod Wrap">TS_STEPID=00<span class="TextSegSigDiff">4</span>0</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">80</td>
+<td class="TextItemSame Wrap">BCZC1100.sh ${TS_STEPID}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">126</td>
+<td class="TextItemSame Wrap">BCZC1100.sh ${TS_STEPID}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">81</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">127</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">82</td>
+<td class="TextItemSame Wrap">TS_TBL_FILE=${APL_TMP_DIR}/OPTTABLE_${TS_KJN_YMD}.lst</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">128</td>
+<td class="TextItemSame Wrap">TS_TBL_FILE=${APL_TMP_DIR}/OPTTABLE_${TS_KJN_YMD}.lst</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">83</td>
+<td class="TextItemSame Wrap">TS_ORACLE=${ora_userid}/${ora_password}@${ora_ins_4999}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">129</td>
+<td class="TextItemSame Wrap">TS_ORACLE=${ora_userid}/${ora_password}@${ora_ins_4999}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">84</td>
+<td class="TextItemSame Wrap">TS_TBL_COUNT=0</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">130</td>
+<td class="TextItemSame Wrap">TS_TBL_COUNT=0</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">85</td>
+<td class="TextItemSigDiffMod Wrap">while read TS_<span class="TextSegSigDiff">TBL_ID</span></td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">131</td>
+<td class="TextItemSigDiffMod Wrap">while read TS_<span class="TextSegSigDiff">L</span><span class="TextSegSigDiff">INE</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">86</td>
+<td class="TextItemSame Wrap">do</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">132</td>
+<td class="TextItemSame Wrap">do</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">87</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp; &nbsp; &nbsp; if [ &quot;${TS_<span class="TextSegSigDiff">TBL_ID</span>}&quot; = &quot;&quot; ];then</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">133</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp; &nbsp; &nbsp; if [ &quot;${TS_<span class="TextSegSigDiff">L</span><span class="TextSegSigDiff">INE</span>}&quot; = &quot;&quot; ];then</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">88</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; break</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">134</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; break</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">89</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; else</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">135</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; else</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">90</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; TS_TBL_ID=`echo ${TS_<span class="TextSegSigDiff">TBL_ID</span>}|awk '{print <span class="TextSegSigDiff">substr(</span>$1<span class="TextSegSigDiff">,1,13)</span>}'`</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">136</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; TS_TBL_ID=`echo ${TS_<span class="TextSegSigDiff">L</span><span class="TextSegSigDiff">INE</span>}|awk <span class="TextSegSigDiff">-F,</span><span class="TextSegInsigDiff"> </span>'{print $1}'`</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">137</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_PAR_NAME=`echo</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LINE}|awk</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-F,</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">'{print</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">$2}'`</span></td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">91</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>TS_DMP_FILE=${BL_TMP_PATH}/${TS_TBL_ID}.dmp</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">138</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>TS_DMP_FILE=${BL_TMP_PATH}/${TS_TBL_ID}.dmp</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">92</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; let TS_TBL_COUNT=${TS_TBL_COUNT}+1</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">139</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; let TS_TBL_COUNT=${TS_TBL_COUNT}+1</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">93</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">140</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; fi</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">141</td>
+<td class="TextItemInsigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">142</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#最適化停止ファイルの存在チェック</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">143</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">if</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">[</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-f</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_STOPFILE}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">];</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">then</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">144</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">echo</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&quot;最適化停止ファイルの設置により処理を中断しました&quot;</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">145</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">sed</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-i</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&quot;${TS_TBL_COUNT},\$d&quot;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_TBL_FILE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">146</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_STATUS=0</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">147</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">break</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">94</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">148</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">fi</span></td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">149</td>
+<td class="TextItemInsigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span></td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">95</td>
+<td class="TextItemSame Wrap">#最適化対象ファイルにテーブルの最適化開始日時を更新する。</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">150</td>
+<td class="TextItemSame Wrap">#最適化対象ファイルにテーブルの最適化開始日時を更新する。</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">96</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; sed -i &quot;${TS_TBL_COUNT}s/00000000000000/`date '+%Y%m%d%H%M%S'`/g&quot; ${TS_TBL_FILE}&nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">151</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; &nbsp; sed -i &quot;${TS_TBL_COUNT}s/00000000000000/`date '+%Y%m%d%H%M%S'`/g&quot; ${TS_TBL_FILE}&nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">97</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">152</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">-+</td>
+<td class="TextItemNum AlignRight Wrap">153</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#テーブルID</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">パーティション名</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MOVE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">開始</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">日付時刻</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">154</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">echo</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_TBL_ID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_PAR_NAME}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MOVE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">開始</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">`date</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">'+%Y%m%d%H%M%S'`</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">155</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">156</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#テーブルをMOVE</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">157</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">if</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">[</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-z</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_PAR_NAME}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">];then</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">158</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_MVSQL=&quot;ALTER</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">TABLE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_TBL_ID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MOVE;&quot;</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">159</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">else</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">160</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">TS_MVSQL=&quot;ALTER</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">TABLE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_TBL_ID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MOVE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">PARTITION</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_PAR_NAME};&quot;</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">161</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">fi</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">162</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">sqlplus</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-s</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_ORACLE}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&lt;&lt;SQLEND</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">163</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">${TS_MVSQL}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">164</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">EXIT;</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">165</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">SQLEND</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">166</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">167</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#テーブルID</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">パーティション名</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MOVE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">終了</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">日付時刻</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">168</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">echo</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_TBL_ID}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_PAR_NAME}</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">MOVE</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">終了</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">`date</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">'+%Y%m%d%H%M%S'`</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">169</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">170</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegSigDiff">#最適化対象ファイルにテーブルの最適化終了日時を更新する。</span></td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">171</td>
+<td class="TextItemSigRightMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span><span class="TextSegSigDiff">sed</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">-i</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">&quot;${TS_TBL_COUNT}s/99999999999999/`date</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">'+%Y%m%d%H%M%S'`/g&quot;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_TBL_FILE}</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span><span class="TextSegSigDiff">&gt;&gt;</span><span class="TextSegInsigDiff"> </span><span class="TextSegSigDiff">${TS_LOGFILE}</span></td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">172</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">98</td>
+<td class="TextItemSame Wrap">#テーブルID EXPORT 開始 日付時刻</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">173</td>
+<td class="TextItemSame Wrap">#テーブルID EXPORT 開始 日付時刻</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">99</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>echo ${TS_TBL_ID} EXPORT 開始 `date '+%Y%m%d%H%M%S'`&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">174</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>echo ${TS_TBL_ID} EXPORT 開始 `date '+%Y%m%d%H%M%S'`&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">100</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">175</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">101</td>
+<td class="TextItemSame Wrap">#テーブルをEXPORT</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">176</td>
+<td class="TextItemSame Wrap">#テーブルをEXPORT</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">102</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>exp ${TS_ORACLE} FILE=${TS_DMP_FILE} TABLES=${TS_TBL_ID}&nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">177</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>exp ${TS_ORACLE} FILE=${TS_DMP_FILE} TABLES=${TS_TBL_ID}&nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">103</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">178</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">104</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">179</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">105</td>
+<td class="TextItemSame Wrap">#EXPORTエラー判定</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">180</td>
+<td class="TextItemSame Wrap">#EXPORTエラー判定</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">106</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>grep 'EXP-' ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">181</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>grep 'EXP-' ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">107</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>TS_STATUS=$?</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">182</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>TS_STATUS=$?</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">108</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>if [ &quot;$TS_STATUS&quot; = &quot;0&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">183</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>if [ &quot;$TS_STATUS&quot; = &quot;0&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">109</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>TS_STATUS=16</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">184</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>TS_STATUS=16</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">110</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>break</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">185</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>break</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">111</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>else</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">186</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>else</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">112</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>TS_STATUS=0</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">187</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>TS_STATUS=0</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">113</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">188</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>fi</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">114</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">189</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">115</td>
+<td class="TextItemSame Wrap">#テーブルID EXPORT 終了 日付時刻</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">190</td>
+<td class="TextItemSame Wrap">#テーブルID EXPORT 終了 日付時刻</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">116</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>echo ${TS_TBL_ID} EXPORT 終了 `date '+%Y%m%d%H%M%S'`&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">191</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>echo ${TS_TBL_ID} EXPORT 終了 `date '+%Y%m%d%H%M%S'`&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">117</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">192</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">118</td>
+<td class="TextItemSame Wrap">#テーブルID TRUNCATE 開始 日付時刻</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">193</td>
+<td class="TextItemSame Wrap">#テーブルID TRUNCATE 開始 日付時刻</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">119</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>echo ${TS_TBL_ID} TRUNCATE 開始 `date '+%Y%m%d%H%M%S'`&nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">194</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>echo ${TS_TBL_ID} TRUNCATE 開始 `date '+%Y%m%d%H%M%S'`&nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">120</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">195</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">121</td>
+<td class="TextItemSame Wrap">#TRUNCATE table テーブルID</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">196</td>
+<td class="TextItemSame Wrap">#TRUNCATE table テーブルID</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">122</td>
+<td class="TextItemSigDiffMod Wrap">sqlplus -s ${TS_ORACLE} &lt;&lt;SQLEND&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">197</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span>sqlplus -s ${TS_ORACLE} &lt;&lt;SQLEND&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">123</td>
+<td class="TextItemSigDiffMod Wrap">TRUNCATE TABLE ${TS_TBL_ID};</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">198</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span>TRUNCATE TABLE ${TS_TBL_ID};</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">124</td>
+<td class="TextItemSigDiffMod Wrap">EXIT;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">199</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span>EXIT;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">125</td>
+<td class="TextItemSigDiffMod Wrap">SQLEND</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">200</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span>SQLEND</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">126</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">201</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">127</td>
+<td class="TextItemSame Wrap">#テーブルID TRUNCATE 終了 日付時刻</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">202</td>
+<td class="TextItemSame Wrap">#テーブルID TRUNCATE 終了 日付時刻</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">128</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>echo ${TS_TBL_ID} TRUNCATE 終了 `date '+%Y%m%d%H%M%S'`&nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">203</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>echo ${TS_TBL_ID} TRUNCATE 終了 `date '+%Y%m%d%H%M%S'`&nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">129</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">204</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">130</td>
+<td class="TextItemSame Wrap">#テーブルID IMPORT 開始 日付時刻</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">205</td>
+<td class="TextItemSame Wrap">#テーブルID IMPORT 開始 日付時刻</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">131</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>echo ${TS_TBL_ID} IMPORT 開始 `date '+%Y%m%d%H%M%S'`&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">206</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>echo ${TS_TBL_ID} IMPORT 開始 `date '+%Y%m%d%H%M%S'`&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">132</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">207</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">133</td>
+<td class="TextItemSame Wrap">#テーブルをIMPORT</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">208</td>
+<td class="TextItemSame Wrap">#テーブルをIMPORT</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">134</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>imp ${TS_ORACLE} ignore=y FILE=${TS_DMP_FILE} TABLES=${TS_TBL_ID} BUFFER=80000&nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">209</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>imp ${TS_ORACLE} ignore=y FILE=${TS_DMP_FILE} TABLES=${TS_TBL_ID} BUFFER=80000&nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">135</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">210</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">136</td>
+<td class="TextItemSame Wrap">#IMPORTエラー判定</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">211</td>
+<td class="TextItemSame Wrap">#IMPORTエラー判定</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">137</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>grep 'IMP-' ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">212</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>grep 'IMP-' ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">138</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>TS_STATUS=$?</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">213</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>TS_STATUS=$?</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">139</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>if [ &quot;$TS_STATUS&quot; = &quot;0&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">214</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>if [ &quot;$TS_STATUS&quot; = &quot;0&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">140</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>TS_STATUS=16</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">215</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>TS_STATUS=16</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">141</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>break</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">216</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>break</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">142</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>else</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">217</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>else</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">143</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>TS_STATUS=0</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">218</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>TS_STATUS=0</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">144</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">219</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>fi</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">145</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">220</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">146</td>
+<td class="TextItemSame Wrap">#テーブルID IMPORT 終了 日付時刻</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">221</td>
+<td class="TextItemSame Wrap">#テーブルID IMPORT 終了 日付時刻</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">147</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>echo ${TS_TBL_ID} IMPORT 終了 `date '+%Y%m%d%H%M%S'`&nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">222</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp;&nbsp; </span>echo ${TS_TBL_ID} IMPORT 終了 `date '+%Y%m%d%H%M%S'`&nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">148</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">223</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">149</td>
+<td class="TextItemSame Wrap">#最適化対象ファイルにテーブルの最適化開始日時を更新する。</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">224</td>
+<td class="TextItemSame Wrap">#最適化対象ファイルにテーブルの最適化開始日時を更新する。</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">150</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>sed -i &quot;${TS_TBL_COUNT}s/99999999999999/`date '+%Y%m%d%H%M%S'`/g&quot; ${TS_TBL_FILE}&nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">225</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>sed -i &quot;${TS_TBL_COUNT}s/99999999999999/`date '+%Y%m%d%H%M%S'`/g&quot; ${TS_TBL_FILE}&nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">151</td>
+<td class="TextItemSigDiffMod Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">226</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span></td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">152</td>
+<td class="TextItemSame Wrap">#DUMPファイルを削除する。</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">227</td>
+<td class="TextItemSame Wrap">#DUMPファイルを削除する。</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">153</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp;&nbsp; </span>rm ${TS_DMP_FILE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">228</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>rm ${TS_DMP_FILE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">154</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp;&nbsp; </span>TS_STATUS=$?</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">229</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>TS_STATUS=$?</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">155</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp;&nbsp; </span>if [ ${TS_STATUS} != &quot;0&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">230</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>if [ ${TS_STATUS} != &quot;0&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">156</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>TS_STATUS=16</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">231</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>TS_STATUS=16</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">157</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; </span>break</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">232</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </span>break</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">158</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp;&nbsp; </span>fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">233</td>
+<td class="TextItemSigDiffMod Wrap"><span class="TextSegSigDiff">#</span><span class="TextSegInsigDiff">&nbsp; &nbsp; &nbsp; </span>fi</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">&nbsp;</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">234</td>
+<td class="TextItemInsigRightMod Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">159</td>
+<td class="TextItemSame Wrap">done&lt;${TS_TBL_FILE}</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">235</td>
+<td class="TextItemSame Wrap">done&lt;${TS_TBL_FILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">160</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">236</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">161</td>
+<td class="TextItemSame Wrap">TS_STEP_RCODE=${TS_STATUS}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">237</td>
+<td class="TextItemSame Wrap">TS_STEP_RCODE=${TS_STATUS}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">162</td>
+<td class="TextItemSame Wrap">BCZC1199.sh ${TS_STEPID} ${TS_STEP_RCODE}&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">238</td>
+<td class="TextItemSame Wrap">BCZC1199.sh ${TS_STEPID} ${TS_STEP_RCODE}&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">163</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">239</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">164</td>
+<td class="TextItemSame Wrap">if [ &quot;${TS_STATUS}&quot; != &quot;0&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">240</td>
+<td class="TextItemSame Wrap">if [ &quot;${TS_STATUS}&quot; != &quot;0&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">165</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; TS_RCODE=1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">241</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; TS_RCODE=1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">166</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; sjANM_sendmsg -cTBAP001 -n${SJ_PEX_JOB} -lE -mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">242</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; sjANM_sendmsg -cTBAP001 -n${SJ_PEX_JOB} -lE -mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">167</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">243</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">168</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">244</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">169</td>
+<td class="TextItemSame Wrap">fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">245</td>
+<td class="TextItemSame Wrap">fi</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">170</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">246</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">171</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">247</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">172</td>
+<td class="TextItemSigDiffMod Wrap">#ステップ-00<span class="TextSegSigDiff">3</span>0 MDYB1402最適化結果更新処理</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">248</td>
+<td class="TextItemSigDiffMod Wrap">#ステップ-00<span class="TextSegSigDiff">5</span>0 MDYB1402最適化結果更新処理</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">173</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">249</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionAll">
+<td class="TextItemNum AlignRight Wrap">174</td>
+<td class="TextItemSigDiffMod Wrap">TS_STEPID=00<span class="TextSegSigDiff">3</span>0</td>
+<td class="AlignCenter Wrap">&lt;&gt;</td>
+<td class="TextItemNum AlignRight Wrap">250</td>
+<td class="TextItemSigDiffMod Wrap">TS_STEPID=00<span class="TextSegSigDiff">5</span>0</td>
+</tr>
+<tr class="SectionBegin">
+<td class="TextItemNum AlignRight Wrap">175</td>
+<td class="TextItemSame Wrap">BCZC1100.sh ${TS_STEPID}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">=</td>
+<td class="TextItemNum AlignRight Wrap">251</td>
+<td class="TextItemSame Wrap">BCZC1100.sh ${TS_STEPID}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">176</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">252</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">177</td>
+<td class="TextItemSame Wrap">#基準日</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">253</td>
+<td class="TextItemSame Wrap">#基準日</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">178</td>
+<td class="TextItemSame Wrap">TS_KJN_YMD=${SJ_PEX_DATE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">254</td>
+<td class="TextItemSame Wrap">TS_KJN_YMD=${SJ_PEX_DATE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">179</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">255</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">180</td>
+<td class="TextItemSame Wrap">#MDYB1402最適化結果更新処理</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">256</td>
+<td class="TextItemSame Wrap">#MDYB1402最適化結果更新処理</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">181</td>
+<td class="TextItemSame Wrap">MDYB1402&nbsp;&nbsp; ${TS_KJN_YMD}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">257</td>
+<td class="TextItemSame Wrap">MDYB1402&nbsp;&nbsp; ${TS_KJN_YMD}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">182</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">258</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">183</td>
+<td class="TextItemSame Wrap">TS_STATUS=$?</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">259</td>
+<td class="TextItemSame Wrap">TS_STATUS=$?</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">184</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">260</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">185</td>
+<td class="TextItemSame Wrap">TS_STEP_RCODE=${TS_STATUS}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">261</td>
+<td class="TextItemSame Wrap">TS_STEP_RCODE=${TS_STATUS}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">186</td>
+<td class="TextItemSame Wrap">BCZC1199.sh ${TS_STEPID} ${TS_STEP_RCODE}&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">262</td>
+<td class="TextItemSame Wrap">BCZC1199.sh ${TS_STEPID} ${TS_STEP_RCODE}&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">187</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">263</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">188</td>
+<td class="TextItemSame Wrap">if [ &quot;${TS_STATUS}&quot; != &quot;0&quot; ];then</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">264</td>
+<td class="TextItemSame Wrap">if [ &quot;${TS_STATUS}&quot; != &quot;0&quot; ];then</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">189</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; TS_RCODE=1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">265</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; TS_RCODE=1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">190</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; sjANM_sendmsg -cTBAP001 -n${SJ_PEX_JOB} -lE -mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">266</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; sjANM_sendmsg -cTBAP001 -n${SJ_PEX_JOB} -lE -mDBサーバ領域の最適化処理[step:${TS_STEPID}][rcode:${TS_RCODE}][${TS_LOGFILE}]&nbsp; &gt;&gt; ${TS_LOGFILE} 2&gt;&amp;1</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">191</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">267</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">192</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">268</td>
+<td class="TextItemSame Wrap">&nbsp; &nbsp; exit ${TS_RCODE}</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">193</td>
+<td class="TextItemSame Wrap">fi</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">269</td>
+<td class="TextItemSame Wrap">fi</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">194</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">270</td>
+<td class="TextItemSame Wrap">&nbsp;</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">195</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">271</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">196</td>
+<td class="TextItemSame Wrap">#DBサーバ領域の最適化処理 END</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">272</td>
+<td class="TextItemSame Wrap">#DBサーバ領域の最適化処理 END</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">197</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">273</td>
+<td class="TextItemSame Wrap">#-----------------------------------------------------------------------------------------</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">198</td>
+<td class="TextItemSame Wrap">TS_RCODE=0</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">274</td>
+<td class="TextItemSame Wrap">TS_RCODE=0</td>
+</tr>
+<tr class="SectionMiddle">
+<td class="TextItemNum AlignRight Wrap">199</td>
+<td class="TextItemSame Wrap">BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">275</td>
+<td class="TextItemSame Wrap">BCZC9999.sh ${TS_RCODE}&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &gt;&gt; ${TS_LOGFILE}</td>
+</tr>
+<tr class="SectionEnd">
+<td class="TextItemNum AlignRight Wrap">200</td>
+<td class="TextItemSame Wrap">exit ${TS_RCODE}</td>
+<td class="AlignCenter Wrap">&nbsp;</td>
+<td class="TextItemNum AlignRight Wrap">276</td>
+<td class="TextItemSame Wrap">exit ${TS_RCODE}</td>
+</tr>
+</table>
+<br/>
+</body>
+</html>
